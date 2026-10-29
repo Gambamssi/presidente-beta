@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.1.0';
+const VERSION = '0.4.1.2';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,18 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.1.2','29 ottobre 2026',[
+    'Il gioco si chiama Evivora. Tu resti il presidente del tuo club: cambia solo il nome del gioco, la partita salvata continua come prima.',
+    'La partita esportata si chiama ora evivora-….json; i file esportati prima (presidente-….json) si importano ancora.'
+  ]],
+  ['0.4.1.1','29 ottobre 2026',[
+    'Il visore ricorda la velocità: la prima volta la partita parte a 2x, poi riparte sempre dall\'ultima velocità che hai scelto, anche nelle partite dopo e dopo aver chiuso la pagina.',
+    'Un solo tasto «Avanti ⏭», sempre nello stesso posto, al posto dei pulsanti per saltare. A ogni tocco va al momento successivo e dice dove porta: fine del replay, fine dell\'azione (la prossima palla ferma), fine del primo tempo, secondo tempo, fine partita, poi pagelle, intervista e chiusura. I gol e gli altri fatti saltati restano nel registro della partita e nel tabellone. Sul telefono il tasto è grande e resta in basso, sempre a portata di dito.',
+    'Dopo il fischio finale arrivano prima le pagelle e poi l\'intervista al migliore in campo.',
+    'Sui rigori il portiere si tuffa al momento del tiro, in 2D e in 3D: dalla parte giusta se para, dalla parte sbagliata se è gol.',
+    'Quando mostra un cartellino, l\'arbitro è rivolto verso il giocatore ammonito o espulso (o verso la panchina, se tocca all\'allenatore).',
+    'La moviola sugli errori arbitrali compare nel registro anche quando guardi la partita in 2D.'
+  ]],
   ['0.4.1.0','29 ottobre 2026',[
     'Statistiche di stagione e di carriera: in Squadra › Rosa e nella scheda di ogni giocatore trovi presenze, gol e media voto della stagione in corso e di tutta la carriera; nella scheda c\'è anche la tabella delle stagioni passate. Lega › Marcatori mostra solo i gol della stagione in corso.',
     'Nuova sotto-scheda Lega › Albo d\'oro: per ogni stagione chiusa campione, seconda, terza, capocannoniere e miglior giovane (21 anni o meno, almeno metà delle partite giocate, media voto più alta). Nel profilo di ogni club titoli e piazzamenti arrivano dall\'albo.',

@@ -1,3 +1,3 @@
-# Presidente · beta
+# Evivora · beta
 
-Beta chiusa del gioco Presidente. Il codice di sviluppo non è qui.
+Beta chiusa del gioco Evivora. Il codice di sviluppo non è qui.

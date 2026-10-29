@@ -6,7 +6,7 @@
    Server: Supabase (auth + tabelle profili, partite, segnalazioni; funzioni iscrizioni_aperte, completa_profilo, cancella_account). */
 const AVVISO_VER='2026-10-29', PRIVACY_VER='2026-10-29', BETA_MAIL='presidente.gioco@gmail.com';
 const AVVISO_TESTO={
-  intro:['Presidente è un gioco manageriale di calcio ancora in fase di sviluppo. Questa è una beta chiusa: serve a provare il gioco con un piccolo gruppo di persone e a correggere quello che non funziona.'],
+  intro:['Evivora è un gioco manageriale di calcio ancora in fase di sviluppo. Questa è una beta chiusa: serve a provare il gioco con un piccolo gruppo di persone e a correggere quello che non funziona.'],
   lead:'Partecipando accetti che:',
   punti:['il gioco può contenere errori e comportamenti inattesi;',
     'regole e numeri possono cambiare da una versione all\'altra;',
@@ -61,11 +61,11 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
   function pwField(id, ac, lbl){ return `<label for="${id}">${lbl}</label><div class="pwf"><input id="${id}" type="password" autocomplete="${ac}" minlength="8" required><button type="button" class="eye" data-act="acc-eye" aria-label="Mostra la password" title="Mostra la password">${EYE}</button></div>`; }
   function topAcc(){
     const who=ACC.user?(nick()||ACC.user.email||''):'';
-    return `<div class="brand"><span class="wm">Presidente</span><span class="ver" title="Versione del gioco">v${VERSION}</span><span class="beta-tag">Versione di prova</span></div>
+    return `<div class="brand"><span class="wm">EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><span class="beta-tag">Versione di prova</span></div>
       <div class="acts">${ACC.user?`<span class="acc-me" title="${esc(ACC.user.email||'')}">${esc(who)}</span><button class="btn ghost small" data-act="acc-out">Esci</button>`:''}</div>`;
   }
   function introHTML(){
-    return `<section class="card acc-intro"><p class="eyebrow">Beta chiusa · versione ${VERSION}</p><h1 class="acc-t">Presidente</h1>
+    return `<section class="card acc-intro"><p class="eyebrow">Beta chiusa · versione ${VERSION}</p><h1 class="acc-t">EVIVORA</h1><p class="tagline">Sei il presidente</p>
       <p>Il gioco manageriale di calcio in cui sei il presidente: compri giocatori, scegli l'allenatore, costruisci lo stadio. In campo decidono loro.</p>
       <p class="muted">Per giocare alla beta serve un account: la partita si salva online e la ritrovi su ogni dispositivo. Le iscrizioni possono essere chiuse o soggette ad approvazione.</p>
       <p class="acc-links"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a> · <button class="link" data-act="acc-avv" aria-expanded="${ACC.avv}">Avviso del progetto</button></p>

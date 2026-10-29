@@ -391,7 +391,7 @@ function render(){
   const t=G.T[0], pos=standings().findIndex(x=>x.id===0)+1;
   const end=G.md>=G.sched.length;
   const ms=activeMissions(t), mu=ms.filter(m=>m.kind==='rinforzo'&&m.due-G.md<=1);
-  $('#top').innerHTML = `<div class="brand"><span class="wm">Presidente</span><span class="ver" title="Versione del gioco">v${VERSION}</span><button class="club link" data-act="club" data-id="0" title="Il profilo pubblico del tuo club"><span class="chip" style="--c:${t.c}"></span>${esc(t.n)}</button></div>
+  $('#top').innerHTML = `<div class="brand"><span class="wm">EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><button class="club link" data-act="club" data-id="0" title="Il profilo pubblico del tuo club"><span class="chip" style="--c:${t.c}"></span>${esc(t.n)}</button></div>
    <div class="stat"><span>Stagione ${G.season}</span><span>Giornata ${G.md}/14</span><span>${pos}° posto</span><span class="cash">${kcr(t.cash)} cr</span><span class="clima" title="Clima della società: morale medio di giocatori e allenatore">Clima <b>${morLevel(clubClimate(t))}</b> ${bar(clubClimate(t),20,'mor '+(clubClimate(t)<9?'warn':''))}</span></div>
    <div class="acts">${t.ult&&t.ult.st==='on'?`<button class="mchip urg" data-act="go" data-a="societa" data-s="banca" title="Ultimatum della banca">⚠ Ultimatum della banca</button>`:t.own.bank>=25?`<button class="mchip" data-act="go" data-a="societa" data-s="banca" title="Quote della banca">Banca ${fmtV(t.own.bank)}%</button>`:''}${ms.length?`<button class="mchip ${mu.length?'urg':''}" data-act="go" data-a="scrivania" title="Impegni in corso">⚑ ${mu.length?'Impegno in scadenza':ms.length===1?'1 impegno in corso':ms.length+' impegni in corso'}</button>`:''}
    ${G.fired?'<button class="btn go" disabled>Scegli la nuova società</button>':G.md===0&&needBudget(t)?'<button class="btn go" data-act="go" data-a="societa" data-s="bilancio">Convalida il preventivo</button>':`<button class="btn go" data-act="advance">${end?'Chiudi la stagione':'Gioca la giornata '+(G.md+1)}</button>`}<button class="more" data-act="menu" aria-label="Altre opzioni" title="Altre opzioni">⋯</button></div>`;
@@ -408,7 +408,7 @@ function render(){
   if(focusReq!=null){ const el=$('#rq-'+focusReq); focusReq=null; if(el) el.scrollIntoView({block:'center'}); }
 }
 function startScreen(){
-  return `<div class="start"><p class="eyebrow">Bozza giocabile · un solo campionato da 8 squadre</p><h1>Presidente</h1>
+  return `<div class="start"><p class="eyebrow">Bozza giocabile · un solo campionato da 8 squadre</p><h1>EVIVORA</h1><p class="tagline">Sei il presidente</p>
   <p>Compri giocatori, scegli l'allenatore, costruisci lo stadio. In campo decidono loro. Il tuo talento è vedere prima degli altri chi diventerà un campione.</p>
   <form id="start-form"><label for="club-name">Nome del tuo club</label><input id="club-name" maxlength="28" value="FC Presidente" autocomplete="off">
    <label for="sec-name">Nome della tua segretaria</label><input id="sec-name" maxlength="20" value="Giulia" autocomplete="off"><button class="btn go" type="submit">Fonda il club</button></form>
@@ -446,15 +446,12 @@ document.addEventListener('click', e=>{
     case 'vplay': vTogglePlay(el); break;
     case 'vkick': kickoff(); break;
     case 'vspd': vSpeed(+el.dataset.s, el); break;
-    case 'vskip': vSkip(); break;
+    case 'vnext': vNext(); break;
     case 'vclose': stopViewer(); viewer=null; render(); break;
     case 'ivnext': nextIV(); break;
-    case 'ivclose': closeIV(); break;
-    case 'pagclose': if(viewer){ viewer.pagClosed=true; renderIV(); } break;
     case 'ivagain': againIV(); break;
     case 'vcam': vCam(el); break;
     case 'v3d': v3dToggle(); break;
-    case 'rskip': endReplay(); break;
     case 'reset1': confirmReset=true; render(); break;
     case 'reset0': confirmReset=false; render(); break;
     case 'reset2': stopViewer(); viewer=null; try{ localStorage.removeItem(KEY); }catch(_){} G=null; confirmReset=false; modal=null; clubView=null; area='scrivania'; sub='home'; render(); break;

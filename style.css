@@ -163,6 +163,15 @@ select,input{background:var(--bg);border:1px solid var(--line);border-radius:4px
 .cap.rf{box-shadow:inset 3px 0 0 #f0d64a}.cap.rf .tag{color:#f0d64a}
 .ctrl{display:flex;flex-wrap:wrap;gap:6px}
 .spd.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cmdbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.cmdbar .ctrl{flex:1 1 auto}
+.vnext{font-weight:700;min-height:38px;padding:7px 16px;letter-spacing:.01em;white-space:nowrap}.vnext span{font-size:.95em}
+.ctrl [hidden]{display:none}
+@media (max-width:640px){.ctrl{gap:8px}
+  /* sul telefono il tasto Avanti resta sempre visibile in basso, sopra la barra delle aree, finché si guarda il visore */
+  .cmdbar{display:contents}.cmdbar .vnext{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:7;justify-self:stretch;min-height:52px;font-size:17px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.28)}
+  .ctrl .btn.small{min-height:40px}
+  .viewer.pagon #pitch,.viewer.pagon canvas.gl{display:none!important}.viewer.pagon .clock,.viewer.pagon .ff,.viewer.pagon .forms,.viewer.pagon .labels{display:none}
+  .viewer.pagon .pag{position:static;max-height:58vh;border-radius:4px}}
 .log{list-style:none;margin:0;padding:0;max-height:260px;overflow-y:auto;font-size:14px}
 .log li{display:grid;grid-template-columns:36px 1fr;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
 .log .min{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);padding-top:1px}
@@ -190,6 +199,8 @@ select,input{background:var(--bg);border:1px solid var(--line);border-radius:4px
 .start{max-width:560px;margin:8vh auto 0;display:grid;gap:14px}
 .start h1{margin:0;font-family:var(--f-display);font-size:clamp(52px,12vw,88px);line-height:.9;letter-spacing:.02em;text-transform:uppercase;color:var(--accent)}
 .start p{max-width:62ch}
+.tagline{margin:4px 0 6px;font-family:var(--f-display);font-weight:600;font-size:clamp(20px,4.6vw,28px);line-height:1.1;letter-spacing:.03em;color:var(--ink)}
+.start .tagline{margin:-6px 0 0}
 .start form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .start label{width:100%;font-weight:600}
 .start input{flex:1;min-width:0;padding:9px 10px;font-size:16px}
@@ -217,7 +228,7 @@ select,input{background:var(--bg);border:1px solid var(--line);border-radius:4px
 .pn{color:#9fb0a2;font-variant-numeric:tabular-nums}.pv{font:700 15px var(--f-display);font-variant-numeric:tabular-nums}.pv.hi{color:#7fe0a0}.pv.lo,.pag .lo{color:#ff9b8f}
 .capm{background:#f5d020;color:#111;border-radius:3px;padding:0 4px;font-size:10.5px}
 .pref{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,.35);font-size:13.5px}
-@media (max-width:600px){.pag{position:fixed;z-index:50}.pcols{grid-template-columns:1fr}}
+@media (max-width:600px){.pcols{grid-template-columns:1fr}}
 .morc{list-style:none;margin:6px 0 10px;padding:0;display:grid;gap:4px;font-size:13.5px}.morc .up{color:var(--good)}.morc .dn{color:var(--bad)}
 .sp-top{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:8px}@media (max-width:600px){.sp-top{grid-template-columns:1fr}}
 .ivo>*{pointer-events:auto}

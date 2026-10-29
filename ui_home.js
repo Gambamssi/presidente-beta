@@ -232,7 +232,7 @@ function presHTML(id,PR){
 /* ---------- finestre: menu ⋯, novità, nome della segretaria, avviso prima di giocare ---------- */
 function vModal(){ const nm=secName();
   let h='';
-  if(modal==='menu') h=`<div class="neg-h"><div><p class="eyebrow">Presidente · v${VERSION}</p><h2>Menu</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
+  if(modal==='menu') h=`<div class="neg-h"><div><p class="eyebrow">Evivora · v${VERSION}</p><h2>Menu</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
     <div class="menu"><button class="btn ghost" data-act="novita">Novità della versione</button><button class="btn ghost" data-act="secname">Cambia nome della segretaria</button><button class="btn ghost" data-act="expg">Esporta la partita</button><button class="btn ghost" data-act="impg">Importa una partita</button><input type="file" id="imp-file" accept=".json,application/json" hidden>
     ${confirmReset?`<div class="reset"><span>Ricominciare cancella questa partita.</span><button class="btn danger small" data-act="reset2">Sì, ricomincia</button><button class="btn ghost small" data-act="reset0">Annulla</button></div>`:`<button class="btn ghost danger-t" data-act="reset1">Ricomincia da capo</button>`}</div>`;
   else if(modal==='novita') h=`<div class="neg-h"><div><p class="eyebrow">Novità · ${esc(CHANGELOG[0][1])}</p><h2>Versione ${VERSION}</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
@@ -257,13 +257,13 @@ function vModal(){ const nm=secName();
    Il file contiene {presidente:1, versione, data, G}: lo stato G com'è, con la versione e la data dell'esportazione.
    L'importazione controlla il file, mostra club, stagione e giornata, chiede conferma e passa dalle migrazioni di loadFrom(). */
 let IMP=null;
-function exportName(){ const c=String(G.T[0].n||'club').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'club'; return `presidente-${c}-s${G.season}g${G.md}.json`; }
+function exportName(){ const c=String(G.T[0].n||'club').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'club'; return `evivora-${c}-s${G.season}g${G.md}.json`; }
 function exportGame(){ const data={presidente:1, versione:VERSION, data:new Date().toISOString(), G};
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'})); a.download=exportName();
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast('Partita esportata nel file '+a.download+'.'); }
-function readImport(txt){ let x; try{ x=JSON.parse(txt); }catch(e){ return {err:'Il file non è una partita di Presidente: non si riesce a leggere.'}; }
+function readImport(txt){ let x; try{ x=JSON.parse(txt); }catch(e){ return {err:'Il file non è una partita di Evivora: non si riesce a leggere.'}; }
   const wrap=!!(x&&x.presidente&&x.G), g=wrap?x.G:x, ver=wrap?String(x.versione||''):'';
-  if(!g||typeof g!=='object'||!Array.isArray(g.T)||g.T.length<2||!g.P||typeof g.P!=='object'||!Array.isArray(g.sched)||typeof g.season!=='number'||typeof g.md!=='number'||!g.T[0]||!g.T[0].n) return {err:'Il file non contiene una partita di Presidente valida.'};
+  if(!g||typeof g!=='object'||!Array.isArray(g.T)||g.T.length<2||!g.P||typeof g.P!=='object'||!Array.isArray(g.sched)||typeof g.season!=='number'||typeof g.md!=='number'||!g.T[0]||!g.T[0].n) return {err:'Il file non contiene una partita di Evivora valida.'};
   if(ver && verCmp(ver,VERSION)>0) return {err:`La partita è stata salvata con la versione ${ver}, più nuova di questa (${VERSION}): ricarica la pagina per avere l'ultima versione e riprova.`};
   return {s:g.season, md:g.md, club:g.T[0].n, ver, data:wrap?x.data:null, txt:JSON.stringify(g)}; }
 function importGame(){ const I=IMP; if(!I||I.err) return;

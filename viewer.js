@@ -4,6 +4,10 @@ const REPLAY_RATE=1.4;   // il replay va al rallentatore
 // x1 = tempo reale (90' in 90'), x2 = la partita dura 15', x4 = la partita dura 5'
 const SPEED_TXT={1:'Velocità normale',2:'Partita in 15 minuti',4:'Partita in 5 minuti'};
 function tickRate(v){ return v.speed===1 ? 1/DT : v.speed===2 ? v.nT/900 : v.nT/300; }
+/* velocità preferita (0.4.1.1): preferenza dell'interfaccia nel browser, mai dentro G né online; la prima volta 2x */
+const SPEED_KEY='presidente-pref-vel';
+function vPrefSpeed(){ try{ const s=+localStorage.getItem(SPEED_KEY); if(s===1||s===2||s===4) return s; }catch(_){} return 2; }
+function vSavePrefSpeed(s){ try{ localStorage.setItem(SPEED_KEY,String(s)); }catch(_){} }
 const SHOT_EV=new Set(['goal','save','wide','post','block','miss']);
 const HL_EV=new Set(['goal','save','post','pen','miss','flash','rc','block']);
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
@@ -21,9 +25,10 @@ function openViewer(i){
   const p0=new Int32Array(nT+1), pt=new Int32Array(nT+1);
   for(let k=0;k<nT;k++){ const o=sim.owners[k]; p0[k+1]=p0[k]+(o>=0&&team[o]===0?1:0); pt[k+1]=pt[k]+(o>=0?1:0); }
   const hl=new Uint8Array(nT); sim.ev.forEach(e=>{ if(HL_EV.has(e.type)||e.type==='wide'&&false) for(let k=Math.max(0,e.t-12);k<Math.min(nT,e.t+6);k++) hl[k]=1; });
-  viewer={m, sim, info, team, p0, pt, hl, nT, t:0, speed:viewer?viewer.speed:1, playing:false, phase:'pre', preT:0, evI:0, sc:[0,0], log:[], last:performance.now(), raf:0,
+  viewer={m, sim, info, team, p0, pt, hl, nT, t:0, speed:vPrefSpeed(), playing:false, phase:'pre', preT:0, evI:0, sc:[0,0], log:[], last:performance.now(), raf:0,
     rep:null, pend:null, pq:[], wins:[], sp3d:null, iv:null, key:mkey(m), live:true, goalUntil:-1, cap:null, forms:[sim.plans[0].form, sim.plans[1].form],
-    st:[0,1].map(()=>({sh:0,sot:0,cor:0,fou:0,yc:0,rc:0,off:0}))};
+    st:[0,1].map(()=>({sh:0,sot:0,cor:0,fou:0,yc:0,rc:0,off:0})), post:null, nextLbl:''};
+  vPrep(viewer);
   G.wm=G.wm||{}; if(G.wm[viewer.key]==null){ G.wm[viewer.key]=-1; save(); }
   area='lega'; sub='giornata'; lastSub.lega='giornata'; clubView=null; clubBack=null; sheetPid=null; setupMatch3D(); render();
   requestAnimationFrame(()=>{ const c=$('.viewer'); if(c) c.scrollIntoView({behavior:reduced()?'auto':'smooth', block:'start'}); });
@@ -39,13 +44,13 @@ function vViewerHTML(){
       <p class="pl-form">${p.form}</p><p class="pl-meta">Mentalità ${MENT[p.ment+1]} · ${p.press===2?'pressing alto':'pressing basso'}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
   return `<section class="card viewer"><div class="sb"><span class="tm"><span class="chip" style="--c:${teamColor(v,0)}"></span>${esc(vTeamName(v,0))}</span><span class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</span><span class="tm r">${esc(vTeamName(v,1))}<span class="chip" style="--c:${teamColor(v,1)}"></span></span></div>
    <div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
-    <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span><button class="btn small" data-act="rskip">Salta</button></div>
+    <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span></div>
     <span class="clock" id="v-clock">0'</span><span class="ff" id="v-ff">${SPEED_TXT[v.speed]}</span>
     <div class="forms" id="v-forms"></div>
     <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div>
     ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">Le scelte degli allenatori</p>${m.inp.ref?`<p class="pl-ref">Arbitro ${esc(m.inp.ref.full||m.inp.ref.n)}${G.refs&&G.refs[m.inp.ref.id]?` · assistenti ${esc(G.refs[m.inp.ref.id].a1)} e ${esc(G.refs[m.inp.ref.id].a2)}`:''}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">Calcio d'inizio</button></div>`:''}
    </div>
-   <div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button>${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${SPEED_TXT[s]}">${s}x</button>`).join('')}<button class="btn ghost small" data-act="vskip">Salta alla fine</button>${(V3.ok!==false&&window.THREE)?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vclose">Chiudi</button></div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button>${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${SPEED_TXT[s]}" aria-pressed="${v.speed===s}">${s}x</button>`).join('')}${(V3.ok!==false&&window.THREE)?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
    <div class="vstats" id="v-stats"></div>
    <div class="intv" id="v-int" hidden></div>
    <ol class="log" id="v-log"></ol></section>`;
@@ -61,7 +66,7 @@ function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; 
 
 function loop(now){
   const v=viewer; if(!v || !onMatchPage()) return;
-  const dt=Math.min(100,now-v.last)/1000; v.last=now;
+  const dt=Math.max(0,Math.min(100,now-v.last))/1000; v.last=now;   /* il tempo del fotogramma può precedere v.last: mai passi indietro */
   if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
   else if(v.phase==='live' && v.playing){
     const sp1 = use3D() && !!activeWin(v);
@@ -69,10 +74,10 @@ function loop(now){
     processEvents(true);
     if(v.pq.length && v.t>=v.pq[0].at){ const p=v.pq.shift(); if(use3D() && v.t<p.t1+40) startReplay(p); }
     if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; if(use3D()){ v.t=v.sim.htTick; startScene('ht'); } }
-    if(v.t>=v.nT-1 && v.phase==='live'){ if(use3D() && !v.endDone){ v.endDone=true; startScene('end'); } else finishViewer(); }
+    if(v.t>=v.nT-1 && v.phase==='live'){ if(use3D() && !v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(); }
   } else if(v.phase==='replay'){ const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
   else if(v.phase==='scene'){ v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
-  else if(v.phase==='done' && v.iv && !v.iv.closed) tickIV(dt*1000);
+  else if(v.phase==='done'){ if(v.post==='whistle' && performance.now()-v.postT>3500){ v.post='pag'; renderIV(); } else if(v.post==='iv' && v.iv) tickIV(dt*1000); }
   draw();
   v.raf=requestAnimationFrame(loop);
 }
@@ -110,6 +115,7 @@ function handleEvent(e, live, idx){
   if(e.type==='subcall'){ v.cap=e; showCap(e); return; }
   if(e.type==='fo'||e.type==='spgo'||e.type==='ko'||e.type==='kick'&&idx===0) return;
   logEvent(e);
+  if(e.type==='referr' && e.cm) logEvent({...e, type:'refj', text:'Moviola: '+e.cm});
   if(e.type!=='cor' && e.type!=='off') { v.cap=e; showCap(e); }
 }
 function logEvent(e){
@@ -133,25 +139,27 @@ function updHud(){
     const A=v.st[0], B=v.st[1];
     s.innerHTML=`<div class="poss"><span class="num">${ph}%</span><span class="pbar"><i style="width:${ph}%;background:${teamColor(v,0)}"></i><i style="width:${100-ph}%;background:${teamColor(v,1)}"></i></span><span class="num">${100-ph}%</span></div>`+
       row('Tiri (in porta)',`${A.sh} (${A.sot})`,`${B.sh} (${B.sot})`)+row('Calci d\'angolo',A.cor,B.cor)+row('Falli',A.fou,B.fou)+row('Fuorigioco',A.off,B.off)+row('Cartellini',`${A.yc}🟨 ${A.rc?A.rc+'🟥':''}`,`${B.yc}🟨 ${B.rc?B.rc+'🟥':''}`); }
+  updNext();
 }
 function minuteOf(t){ const sim=viewer.sim, s=t*DT/TIME_F; if(t<sim.htTick){ const m=Math.floor(s/60); return m>=45?`45+${m-44}'`:`${m+1}'`; } const m=45+Math.floor((s-sim.htTick*DT/TIME_F)/60); return m>=90?`90+${m-89}'`:`${m+1}'`; }
-function finishViewer(reattach){
+function finishViewer(reattach, post){
   const v=viewer;
-  if(!reattach){ processEvents(v.phase==='live'); v.t=v.nT-1; v.phase='done'; v.playing=false; v.pq=[]; v.wins=[]; const rb=$('#v-rpl'); if(rb) rb.hidden=true; }
+  if(!reattach){ processEvents(v.phase==='live'); vFlush();
+    v.t=v.nT-1; v.phase='done'; v.playing=false; v.pq=[]; v.wins=[]; v.post=post||'whistle'; v.postT=performance.now(); const rb=$('#v-rpl'); if(rb) rb.hidden=true; }
   v.sc=[v.m.gh,v.m.ga]; const s=$('#v-score'); if(s) s.textContent=v.sc[0]+' – '+v.sc[1];
   const b=$('#v-play'); if(b) b.textContent='Rivedi'; const pre=$('#v-pre'); if(pre) pre.remove();
   if(!v.iv){ const x=interview(v.m); v.iv={x, best:x.id, k:0, phase:'q', t:0, closed:false}; }
+  if(!v.post) v.post='whistle';
   const iv=$('#v-int'); if(iv) iv.innerHTML=interviewHTML(v.iv.x);
   G.iv=G.iv||{}; if(!G.iv[v.key] && (v.m.h===0||v.m.a===0)){ G.iv[v.key]=1; const x=v.iv.x; news(`Intervista a ${x.fn} ${x.ln}: «${x.qa[0][1].split('. ')[0].replace(/\.$/,'')}.»`,'player',false,G.P[x.id]&&G.P[x.id].team!=null?G.P[x.id].team:0); save(); }
   renderIV(); updHud();
 }
-function vSkip(){ const v=viewer; if(v.phase==='done') return; if(v.phase==='scene'){ v.scene=null; const rb=$('#v-rpl'); if(rb) rb.hidden=true; const bd=$('#v-board'); if(bd) bd.hidden=true; v.endDone=true; } if(v.phase==='pre'){ const p=$('#v-pre'); if(p) p.remove(); } v.live=false; if(v.phase==='replay') v.phase='live'; v.t=v.nT; v.phase='live'; finishViewer(); }
 function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); if(v.phase==='done') return openViewer(G.last.indexOf(v.m)); v.playing=!v.playing; el.textContent=v.playing?'Pausa':'Riprendi'; }
-function vSpeed(s,el){ viewer.speed=s; document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('on',b===el)); const ff=$('#v-ff'); if(ff) ff.textContent=SPEED_TXT[s]; }
+function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); const ff=$('#v-ff'); if(ff) ff.textContent=SPEED_TXT[s]; }
 function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent='Telecamera replay: '+(V3.camMode==='tv'?'TV':'dietro la porta'); }
 function v3dToggle(){ if(viewer.phase==='replay') endReplay(); V3.pref=!V3.pref; try{ localStorage.setItem('presidente-vista',V3.pref?'3d':'2d'); }catch(_){} if(V3.pref) setupMatch3D(); render(); }
 function startReplay(p){ const v=viewer; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
-  if(p.e.type==='referr'){ const cap=$('#v-cap'); if(cap){ cap.innerHTML=`<span class="tag">Moviola · il giornalista</span><span>${esc(p.e.cm)}</span>`; cap.className='cap rf'; } if(!p.logged){ p.logged=true; logEvent({...p.e, type:'refj', text:'Moviola: '+p.e.cm}); } }
+  if(p.e.type==='referr'){ const cap=$('#v-cap'); if(cap){ cap.innerHTML=`<span class="tag">Moviola · il giornalista</span><span>${esc(p.e.cm)}</span>`; cap.className='cap rf'; } }
   const f=frameAt(p.t0); const bx=f.bx-52.5, bz=f.by-34; V3.cp.set(bx*0.82,17,bz*0.3+34); V3.cl.set(bx*0.92,0,bz*0.55); V3.last=performance.now(); }
 function endReplay(){ const v=viewer; if(v&&v.phase==='scene') return endScene(); if(!v||v.phase!=='replay') return; const e=v.rep.e; v.phase='live'; v.rep=null; const rb=$('#v-rpl'); if(rb) rb.hidden=true;
   if(e && e.type==='goal'){ const ko=v.sim.ev.find(x=>x.type==='ko' && x.t>e.t); if(ko && ko.t-3>v.t){ v.t=ko.t-3; processEvents(true); } } }
@@ -159,6 +167,98 @@ function endReplay(){ const v=viewer; if(v&&v.phase==='scene') return endScene()
 const WIN_PRI={coach:3,card:3,sub:2,sp:1};
 function activeWin(v){ let w=null; for(const x of v.wins) if(v.t>=x.t0 && v.t<=x.t1 && (!w || WIN_PRI[x.kind]>WIN_PRI[w.kind] || (WIN_PRI[x.kind]===WIN_PRI[w.kind] && x.t0>=w.t0))) w=x; if(w && w.kind==='sp' && w.go && w.fresh===false && !w.started){} return w; }
 function cardShownAt(t0,coach){ const fr=viewer.sim.frames, n=viewer.sim.cols.length*2+12+6; for(let k=t0;k<Math.min(fr.length,t0+80);k++){ const c=fr[k][n]; if(coach? c===4 : (c>0&&c!==4)) return k; } return null; }
+
+/* ---------- 0.4.1.1: dati letti dai frame registrati (solo disegno, la simulazione non cambia) ----------
+   stops: momenti in cui la palla si ferma (falli, fuorigioco, gol, angoli, rigori, punizioni, cambi, palla fuori);
+   rest[i]: fino a quale tick la palla resta ferma dopo stops[i]; dives: tuffi del portiere sui rigori;
+   cards: a chi l'arbitro mostra il cartellino (per girarlo verso il giocatore) */
+const STOP_EV=new Set(['fo','off','goal','cor','pen','fkset','sub','inj','ht','yc','rc','coachoff']);
+function vPrep(v){
+  const sim=v.sim, fr=sim.frames, nT=v.nT, n=sim.cols.length, nb=n*2;
+  const bx=k=>fr[k][nb], by=k=>fr[k][nb+1];
+  const out=k=>bx(k)<0||bx(k)>105||by(k)<0||by(k)>68;
+  const S=new Set([0, sim.htTick]);
+  sim.ev.forEach(e=>{ if(STOP_EV.has(e.type)) S.add(Math.max(0,Math.min(nT-1,e.t))); });
+  for(let k=1;k<nT;k++) if(out(k) && !out(k-1)) S.add(k);
+  v.stops=[...S].filter(k=>k>=0&&k<nT).sort((a,b)=>a-b);
+  v.rest=v.stops.map(s=>{ let still=-1; const lim=Math.min(nT-1,s+140);
+    for(let k=s+1;k<=lim;k++){ const d=Math.hypot(bx(k)-bx(k-1),by(k)-by(k-1));
+      if(still<0){ if(d<0.02) still=k; } else if(d>0.05 && d<3) return k-1; }
+    return still<0 ? s+1 : lim; });
+  /* rigori: la simulazione decide dove va la palla, non il lato del portiere. Il visore lo ricava dal tiro:
+     parata → si tuffa verso la palla; gol → lato sbagliato; fuori o palo → lato della palla */
+  v.dives=[];
+  sim.ev.forEach(e=>{ if(e.type!=='spgo' || e.kind!=='pen') return; const t0=e.t, def=1-e.side; if(!fr[t0]) return;
+    const k=sim.cols.findIndex((id,i)=>v.info[id] && v.info[id].gk && v.team[i]===def && !isNaN(fr[t0][i*2])); if(k<0) return;
+    const end=sim.ev.find(x=>x.t>=t0 && x.t<=t0+20 && (x.type==='goal'||x.type==='miss'));
+    const ta=Math.min(nT-1, end?end.t:t0+1), gy=fr[t0][k*2+1], ballY=by(ta);
+    const side=(ballY-gy)>0.3?1:(ballY-gy)<-0.3?-1:(hashU(String(v.key),t0)<0.5?1:-1);
+    let ty;
+    if(end && end.type==='goal') ty=gy-side*1.9;
+    else if(Math.abs(ballY-gy)<2.2) ty=gy+side*Math.max(1.0,Math.abs(ballY-gy));
+    else ty=gy+side*1.9;
+    v.dives.push({k, t0, ta, ty, gy, s:Math.sign(ty-gy)||1, sx:e.x, sy:e.y}); });
+  /* cartellini: tick in cui l'arbitro mostra il cartellino e destinatario */
+  const nc=nb+18; v.cards=[];
+  sim.ev.forEach(e=>{ if(e.type!=='yc'&&e.type!=='rc'&&e.type!=='coachoff') return; const coach=e.type==='coachoff';
+    let tc=null; for(let k=e.t;k<Math.min(nT,e.t+80);k++){ const c=fr[k][nc]; if(coach? c===4 : (c>0&&c!==4)){ tc=k; break; } }
+    if(tc==null) return; let t1=tc; while(t1+1<nT && fr[t1+1][nc]>0) t1++;
+    v.cards.push({t0:e.t, tc, t1, coach:coach?e.side:null, k:coach?-1:sim.cols.indexOf(e.p&&e.p[0])}); });
+}
+function stopIdx(v,t){ let lo=0, hi=v.stops.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(v.stops[m]<=t){ r=m; lo=m+1; } else hi=m-1; } return r; }
+function ballDead(v,t){ const i=stopIdx(v,t); return i>=0 && t<=v.rest[i]+0.999; }
+function nextStop(v,t,lim){ const i=stopIdx(v,t+0.5)+1; const s=v.stops[i]; return s!=null && s<lim ? s : null; }
+function diveAt(t){ const v=viewer; if(!v||!v.dives) return null;
+  for(const d of v.dives){ const a=t-d.t0; if(a<0||a>9) continue; const ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+    const u = a<1.1 ? ez(a/1.1) : a<5 ? 1 : a<8 ? 1-ez((a-5)/3) : 0; if(u<=0) continue; return {d, u, a}; }
+  return null; }
+function cardTarget(f,t){ const c=cardAt(t); if(!c) return null; if(c.coach!=null) return {x:52.5+(c.coach===0?-9:9), y:-2.4};
+  let p=c.k>=0?f.P[c.k]:null; if(!p && c.k>=0){ const fr=viewer.sim.frames[Math.max(0,Math.min(viewer.nT-1,c.tc))]; if(fr && !isNaN(fr[c.k*2])) p={x:fr[c.k*2], y:fr[c.k*2+1]}; } return p&&!p.hidden?{x:p.x,y:p.y}:null; }
+function cardAt(t){ const v=viewer; if(!v||!v.cards) return null; let c=null; for(const x of v.cards) if(t>=x.t0-1 && t<=x.t1+1) c=x; return c; }
+
+/* ---------- 0.4.1.1: un solo tasto «Avanti» ----------
+   replay → fine del replay; azione → prossima palla ferma; palla ferma → fine del tempo; scene → scena dopo;
+   dopo il fischio finale → pagelle → intervista → chiusura. Gli eventi saltati vanno comunque nel registro. */
+function vNextLabel(){ const v=viewer; if(!v) return '';
+  if(v.phase==='pre') return "Avanti: calcio d'inizio";
+  if(v.phase==='scene') return v.scene.kind==='start' ? "Avanti: calcio d'inizio" : v.scene.kind==='ht' ? 'Avanti: secondo tempo' : 'Avanti: pagelle';
+  if(v.phase==='replay') return 'Avanti: fine replay';
+  if(v.phase==='done') return v.post==='whistle' ? 'Avanti: pagelle' : v.post==='pag' ? 'Avanti: intervista' : 'Chiudi';
+  const first=v.t<v.sim.htTick && !v.htDone, lim=first?v.sim.htTick:v.nT-1;
+  if(!ballDead(v,v.t) && nextStop(v,v.t,lim)!=null) return 'Avanti: fine azione';
+  return first ? 'Avanti: fine primo tempo' : 'Avanti: fine partita';
+}
+function updNext(){ const v=viewer; const b=$('#v-next'); if(!b||!v) return; const l=vNextLabel(); if(b.dataset.lbl!==l){ b.dataset.lbl=l; b.innerHTML=l==='Chiudi'?'Chiudi':`${esc(l)} <span aria-hidden="true">⏭</span>`; b.setAttribute('aria-label',l); }
+  const cl=$('#v-close'); if(cl) cl.hidden=(l==='Chiudi'); }
+/* salta fino al tick T: gli eventi prima di T si registrano senza replay né 3D (e senza contare come visti), quelli di T normalmente */
+function vJump(T){ const v=viewer, ev=v.sim.ev;
+  while(v.evI<ev.length && ev[v.evI].t<T){ handleEvent(ev[v.evI], false, v.evI); v.evI++; }
+  v.t=Math.max(v.t,T); v.pq=v.pq.filter(p=>p.at>=T && p.e.t>=T); v.wins=v.wins.filter(w=>w.t0>=T); v.goalShow=0;
+  processEvents(true); }
+/* a fine partita: nel registro anche gli eventi dopo l'ultimo frame (fischio finale, voto alla terna), prima della scena finale */
+function vFlush(){ const v=viewer, ev=v.sim.ev; while(v.evI<ev.length){ handleEvent(ev[v.evI], false, v.evI); v.evI++; } updHud(); }
+const LIVE_LBL=new Set(['Avanti: fine azione','Avanti: fine primo tempo','Avanti: fine partita']);
+function vNext(){ const v=viewer; if(!v) return;
+  /* fa quello che il tasto mostrava al momento del tocco (l'etichetta può cambiare mentre si preme) */
+  let l=vNextLabel(); const shown=($('#v-next')||{dataset:{}}).dataset.lbl;
+  if(v.phase==='live' && LIVE_LBL.has(shown) && LIVE_LBL.has(l)){ const first=v.t<v.sim.htTick && !v.htDone;
+    if(shown==='Avanti: fine azione' ? nextStop(v,v.t,first?v.sim.htTick:v.nT-1)!=null : (shown==='Avanti: fine primo tempo')===first) l=shown; }
+  if(v.phase==='pre'){ kickoff(); }
+  else if(v.phase==='scene'){ endScene(); }
+  else if(v.phase==='replay'){ endReplay(); }
+  else if(v.phase==='live'){
+    if(!v.playing){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
+    if(l==='Avanti: fine azione'){ const first=v.t<v.sim.htTick && !v.htDone; vJump(nextStop(v,v.t,first?v.sim.htTick:v.nT-1)); }
+    else if(l==='Avanti: fine primo tempo'){ vJump(v.sim.htTick); v.htDone=true; if(use3D()){ v.t=v.sim.htTick; startScene('ht'); } }
+    else { vJump(v.nT-1); if(use3D() && !v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(false,'whistle'); }
+  }
+  else if(v.phase==='done'){
+    if(v.post==='whistle'){ v.post='pag'; renderIV(); }
+    else if(v.post==='pag'){ v.post='iv'; Object.assign(v.iv,{k:0,phase:'q',t:0,closed:false}); renderIV(); }
+    else { const m=v.m, a=G.T[m.h].n, b=G.T[m.a].n; stopViewer(); viewer=null; render(); toast(`Finale: ${a} ${m.gh} – ${m.ga} ${b}`); return; }
+  }
+  draw(); updNext();
+}
 /* ---------- scene 3D: ingresso in campo, intervallo, fine partita ---------- */
 const TUN=[52.5,-6.4];
 function startScene(kind){
@@ -198,7 +298,7 @@ function endScene(){
   const rb=$('#v-rpl'); if(rb){ rb.hidden=true; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent='Replay'; }
   const bd=$('#v-board'); if(bd) bd.hidden=true;
   if(k==='start'){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
-  if(k==='end') finishViewer();
+  if(k==='end') finishViewer(false,'pag');
 }
 function scenePos(a,ts){ for(const h of a.hide) if(ts>=h[0]&&ts<h[1]) return null; let s=a.segs[0]; if(ts<s.a) return {x:s.A[0],y:s.A[1]};
   for(const g of a.segs){ if(ts<g.a) break; s=g; } const u=clamp((ts-s.a)/Math.max(0.01,s.b-s.a),0,1), e=u<0.5?2*u*u:1-Math.pow(-2*u+2,2)/2; return {x:s.A[0]+(s.B[0]-s.A[0])*e, y:s.A[1]+(s.B[1]-s.A[1])*e}; }
@@ -211,7 +311,7 @@ function sceneFrame(ts){
 }
 /* posizioni interpolate al tick t */
 function frameAt(t){
-  const v=viewer, fr=v.sim.frames, n=v.sim.cols.length; const i=Math.max(0,Math.min(fr.length-1,Math.floor(t))), j=Math.min(fr.length-1,i+1), f=t-i, A=fr[i], B=fr[j];
+  const v=viewer, fr=v.sim.frames, n=v.sim.cols.length; t=Math.max(0,t||0); const i=Math.max(0,Math.min(fr.length-1,Math.floor(t))), j=Math.min(fr.length-1,i+1), f=t-i, A=fr[i], B=fr[j];
   const P=new Array(n); for(let k=0;k<n;k++){ const ax=A[k*2]; if(isNaN(ax)){ P[k]=null; continue; } const bx=isNaN(B[k*2])?ax:B[k*2], by=isNaN(B[k*2+1])?A[k*2+1]:B[k*2+1]; P[k]={x:ax+(bx-ax)*f, y:A[k*2+1]+(by-A[k*2+1])*f}; }
   let bx,by,bz; const nb=n*2;
   if(B.length>=nb+12 && j>i){ const pts=[[A[nb],A[nb+1],A[nb+2]],[B[nb+3],B[nb+4],B[nb+5]],[B[nb+6],B[nb+7],B[nb+8]],[B[nb+9],B[nb+10],B[nb+11]],[B[nb],B[nb+1],B[nb+2]]];
@@ -219,13 +319,14 @@ function frameAt(t){
   else { bx=A[nb]+(B[nb]-A[nb])*f; by=A[nb+1]+(B[nb+1]-A[nb+1])*f; bz=A[nb+2]+(B[nb+2]-A[nb+2])*f; }
   let RF=null, card=0, flag=0; if(A.length>=nb+20){ const g=(k)=>{ const ax=A[nb+12+k*2], ay=A[nb+13+k*2], bx_=B[nb+12+k*2], by_=B[nb+13+k*2]; return {x:ax+(bx_-ax)*f, y:ay+(by_-ay)*f}; }; RF=[g(0),g(1),g(2)]; card=A[nb+18]; flag=A[nb+19]; }
   const cap = A.length>=nb+22 ? [A[nb+20],A[nb+21]] : [-1,-1];
-  return {P, bx, by, bz, own:v.sim.owners[i], RF, card, flag, cap};
+  const dv=diveAt(t); if(dv && P[dv.d.k]){ const p=P[dv.d.k]; P[dv.d.k]={x:p.x, y:p.y+(dv.d.ty-p.y)*dv.u}; }
+  return {P, bx, by, bz, own:v.sim.owners[i], RF, card, flag, cap, dive:dv};
 }
 function activeEvent(t){ const ev=viewer.sim.ev; let best=null; for(let k=Math.max(0,viewer.evI-6);k<ev.length;k++){ const e=ev[k]; if(e.t>t+8) break; if(e.t>=t-4 && e.type!=='fo' && e.p && e.p.length) best=e; } return best; }
 
 function draw(){
   const v=viewer; if(!v) return;
-  const ivOn = v.phase==='done' && v.iv && !v.iv.closed;
+  const ivOn = v.phase==='done' && v.post==='iv' && v.iv && !v.iv.closed;
   v.wins=v.wins.filter(w=>w.t1>=v.t-1); v.sp3d=v.phase==='live'?activeWin(v):null;
   const spOn = !!v.sp3d;
   const show3 = use3D() && (v.phase==='replay' || ivOn || spOn || v.phase==='scene');
@@ -244,7 +345,7 @@ function draw(){
 /* ---------- 2D ---------- */
 function draw2D(t, ivOn){
   const v=viewer, cv=$('#pitch'); if(!cv) return;
-  const W=cv.clientWidth, H=Math.round(W*0.66), dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth, H=Math.round(W*0.66), dpr=window.devicePixelRatio||1; if(W<60) return;   /* campo nascosto (pagelle sul telefono) */
   if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.height=H+'px'; }
   const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
   const M=Math.max(10,W*0.03), X=x=>M+x/105*(W-2*M), Y=y=>M+y/68*(H-2*M), S=(W-2*M)/105;
@@ -277,7 +378,8 @@ function draw2D(t, ivOn){
   named.forEach(id=>{ const k=v.sim.cols.indexOf(id), p=f.P[k]; if(!p) return; const tx=X(p.x), ty=Y(p.y)-r*2; c.lineWidth=3; c.strokeStyle='rgba(8,16,12,.85)'; c.strokeText(v.info[id].ln,tx,ty); c.fillStyle=flashed.has(id)?css('--gold-hi'):'#fff'; c.fillText(v.info[id].ln,tx,ty); });
   if(!ivOn && f.RF){ f.RF.forEach((q,k)=>{ const rr=r*(k?0.62:0.72); c.beginPath(); c.arc(X(q.x),Y(q.y),rr,0,Math.PI*2); c.fillStyle='#121212'; c.fill(); c.lineWidth=1.6; c.strokeStyle='#f0d64a'; c.stroke();
       if(k){ const up=f.flag===k; c.fillStyle=up?'#f0d64a':'#e4572e'; const fx=X(q.x)+rr*0.6, fy=Y(q.y)-(up?rr*2.4:rr*0.2); c.fillRect(fx,fy,rr*1.1,rr*0.8); c.fillStyle='#ddd'; c.fillRect(fx-1,fy,1.4,rr*(up?2.2:1.2)); } });
-    if(f.card>0){ const q=f.RF[0]; c.fillStyle=f.card===1?'#f5d020':'#d8262c'; c.strokeStyle='#000'; c.lineWidth=1; const w=r*1.3, h=r*1.75; c.fillRect(X(q.x)+r*0.4,Y(q.y)-r*2.9,w,h); c.strokeRect(X(q.x)+r*0.4,Y(q.y)-r*2.9,w,h); } }
+    if(f.card>0){ const q=f.RF[0]; c.fillStyle=f.card===1?'#f5d020':'#d8262c'; c.strokeStyle='#000'; c.lineWidth=1; const w=r*1.3, h=r*1.75;
+      const tg=cardTarget(f,t), cx=(tg && tg.x<q.x) ? X(q.x)-r*0.4-w : X(q.x)+r*0.4; c.fillRect(cx,Y(q.y)-r*2.9,w,h); c.strokeRect(cx,Y(q.y)-r*2.9,w,h); } }
   if(!ivOn){ const bz=Math.max(0,f.bz); c.beginPath(); c.ellipse(X(f.bx)+bz*S*0.25,Y(f.by)+bz*S*0.15,r*0.55,r*0.4,0,0,Math.PI*2); c.fillStyle='rgba(0,0,0,.35)'; c.fill();
     c.beginPath(); c.arc(X(f.bx),Y(f.by)-bz*S*0.6,r*0.55*(1+bz*0.05),0,Math.PI*2); c.fillStyle='#fff'; c.fill(); c.lineWidth=1; c.strokeStyle='rgba(0,0,0,.4)'; c.stroke(); }
 }
@@ -455,14 +557,20 @@ function draw3D(t, ivOn, sp){
     g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*8);
     const u=g.userData; u.ph+=sp*dt*1.7*(ivOn?0:1); const amp=ivOn?0:Math.min(0.85,sp*0.09), s=Math.sin(u.ph)*amp;
     u.legs[0].rotation.x=s; u.legs[1].rotation.x=-s; u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0;
+    g.rotation.z=0;
+    if(f.dive && k===f.dive.d.k && !ivOn){ const dv=f.dive, d=dv.d, fc=Math.atan2((d.sx-52.5)-x,(d.sy-34)-z);
+      g.rotation.y=fc; const lean=dv.u*1.25, sf=Math.sin(fc)||1; g.rotation.z=d.s*Math.sign(sf)*lean; g.position.y=Math.sin(Math.min(1,dv.a/1.1)*Math.PI)*0.35*dv.u;
+      u.arms[0].rotation.x=Math.PI*0.95; u.arms[1].rotation.x=Math.PI*0.95; u.arms[0].rotation.z=-0.2; u.arms[1].rotation.z=0.2; u.legs[0].rotation.x=0.15; u.legs[1].rotation.x=-0.15; }
     const ev=v.rep?v.rep.e:null;
     if(ev && ev.type==='goal' && t>=ev.t+1 && v.sim.cols[k]===ev.p[0]){ const w=Math.sin(now/140)*0.25; u.arms[0].rotation.x=Math.PI*0.95+w; u.arms[1].rotation.x=Math.PI*0.95-w; u.arms[0].rotation.z=-0.35; u.arms[1].rotation.z=0.35; }
   });
   /* terna arbitrale */
   if(V3.refs){ V3.refs.forEach((g,k)=>{ const q=f.RF&&f.RF[k], q2=f2.RF&&f2.RF[k]; if(!q||q.hidden||ivOn){ g.visible=false; return; } g.visible=true;
       const x=q.x-52.5, z=q.y-34, vx=(q2.x-q.x)/0.5, vz=(q2.y-q.y)/0.5, sp=Math.hypot(vx,vz); g.position.set(x,0,z);
-      const face = inScene ? (sp>0.6?Math.atan2(vx,vz):0) : k? (k===1?0:Math.PI) : (sp>2.5?Math.atan2(vx,vz):Math.atan2(bx-x,bz-z));
-      g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*8);
+      let face = inScene ? (sp>0.6?Math.atan2(vx,vz):0) : k? (k===1?0:Math.PI) : (sp>2.5?Math.atan2(vx,vz):Math.atan2(bx-x,bz-z));
+      const tg=(!k && !inScene) ? cardTarget(f,t) : null;
+      if(tg){ face=Math.atan2((tg.x-52.5)-x,(tg.y-34)-z); }
+      if(tg && f.card>0) g.rotation.y=face; else g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*(tg?14:8));
       const u=g.userData; u.ph+=sp*dt*1.7; const amp=Math.min(0.75,sp*0.09), s=Math.sin(u.ph)*amp;
       u.legs[0].rotation.x=k?s*0.5:s; u.legs[1].rotation.x=k?-s*0.5:-s; u.legs[0].rotation.z=k?Math.abs(s)*0.35:0; u.legs[1].rotation.z=k?-Math.abs(s)*0.35:0;
       u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[1].rotation.z=0;
@@ -595,27 +703,26 @@ function pagelleHTML(){
     return `<div class="pcol"><p class="ph"><i style="background:${teamColor(v,side)}"></i>${esc(vTeamName(v,side))} <b>${side?m.ga:m.gh}</b></p><ul>${rows}${crow}</ul></div>`; };
   const rf=sim.ref||{}, RT=G.refs&&G.refs[m.refId], ri=m.inp.ref;
   const terna=ri?`<div class="pref"><span>Terna: <b>${esc(ri.full||ri.n)}</b>${RT?` · assistenti ${esc(RT.a1)} e ${esc(RT.a2)}`:''}${rf.errs&&rf.errs.length?` · <span class="lo">${rf.errs.length===1?'1 errore':'2 errori'} alla moviola</span>`:''}</span><b class="pv ${cls(rf.voto)}">${fv(rf.voto)}</b></div>`:'';
-  return `<div class="pag-in"><div class="pag-h"><p class="eyebrow">Pagelle</p><button class="btn ghost small" data-act="pagclose">Chiudi</button></div><div class="pcols">${col(0)}${col(1)}</div>${terna}</div>`;
+  return `<div class="pag-in"><div class="pag-h"><p class="eyebrow">Pagelle</p></div><div class="pcols">${col(0)}${col(1)}</div>${terna}</div>`;
 }
 function renderIV(){
   const v=viewer, host=$('#stage'); if(!host||!v||!v.iv) return;
-  { let pg=$('#v-pag'); const on=(v.iv.closed||v.iv.phase==='done') && !v.pagClosed;
+  { let pg=$('#v-pag'); const on=v.post==='pag'; const vw=$('.viewer'); if(vw) vw.classList.toggle('pagon',on);
     if(on && !pg){ pg=document.createElement('div'); pg.id='v-pag'; pg.className='pag'; pg.innerHTML=pagelleHTML(); host.appendChild(pg); }
     if(!on && pg) pg.remove(); }
   let o=$('#v-ivo'); const cap=$('#v-cap');
-  const card=$('#v-int'); if(card) card.hidden=!(v.iv.closed||v.iv.phase==='done');
-  if(v.iv.closed){ if(o) o.remove(); if(cap) cap.hidden=false; return; }
+  const card=$('#v-int'); if(card) card.hidden=!(v.post==='iv' && (v.iv.closed||v.iv.phase==='done'));
+  if(v.post!=='iv' || v.iv.closed){ if(o) o.remove(); if(cap) cap.hidden=false; return; }
   if(cap) cap.hidden=true;
   if(!o){ o=document.createElement('div'); o.id='v-ivo'; o.className='ivo'; host.appendChild(o); }
   const x=v.iv.x, [q]=x.qa[v.iv.k], last=v.iv.k>=x.qa.length-1;
   o.innerHTML=`<div class="bub a" id="iv-a" ${v.iv.phase==='q'?'hidden':''}><span class="who">${esc(x.fn)} ${esc(x.ln)} · voto ${String(x.rt).replace('.',',')}</span><p id="iv-at"></p></div>
    <div class="ivq"><div class="ivq-txt"><span class="tag">Giornalista</span><p>${esc(q)}</p></div>
     <div class="ivo-ctrl"><span class="dots" aria-label="Domanda ${v.iv.k+1} di ${x.qa.length}">${x.qa.map((_,i)=>`<i class="${i===v.iv.k?'on':''}"></i>`).join('')}</span>
-    ${last&&v.iv.phase==='done'?`<button class="btn small" data-act="ivagain">Rivedi</button>`:`<button class="btn small" data-act="ivnext">${v.iv.phase==='q'?'Risposta':'Avanti'} ›</button>`}<button class="btn ghost small" data-act="ivclose">Chiudi</button></div></div>`;
+    ${last&&v.iv.phase==='done'?`<button class="btn ghost small" data-act="ivagain">Rivedi l'intervista</button>`:`<button class="btn ghost small" data-act="ivnext">${v.iv.phase==='q'?'Risposta':last?'Fine':'Domanda dopo'} ›</button>`}</div></div>`;
   updIV();
 }
 function updIV(){ const v=viewer, el=$('#iv-at'); if(!el||!v.iv) return; const a=v.iv.x.qa[v.iv.k][1]; const n=(v.iv.phase==='a'&&!reduced())?Math.min(a.length,Math.floor(v.iv.t/32)):a.length; el.textContent='«'+a.slice(0,n)+(n<a.length?'':'»'); }
 function tickIV(dt){ const iv=viewer.iv; iv.t+=dt; const a=iv.x.qa[iv.k][1]; if(iv.phase==='q'&&iv.t>2200){ iv.phase='a'; iv.t=0; renderIV(); return; } if(iv.phase==='a'){ updIV(); if(iv.t>a.length*32+3800) nextIV(); } }
 function nextIV(){ const iv=viewer.iv; if(iv.phase==='q'){ iv.phase='a'; iv.t=0; } else if(iv.phase==='a'&&iv.t<iv.x.qa[iv.k][1].length*32){ iv.t=1e6; updIV(); return; } else if(iv.k<iv.x.qa.length-1){ iv.k++; iv.phase='q'; iv.t=0; } else { iv.phase='done'; iv.t=0; } renderIV(); }
-function closeIV(){ viewer.iv.closed=true; renderIV(); }
 function againIV(){ Object.assign(viewer.iv,{k:0,phase:'q',t:0,closed:false}); renderIV(); }
