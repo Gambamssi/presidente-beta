@@ -29,15 +29,15 @@ function openViewer(i){
   requestAnimationFrame(()=>{ const c=$('.viewer'); if(c) c.scrollIntoView({behavior:reduced()?'auto':'smooth', block:'start'}); });
 }
 function stopViewer(){ if(viewer) cancelAnimationFrame(viewer.raf); }
-function teamName(v,ti){ return G.T[ti===0?v.m.h:v.m.a].n; }
+function vTeamName(v,ti){ return G.T[ti===0?v.m.h:v.m.a].n; }
 function teamColor(v,ti){ return G.T[ti===0?v.m.h:v.m.a].c; }
 
 function vViewerHTML(){
   const v=viewer, m=v.m, sim=v.sim;
   const planCol=ti=>{ const p=sim.plans[ti], c=m.inp.t[ti].coach;
-    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(teamName(v,ti))}</p><p class="pl-coach">${c.absent?`All. ${esc(c.n)} è squalificato: in panchina va il vice`:`All. ${esc(c.n)} · tattica ${c.tat}`}</p>
+    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?`All. ${esc(c.n)} è squalificato: in panchina va il vice`:`All. ${esc(c.n)} · tattica ${c.tat}`}</p>
       <p class="pl-form">${p.form}</p><p class="pl-meta">Mentalità ${MENT[p.ment+1]} · ${p.press===2?'pressing alto':'pressing basso'}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
-  return `<section class="card viewer"><div class="sb"><span class="tm"><span class="chip" style="--c:${teamColor(v,0)}"></span>${esc(teamName(v,0))}</span><span class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</span><span class="tm r">${esc(teamName(v,1))}<span class="chip" style="--c:${teamColor(v,1)}"></span></span></div>
+  return `<section class="card viewer"><div class="sb"><span class="tm"><span class="chip" style="--c:${teamColor(v,0)}"></span>${esc(vTeamName(v,0))}</span><span class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</span><span class="tm r">${esc(vTeamName(v,1))}<span class="chip" style="--c:${teamColor(v,1)}"></span></span></div>
    <div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
     <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span><button class="btn small" data-act="rskip">Salta</button></div>
     <span class="clock" id="v-clock">0'</span><span class="ff" id="v-ff">${SPEED_TXT[v.speed]}</span>
@@ -142,7 +142,7 @@ function finishViewer(reattach){
   const b=$('#v-play'); if(b) b.textContent='Rivedi'; const pre=$('#v-pre'); if(pre) pre.remove();
   if(!v.iv){ const x=interview(v.m); v.iv={x, best:x.id, k:0, phase:'q', t:0, closed:false}; }
   const iv=$('#v-int'); if(iv) iv.innerHTML=interviewHTML(v.iv.x);
-  G.iv=G.iv||{}; if(!G.iv[v.key] && (v.m.h===0||v.m.a===0)){ G.iv[v.key]=1; const x=v.iv.x; news(`Intervista a ${x.fn} ${x.ln}: «${x.qa[0][1].split('. ')[0].replace(/\.$/,'')}.»`,'player'); save(); }
+  G.iv=G.iv||{}; if(!G.iv[v.key] && (v.m.h===0||v.m.a===0)){ G.iv[v.key]=1; const x=v.iv.x; news(`Intervista a ${x.fn} ${x.ln}: «${x.qa[0][1].split('. ')[0].replace(/\.$/,'')}.»`,'player',false,G.P[x.id]&&G.P[x.id].team!=null?G.P[x.id].team:0); save(); }
   renderIV(); updHud();
 }
 function vSkip(){ const v=viewer; if(v.phase==='done') return; if(v.phase==='scene'){ v.scene=null; const rb=$('#v-rpl'); if(rb) rb.hidden=true; const bd=$('#v-board'); if(bd) bd.hidden=true; v.endDone=true; } if(v.phase==='pre'){ const p=$('#v-pre'); if(p) p.remove(); } v.live=false; if(v.phase==='replay') v.phase='live'; v.t=v.nT; v.phase='live'; finishViewer(); }
@@ -236,7 +236,7 @@ function draw(){
   const T=v.phase==='replay'?v.rep.t:v.t;
   const gfx=$('#v-goal'); if(gfx){ const ge=v.phase==='replay'&&v.rep.e.type==='goal' ? (T>=v.rep.e.t&&T<v.rep.e.t+6) : (v.phase==='live'&&performance.now()<(v.goalShow||0)); gfx.hidden=!ge; }
   const bd=$('#v-board'); if(bd){ const on=v.phase==='scene' && v.scene.kind==='ht' && v.scene.t>v.scene.T1+0.2 && v.scene.t<v.scene.T1+4.0;
-    if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">Fine primo tempo</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(teamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(teamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
+    if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">Fine primo tempo</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(vTeamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(vTeamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
   if(show3) draw3D(T, ivOn, spOn?v.sp3d:null); else draw2D(T, ivOn);
   updHud();
 }
@@ -592,7 +592,7 @@ function pagelleHTML(){
       return `<li class="${inMin[id]?'sub':''}"><span class="pn">${i.num}</span><span class="pnm">${esc(i.ln)}${id==capId?' <b class="capm">C</b>':''}${goals[id]?' '+'⚽'.repeat(goals[id]):''}${rc[id]?' 🟥':yc[id]?' 🟨':''}${inMin[id]?` <small class="in">↑ ${inMin[id]}</small>`:''}${outMin[id]?` <small class="out">↓ ${outMin[id]}</small>`:''}</span><b class="pv ${cls(r)}">${fv(r)}</b></li>`; }).join('');
     const c=m.inp.t[side].coach, cr=sim.coachRt&&sim.coachRt[side];
     const crow=`<li class="coachr"><span class="pn">All.</span><span class="pnm">${esc(c.n)}${cr&&cr.why.length?`<small>${esc(cr.why.slice(0,2).join(', '))}</small>`:''}</span><b class="pv ${cr&&cr.v!=null?cls(cr.v):''}">${cr&&cr.v!=null?fv(cr.v):'–'}</b></li>`;
-    return `<div class="pcol"><p class="ph"><i style="background:${teamColor(v,side)}"></i>${esc(teamName(v,side))} <b>${side?m.ga:m.gh}</b></p><ul>${rows}${crow}</ul></div>`; };
+    return `<div class="pcol"><p class="ph"><i style="background:${teamColor(v,side)}"></i>${esc(vTeamName(v,side))} <b>${side?m.ga:m.gh}</b></p><ul>${rows}${crow}</ul></div>`; };
   const rf=sim.ref||{}, RT=G.refs&&G.refs[m.refId], ri=m.inp.ref;
   const terna=ri?`<div class="pref"><span>Terna: <b>${esc(ri.full||ri.n)}</b>${RT?` · assistenti ${esc(RT.a1)} e ${esc(RT.a2)}`:''}${rf.errs&&rf.errs.length?` · <span class="lo">${rf.errs.length===1?'1 errore':'2 errori'} alla moviola</span>`:''}</span><b class="pv ${cls(rf.voto)}">${fv(rf.voto)}</b></div>`:'';
   return `<div class="pag-in"><div class="pag-h"><p class="eyebrow">Pagelle</p><button class="btn ghost small" data-act="pagclose">Chiudi</button></div><div class="pcols">${col(0)}${col(1)}</div>${terna}</div>`;

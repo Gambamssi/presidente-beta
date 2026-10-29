@@ -1,6 +1,21 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.037';
+const VERSION = '0.4.1.0';
+/* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
+   Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
+   Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
+function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').split('.');
+  if(a.length===2 && /^\d{3}$/.test(a[1])) return [+a[0]||0, 3, +a[1], 0];
+  return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
+function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.1.0','29 ottobre 2026',[
+    'Statistiche di stagione e di carriera: in Squadra › Rosa e nella scheda di ogni giocatore trovi presenze, gol e media voto della stagione in corso e di tutta la carriera; nella scheda c\'è anche la tabella delle stagioni passate. Lega › Marcatori mostra solo i gol della stagione in corso.',
+    'Nuova sotto-scheda Lega › Albo d\'oro: per ogni stagione chiusa campione, seconda, terza, capocannoniere e miglior giovane (21 anni o meno, almeno metà delle partite giocate, media voto più alta). Nel profilo di ogni club titoli e piazzamenti arrivano dall\'albo.',
+    'Carriera del presidente: nel profilo del club compare chi lo guida, con le stagioni, i club guidati, gli scudetti e gli eventuali licenziamenti. Se cambi società la carriera viene con te.',
+    'I premi di fine stagione contano: la campione guadagna popolarità +8 e sponsor +10% per tutta la stagione dopo, la seconda +4 e +5%, la terza +2 e +3%, il club del capocannoniere popolarità +2. Valgono per tutti i club, e il preventivo della stagione nuova ne tiene già conto. Alla Scrivania trovi il riquadro «Premi della stagione».',
+    'Menu ⋯: «Esporta la partita» scarica un file con tutta la partita; «Importa una partita» la ricarica (anche su un altro computer), dopo averti mostrato club, stagione e giornata e chiesto conferma.',
+    'Partite già in corso: presenze e gol contati finora diventano quelli della carriera. Se sei alla prima stagione valgono anche per la stagione; dalla seconda in poi le statistiche della stagione ripartono da zero e lo storico delle stagioni comincia dalla prossima chiusura. L\'albo d\'oro delle stagioni già giocate ha i piazzamenti ma non capocannoniere e miglior giovane. Da questa versione i numeri delle versioni hanno quattro parti: la 0.037 era la 0.4.0.0.'
+  ]],
   ['0.037','29 ottobre 2026',[
     'Sugli schermi larghi la barra in alto, le aree e le sotto-schede stanno nella stessa colonna dei riquadri: il marchio e «Scrivania» partono dal bordo dei riquadri e il menu ⋯ finisce sul loro bordo destro. Sul telefono non cambia nulla.',
     'Arriva la beta chiusa online: con un account (email, password e soprannome) la partita si salva anche online e la ritrovi su ogni dispositivo. Nel menu ⋯ della beta puoi segnalare un problema, rileggere l\'avviso del progetto e l\'informativa privacy, uscire o cancellare l\'account.',

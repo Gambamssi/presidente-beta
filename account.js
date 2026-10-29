@@ -189,8 +189,12 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
     if(modal==='acc-del') return wrap(`<div class="neg-h"><div></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>`+delHTML());
     return _vModal();
   };
+  /* (0.4.1.0) nella beta il presidente umano si chiama come il soprannome dell'account (pubblico nel profilo del club) */
+  function presNick(){ const n=nick(); if(!n||!G||!G.prs) return; const p=G.prs.find(x=>x.u&&x.t===0); if(p&&p.n!==n) p.n=n; }
+  ACC.presNick=presNick;
   save=function(){
     if(!ACC.user || !G) return;
+    presNick();
     let s; try{ s=JSON.stringify(G); }catch(e){ return; }
     ACC.localT=new Date().toISOString();
     try{ localStorage.setItem(KEYU(), s); localStorage.setItem(KEYU()+':t', ACC.localT); }catch(e){}
@@ -278,6 +282,7 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
     else if(loc.s){ src=loc.s; push=true; }
     if(src){
       if(!loadFrom(src)){ G=null; return show('errore',{err:'La partita salvata non si riesce a leggere. Scrivi a '+BETA_MAIL+'.'}); }
+      presNick();
       ACC.mark=G.season+'/'+G.md; ACC.localT=push? loc.t : (on.aggiornata_il||new Date().toISOString());
       if(!push){ try{ localStorage.setItem(KEYU(), src); localStorage.setItem(KEYU()+':t', ACC.localT); }catch(e){} ACC.sync={ok:true, t:onT||Date.now()}; }
       ACC.screen=null; area='scrivania'; sub='home'; render(); window.scrollTo(0,0);

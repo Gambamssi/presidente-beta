@@ -9,7 +9,7 @@ let area='scrivania', sub='home', viewer=null, sheetPid=null, confirmReset=false
 const lastSub={};
 const AREAS={
   scrivania:{n:'Scrivania', subs:[['home','Scrivania']]},
-  lega:{n:'Lega', subs:[['notizie','Notizie'],['giornata','Giornata'],['classifica','Classifica'],['marcatori','Marcatori'],['arbitri','Arbitri']]},
+  lega:{n:'Lega', subs:[['notizie','Notizie'],['giornata','Giornata'],['classifica','Classifica'],['marcatori','Marcatori'],['albo','Albo d\'oro'],['arbitri','Arbitri']]},
   squadra:{n:'Squadra', subs:[['rosa','Rosa'],['allenatore','Allenatore'],['spogliatoio','Spogliatoio']]},
   mercato:{n:'Mercato', subs:[['cerca','Cerca giocatori'],['taccuino','Taccuino'],['trattative','Trattative in corso']]},
   societa:{n:'Società', subs:[['conti','Conti'],['bilancio','Bilancio'],['banca','Banca'],['strutture','Strutture']]}
@@ -30,7 +30,7 @@ let filt={r:'',age:'40',src:'all',sort:'val'};
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(G)); }catch(e){} }
 function load(){ try{ return loadFrom(localStorage.getItem(KEY)); }catch(e){} return false; }
 /* (v0.037) carica una partita da un testo JSON con le migrazioni dei vecchi salvataggi; la usano load() e gli account della beta (account.js) */
-function loadFrom(s){ try{ if(s){ G=JSON.parse(s); if(G && G.P) Object.values(G.P).forEach(migratePlayer); if(G && G.T){ ensureRefs(); if(G.rep==null) G.rep=50; if(!G.sec||!G.sec.n) G.sec={n:'Giulia'}; G.T.forEach(t=>{ finInit(t); ensureBudget(t); }); G.T.forEach(t=>{ if(t.promise && !(t.miss||[]).some(m=>m.kind==='rinforzo'&&m.st==='on')) addMission(t,{kind:'rinforzo',role:t.promise.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[t.promise.role],thr:t.promise.thr,due:t.promise.due,title:`Rinforzo per ${t.coach.n}`}); if(t.obj && t.obj.s===G.season && !(t.miss||[]).some(m=>m.kind==='obiettivo'&&m.st==='on')) addMission(t,{kind:'obiettivo',amt:t.obj.amt,lim:t.obj.lim,goal:t.obj.goal,due:14,title:`Obiettivo: ${t.obj.goal}`}); }); } return !!(G && G.T); } }catch(e){} return false; }
+function loadFrom(s){ try{ if(s){ G=JSON.parse(s); if(G && G.P) Object.values(G.P).forEach(migratePlayer); if(G && G.T){ m1Migrate(); ensureRefs(); if(G.rep==null) G.rep=50; if(!G.sec||!G.sec.n) G.sec={n:'Giulia'}; G.T.forEach(t=>{ finInit(t); ensureBudget(t); }); G.T.forEach(t=>{ if(t.promise && !(t.miss||[]).some(m=>m.kind==='rinforzo'&&m.st==='on')) addMission(t,{kind:'rinforzo',role:t.promise.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[t.promise.role],thr:t.promise.thr,due:t.promise.due,title:`Rinforzo per ${t.coach.n}`}); if(t.obj && t.obj.s===G.season && !(t.miss||[]).some(m=>m.kind==='obiettivo'&&m.st==='on')) addMission(t,{kind:'obiettivo',amt:t.obj.amt,lim:t.obj.lim,goal:t.obj.goal,due:14,title:`Obiettivo: ${t.obj.goal}`}); }); } return !!(G && G.T); } }catch(e){} return false; }
 function toast(t){ const el=$('#toast'); el.textContent=t; el.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>el.hidden=true,3200); }
 
 /* ---------- scouting: cosa vede il presidente ---------- */
@@ -70,7 +70,6 @@ function observe(pid){
 }
 
 /* ---------- mercato ---------- */
-function teamName(id){ return id==null? 'Svincolato' : G.T[id].n; }
 function findBuyer(pid){
   const p=G.P[pid]; const me=G.T[0];
   if(me.pl.length<=15){ toast('Rosa troppo corta: servono almeno 15 giocatori.'); return; }
@@ -87,7 +86,7 @@ function showCands(){ G.cands=[0,1,2].map(()=>mkCoach(8.5+rnd()*3.5)); save(); r
 function hireCoach(i){
   const t=G.T[0], c=G.cands[i], cost=coachCost(c)+120000;
   if(t.cash<cost){ toast('Servono '+kcr(cost)+' cr tra buonuscita e ingaggio.'); return; }
-  spend(t,'allenatore',cost); news(`Esonerato ${t.coach.n}. Il nuovo allenatore è ${c.n} (${c.mod}).`,'coach'); t.coach=c; G.cands=null; save(); render();
+  spend(t,'allenatore',cost); news(`Esonerato ${t.coach.n}. Il nuovo allenatore è ${c.n} (${c.mod}).`,'coach',true,0); t.coach=c; G.cands=null; save(); render();
 }
 
 /* ---------- avanzamento ---------- */
@@ -111,7 +110,8 @@ function advance(force){
 function bar(v,max=20,cls=''){ return `<span class="bar ${cls}"><span style="width:${clamp(v/max*100,0,100)}%"></span></span>`; }
 function roleTag(r){ return `<span class="role r${r}" title="${ROLE_NAME[r]}">${r}</span>`; }
 function nameBtn(p){ return `<button class="link" data-act="sheet" data-pid="${p.id}">${esc(p.fn)} ${esc(p.ln)}</button>`; }
-function avgR(p){ return p.rts.length? (p.rts.reduce((a,b)=>a+b,0)/p.rts.length).toFixed(1) : '–'; }
+/* media voto in decimi (seaStat/carStat) → testo con la virgola */
+const v10 = v=>v==null?'–':(v/10).toFixed(1).replace('.',',');
 
 /* Squadra › Allenatore: chi è, cosa sa fare, valutazione dell'esonero */
 function vAllenatore(){
@@ -135,14 +135,14 @@ function playerRows(list, mine){
     <td>${roleTag(p.r)}</td><td class="nm">${nameBtn(p)}${p.team!=null&&G.T[p.team].cap===p.id?' <span class="badge-s capb" title="Capitano">C</span>':p.team!=null&&G.T[p.team].vcap===p.id?' <span class="badge-s vcapb" title="Vicecapitano">VC</span>':''}${G.note[p.id]?' <span class="gold" title="Nel taccuino">◆</span>':''}${!mine&&G.T[0].promise&&p.r===G.T[0].promise.role?(ovrView(p)[0]>=G.T[0].promise.thr-0.05?' <span class="badge-s prm" title="Soddisfa la promessa fatta all\'allenatore">promessa ✓</span>':ovrView(p)[1]>=G.T[0].promise.thr?' <span class="badge-s prm2" title="Potrebbe soddisfare la promessa: fallo valutare">promessa ?</span>':''):''}${mine&&p.peg?' <span class="badge-s peg" title="In pegno alla banca">pegno</span>':''}${p.inj>0?` <span class="badge-s inj" title="Infortunato">✚ ${p.inj}</span>`:''}${p.sq>0?' <span class="badge-s sq" title="Squalificato">squal.</span>':''}</td><td class="num">${p.age}</td>
     ${mine?'':`<td>${p.team==null?'<span class="muted">Svincolato</span>':clubLink(p.team)}</td>`}
     <td class="num strong">${ovrTxt(p)}</td><td>${starsHTML(p)}</td>
-    ${mine?`<td class="num">${avgR(p)}</td><td title="Morale ${morLevel(p.mor)}${p.morC&&p.morC[0]?': '+esc(p.morC[0].t):''}">${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</td><td class="num">${Math.round(p.fat)}%</td><td class="num">${p.apps}</td><td class="num">${p.gl}</td><td class="num">${fmt(p.wg)}</td><td class="num">${p.ct}</td>`
+    ${mine?`<td title="Morale ${morLevel(p.mor)}${p.morC&&p.morC[0]?': '+esc(p.morC[0].t):''}">${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</td><td class="num">${Math.round(p.fat)}%</td>${(S=>`<td class="num sg">${S.a}</td><td class="num">${S.g}</td><td class="num">${v10(S.v)}</td>`)(seaStat(p))}${(C=>`<td class="num sg">${C.a}</td><td class="num">${C.g}</td>`)(carStat(p))}<td class="num sg">${fmt(p.wg)}</td><td class="num">${p.ct}</td>`
           :`<td class="num">${kcr(value(p))}</td><td class="num">${obsN(p)}/3</td>`}
   </tr>`).join('');
 }
 function vRosa(){
   const pl=teamPlayers(G.T[0]).sort((a,b)=>'PDCA'.indexOf(a.r)-'PDCA'.indexOf(b.r) || ovr(b)-ovr(a));
-  return `<section class="card"><div class="head"><p class="eyebrow">Rosa · ${pl.length} giocatori</p><p class="muted">Attributi esatti per i tuoi giocatori; il potenziale resta nascosto finché non lo fai valutare.</p></div>
-  <div class="tw"><table><thead><tr><th>R</th><th>Nome</th><th class="num">Età</th><th class="num">Val.</th><th>Potenziale</th><th class="num">Media voto</th><th>Morale</th><th class="num">Fatica</th><th class="num">Pres.</th><th class="num">Gol</th><th class="num">Stip./g</th><th class="num">Anni contr.</th></tr></thead><tbody>${playerRows(pl,true)}</tbody></table></div></section>`;
+  return `<section class="card"><div class="head"><p class="eyebrow">Rosa · ${pl.length} giocatori</p><p class="muted">Attributi esatti per i tuoi giocatori; il potenziale resta nascosto finché non lo fai valutare. Presenze, gol e media voto della stagione in corso e della carriera.</p></div>
+  <div class="tw"><table><thead><tr class="grp"><th colspan="7"></th><th colspan="3" class="sg">Stagione ${G.season}</th><th colspan="2" class="sg">Carriera</th><th colspan="2" class="sg"></th></tr><tr><th>R</th><th>Nome</th><th class="num">Età</th><th class="num">Val.</th><th>Potenziale</th><th>Morale</th><th class="num">Fatica</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num" title="Media voto della stagione">Media</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num sg">Stip./g</th><th class="num">Anni contr.</th></tr></thead><tbody>${playerRows(pl,true)}</tbody></table></div></section>`;
 }
 function vMercato(){
   let list=Object.values(G.P).filter(p=>!p.retired && p.team!==0 && (p.team!=null || G.FA.includes(p.id)));
@@ -365,9 +365,16 @@ function vSheet(){
    <p class="eyebrow">Carattere</p><p>${mine||n?esc(character(p).join(' · ')):'<span class="muted">Lo dirà l\'osservatore.</span>'}</p>
    ${mine?`<p class="eyebrow">Morale</p><p><b>${morLevel(p.mor).replace(/^./,c=>c.toUpperCase())}</b> <span class="muted">(${p.mor.toFixed(1).replace('.',',')}/20)</span> ${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</p>${p.morC&&p.morC.length?`<ul class="morc">${p.morC.slice(0,4).map(c=>`<li><span class="${c.d>0?'up':'dn'}">${c.d>0?'▲':'▼'}</span> ${esc(c.t)} <span class="muted">· G${c.md}</span></li>`).join('')}</ul>`:'<p class="muted">Nessuna novità recente.</p>'}`:''}
    <p class="eyebrow">Visto da te in campo</p><p>${s.a?`<span class="gold strong">${s.f}</span> giocate di classe su ${s.a} azioni viste, in ${s.m||0} partite.`:'<span class="muted">Non l\'hai ancora visto giocare.</span>'}</p>
-   <p class="eyebrow">Stagione</p><p>${p.apps} presenze · ${p.gl} gol · ultimi voti ${p.rts.length?p.rts.join(', '):'–'}</p>
+   ${statsHTML(p)}
    ${mine&&p.peg?'<p class="badge-s peg">In pegno alla banca: si vende solo con il suo ok, a un prezzo vicino al valore, e il ricavato rimborsa il finanziamento.</p>':''}<div class="sh-act">${action}</div></div>`;
 }
+
+/* scheda del giocatore: stagione in corso, carriera e stagioni passate (presenze e gol sono pubblici; i voti si vedono nelle pagelle) */
+function statsHTML(p){ const S=seaStat(p), C=carStat(p), H=(p.sh||[]).slice().reverse(), vt=(p.rts||[]).filter(x=>x!=null);
+  const club=c=>c==null?'<span class="muted">svincolato</span>':G.T[c]?clubLink(c):'–';
+  return `<div class="stx"><div><p class="eyebrow">Stagione ${G.season}</p><p><b>${S.a}</b> presenze · <b>${S.g}</b> gol · media voto <b>${v10(S.v)}</b></p></div><div><p class="eyebrow">Carriera</p><p><b>${C.a}</b> presenze · <b>${C.g}</b> gol · media voto <b>${v10(C.v)}</b></p></div></div>
+   <p class="muted small">Ultimi voti: ${vt.length?vt.map(x=>String(x).replace('.',',')).join(' · '):'–'}</p>
+   ${H.length?`<div class="tw"><table class="tab sht"><thead><tr><th>Stagione</th><th>Club</th><th class="num">Pres.</th><th class="num">Gol</th><th class="num">Media</th></tr></thead><tbody>${H.map(h=>`<tr class="nohov"><td>${h[0]}</td><td>${club(h[1])}</td><td class="num">${h[2]}</td><td class="num">${h[3]}</td><td class="num">${v10(h[4])}</td></tr>`).join('')}</tbody></table></div>`:''}`; }
 
 /* icone semplici delle cinque aree (tratto, colore del testo) */
 const AREA_ICON={

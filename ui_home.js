@@ -19,7 +19,8 @@ function linkClubs(txt){ const s=esc(txt), L=G.T.map(t=>[esc(t.n),t.id]).sort((a
    esonero, allontanamento dell'allenatore, quote della banca. */
 const PUB_K={match:1, market:1};
 const PUB_TXT=/penalizzazion|esclus|vince il campionato|^Licenziato:|sostituisce il presidente|^Esonerato |allontanato dall'arbitro|la banca ora ha il|diritto di veto|la banca ha la maggioranza/i;
-function isPublicNews(n){ if(!n) return false; if(PUB_K[n.k]) return true; if(n.k==='club'||n.k==='coach') return PUB_TXT.test(n.t||''); return false; }
+/* dalla 0.4.1.0 il motore scrive n.pub (e n.club) in ogni notizia; le notizie dei salvataggi vecchi si classificano ancora dal testo */
+function isPublicNews(n){ if(!n) return false; if(typeof n.pub==='boolean') return n.pub; if(PUB_K[n.k]) return true; if(n.k==='club'||n.k==='coach') return PUB_TXT.test(n.t||''); return false; }
 const pubNewsText = n=>String(n.t||'').replace(/\s*Il tuo club chiude \d+°\.?/,'');
 
 /* ---------- letture pubbliche ---------- */
@@ -37,7 +38,14 @@ function publicClub(id){ const t=G.T[id]; if(!t) return null; const st=standings
     bank:(t.own&&t.own.bank)||0,
     bud: b?{ti:b.ti, te:b.te, saldo:b.saldo, acq:b.lev.acq, ces:b.lev.ces, inv:b.lev.inv, pos:b.lev.pos, by:b.by, rev:!!b.revUsed}:null,
     hist:(f.budH||[]).map(h=>({s:h.s, pos:h.pos, objPos:h.objPos, objOk:h.objOk, prev:h.prev.saldo, act:h.act.saldo, ok:h.ok, scost:h.scost})) }; }
-function publicScorers(){ return Object.values(G.P).filter(p=>p.gl>0).sort((a,b)=>b.gl-a.gl || a.apps-b.apps).slice(0,15); }
+/* marcatori della stagione in corso (gol e presenze sono pubblici) */
+function publicScorers(){ return Object.values(G.P).filter(p=>p.ss&&p.ss[1]>0).map(p=>({p, g:p.ss[1], a:p.ss[0]})).sort((x,y)=>y.g-x.g || x.a-y.a || x.p.id-y.p.id).slice(0,15); }
+/* albo d'oro (pubblico): righe dalla più recente; i nomi dei giocatori sono nella riga, così l'albo può vivere separato dallo stato */
+function publicAlbo(){ return (G.albo||[]).slice().reverse(); }
+/* presidente umano di un club e la sua carriera pubblica (niente cassa, debiti, quote, trattative, reputazione) */
+function publicPres(id){ const pr=(G.prs||[]).find(x=>x.u&&x.t===id); if(!pr) return null;
+  return {id:pr.id, n:presName(pr), h:pr.h.map(h=>({s:h[0], c:h[1], pos:h[2], tr:h[3], ok:h[4], fired:h[5]})), cur:G.fired?null:{s:G.season, c:pr.t, pos:standings().indexOf(G.T[pr.t])+1}}; }
+const presName = pr=>pr.n||'Il presidente';
 function publicRound(){ return G.md<G.sched.length? G.sched[G.md].map(([h,a])=>({h,a})) : []; }
 
 /* ---------- la segretaria ---------- */
@@ -108,10 +116,17 @@ function secHTML(){ const it=secItems(), nm=secName();
    ${it.length?`<ul class="secl">${it.map(x=>`<li class="si ${x.lv}"><span class="si-tag">${SEC_LBL[x.lv]}</span><p>${x.txt}</p><button class="btn small ${x.lv==='todo'?'ghost':''}" ${x.act}>${x.btn}</button></li>`).join('')}</ul>`:''}</section>`; }
 
 /* ---------- Scrivania ---------- */
+/* riquadro «Premi della stagione»: dopo la fine stagione, finché non si gioca la prima giornata della nuova */
+function prizesHTML(){ const r=(G.albo||[])[G.albo?G.albo.length-1:0]; if(!r||r.s!==G.season-1||G.md>0) return '';
+  const lab={1:'Campione',2:'Seconda',3:'Terza',0:'Club del capocannoniere'};
+  const li=(r.pr||[]).map(([id,pop,sp,k])=>`<li class="${id===0?'me':''}"><span>${lab[k]}</span><span>${clubLink(id,true)}</span><b>popolarità +${pop}${sp?` · sponsor +${Math.round(sp*100)}% nella stagione ${r.s+1}`:''}</b></li>`).join('');
+  const mine=(r.pr||[]).filter(x=>x[0]===0);
+  return `<section class="card prz"><p class="eyebrow">Premi della stagione ${r.s}</p><ul class="przl">${li}</ul>
+   <p class="muted small">${r.cc?`Capocannoniere ${esc(r.cc[1])} con ${r.cc[3]} gol. `:''}${r.mg?`Miglior giovane ${esc(r.mg[1])} (media ${String(r.mg[3]/10).replace('.',',')}). `:''}${mine.length?'Il tuo club ha avuto un premio: i tifosi sono di più e gli sponsor pagano di più per tutta la stagione. Il preventivo ne tiene già conto.':'Gli aumenti degli sponsor valgono solo per la stagione che inizia, poi tornano normali.'} Tutto l'albo è in <button class="link" ${goAct('lega','albo')}>Lega › Albo d'oro</button>.</p></section>`; }
 function vScrivania(){
   const t=G.T[0], priv=G.news.filter(n=>!isPublicNews(n)).slice(0,14);
   const intro=G.season===1&&G.md===0?`<section class="card"><p class="eyebrow">Come si gioca</p><p>Sei il presidente: compri, vendi, scegli l'allenatore e investi. Formazione e tattica le decide l'allenatore. Guarda le partite (in Lega › Giornata) per notare i giovani che fanno <span class="gold">giocate di classe</span>: è così che si scoprono i talenti prima degli altri.</p></section>`:'';
-  return secHTML()+intro+reqsHTML()+missionsHTML(t,false)+
+  return secHTML()+intro+prizesHTML()+reqsHTML()+missionsHTML(t,false)+
     `<section class="card"><p class="eyebrow">Notizie dal club</p><p class="muted small">Solo quelle che restano in società. Le notizie di tutta la lega sono in Lega › Notizie.</p><ul class="news">${priv.map(n=>`<li class="k-${n.k}"><span class="md">${n.s>1?'S'+n.s+' ':''}G${n.md}</span>${esc(n.t)}</li>`).join('')||'<li class="muted">Ancora nessuna.</li>'}</ul></section>`;
 }
 
@@ -134,9 +149,20 @@ function vGiornata(){
   return v+res+next+`<p class="muted small center"><button class="link" data-act="club" data-id="0">Calendario e risultati del tuo club ›</button> · il calendario di ogni squadra è nel suo profilo.</p>`;
 }
 function vMarcatori(){ const L=publicScorers();
-  return `<section class="card"><div class="head"><p class="eyebrow">Marcatori</p><p class="muted">I primi 15 per gol segnati${G.season>1?' dall\'inizio della partita: il conteggio dei gol non si azzera ancora a fine stagione':''}.</p></div>
-   ${L.length?`<div class="tw"><table class="tab"><thead><tr><th class="num">#</th><th>R</th><th>Giocatore</th><th>Squadra</th><th class="num">Gol</th><th class="num">Pres.</th></tr></thead><tbody>${L.map((p,i)=>`<tr data-act="sheet" data-pid="${p.id}" class="${p.team===0?'me':''}"><td class="num">${i+1}</td><td>${roleTag(p.r)}</td><td class="nm">${nameBtn(p)}</td><td>${p.team==null?'<span class="muted">Svincolato</span>':clubLink(p.team)}</td><td class="num strong">${p.gl}</td><td class="num">${p.apps}</td></tr>`).join('')}</tbody></table></div>`
+  return `<section class="card"><div class="head"><p class="eyebrow">Marcatori · stagione ${G.season}</p><p class="muted">I primi 15 per gol segnati in questa stagione. I capocannonieri delle stagioni passate sono nell'Albo d'oro.</p></div>
+   ${L.length?`<div class="tw"><table class="tab"><thead><tr><th class="num">#</th><th>R</th><th>Giocatore</th><th>Squadra</th><th class="num">Gol</th><th class="num">Pres.</th></tr></thead><tbody>${L.map(({p,g,a},i)=>`<tr data-act="sheet" data-pid="${p.id}" class="${p.team===0?'me':''}"><td class="num">${i+1}</td><td>${roleTag(p.r)}</td><td class="nm">${nameBtn(p)}</td><td>${p.team==null?'<span class="muted">Svincolato</span>':clubLink(p.team)}</td><td class="num strong">${g}</td><td class="num">${a}</td></tr>`).join('')}</tbody></table></div>`
      :'<p class="empty">Ancora nessun gol: la classifica parte con la prima giornata.</p>'}</section>`; }
+
+/* Lega › Albo d'oro: una riga per stagione chiusa */
+function alboPl(x,txt){ const p=x&&G.P[x[0]]; if(!x) return '<span class="muted">—</span>';
+  return `${p?`<button class="link" data-act="sheet" data-pid="${p.id}">${esc(x[1])}</button>`:esc(x[1])}${G.T[x[2]]?` <span class="muted small">${clubLink(x[2])}</span>`:''}<div class="muted small">${txt}</div>`; }
+function vAlbo(){ const A=publicAlbo();
+  const rows=A.map(r=>{ const ex=[...(r.rt||[]).map(id=>clubLink(id)+' <span class="muted small">retrocessa</span>'),...(r.es||[]).map(id=>clubLink(id)+' <span class="muted small">esclusa</span>')];
+    return `<tr class="nohov"><td class="num strong">${r.s}</td><td class="strong">🏆 ${clubLink(r.r[0],true)}</td><td>${r.r[1]!=null?clubLink(r.r[1],true):'—'}</td><td>${r.r[2]!=null?clubLink(r.r[2],true):'—'}</td>
+      <td>${alboPl(r.cc, r.cc?r.cc[3]+' gol':'')}</td><td>${alboPl(r.mg, r.mg?'media '+String(r.mg[3]/10).replace('.',',')+' in '+r.mg[4]+' partite':'')}</td><td>${ex.length?ex.join('<br>'):'<span class="muted">—</span>'}</td></tr>`; }).join('');
+  return `<section class="card"><div class="head"><p class="eyebrow">Albo d'oro</p><p class="muted">Campione, seconda e terza di ogni stagione, capocannoniere e miglior giovane (21 anni o meno, almeno metà delle partite giocate, media voto più alta). Le prime tre e il club del capocannoniere guadagnano popolarità; le prime tre anche sponsor più ricchi per la stagione dopo.</p></div>
+   ${A.length?`<div class="tw"><table class="tab albo"><thead><tr><th class="num">Stagione</th><th>Campione</th><th>Seconda</th><th>Terza</th><th>Capocannoniere</th><th>Miglior giovane</th><th>Retrocesse ed escluse</th></tr></thead><tbody>${rows}</tbody></table></div>${A.some(r=>r.rc)?'<p class="muted small">Le stagioni giocate prima della versione 0.4.1.0 non hanno capocannoniere e miglior giovane: i dati non c\'erano ancora.</p>':''}`
+     :`<p class="empty">Nessuna stagione chiusa finora: la prima riga arriva a fine stagione ${G.season}.</p>`}</section>`; }
 
 /* ---------- Mercato › Trattative in corso ---------- */
 function openDeals(){ return (G.req||[]).filter(q=>q.team===0 && q.st==='open' && (q.kind==='acquisto'||q.kind==='offerta')); }
@@ -160,19 +186,26 @@ function openClub(id){ if(id==null||!G.T[id]) return;
   clubView=id; sheetPid=null; negId=null; modal=null; render(); window.scrollTo(0,0); }
 function closeClub(){ const b=clubBack; clubView=null; clubBack=null; render(); if(b) window.scrollTo(0,b.y); }
 function vProfile(id){ const C=publicClub(id); if(!C){ clubView=null; return ''; }
-  const S=publicSquad(id), F=publicFixtures(id), wins=C.hist.filter(h=>h.pos===1);
+  const S=publicSquad(id), F=publicFixtures(id), A=publicAlbo(), PR=publicPres(id);
+  /* palmarès e piazzamenti dall'albo d'oro; i consuntivi (pubblici) da f.budH, quando ci sono per quella stagione */
+  const places=A.map(r=>({s:r.s, pos:r.r.indexOf(id)+1, ex:(r.es||[]).includes(id), cc:r.cc&&r.cc[2]===id?r.cc:null})).filter(x=>x.pos>0);
+  C.hist.forEach(h=>{ if(!places.some(x=>x.s===h.s)) places.push({s:h.s, pos:h.pos, ex:false, cc:null}); }); places.sort((a,b)=>b.s-a.s);
+  const wins=places.filter(h=>h.pos===1&&!h.ex), podi=places.filter(h=>h.pos>1&&h.pos<=3&&!h.ex).length;
   const fx=F.map(x=>{ const me=x.h===id, o=me?x.a:x.h, r=x.r, w=r&&(me?r.gh>r.ga:r.ga>r.gh), d=r&&r.gh===r.ga;
     return `<li class="${x.md===G.md+1&&G.md<G.sched.length?'now':''}"><span class="md">G${x.md}</span><span>${me?'':'@ '}${clubLink(o)}</span><b class="${r?(w?'good':d?'':'bad'):''}">${r?r.gh+' – '+r.ga:''}</b></li>`; }).join('');
   const bud=C.bud?`<table class="bil"><tbody><tr><td>Entrate previste</td><td class="num">${kcr(C.bud.ti)}</td></tr><tr><td>Uscite previste</td><td class="num">${kcr(C.bud.te)}</td></tr><tr class="tot"><td>Saldo previsto</td><td class="num">${signK(C.bud.saldo)}</td></tr><tr><td>Budget per gli acquisti</td><td class="num">${kcr(C.bud.acq)}</td></tr><tr><td>Cessioni previste</td><td class="num">${kcr(C.bud.ces)}</td></tr><tr><td>Investimenti nelle strutture</td><td class="num">${kcr(C.bud.inv)}</td></tr><tr><td>Obiettivo in classifica</td><td class="num">${C.bud.pos}°</td></tr></tbody></table><p class="muted small">${C.bud.by==='ufficio'?'Redatto d\'ufficio':'Convalidato dal presidente'}${C.bud.rev?', aggiornato alla revisione':''}.</p>`
     : '<p class="empty">Il preventivo di questa stagione non è ancora stato presentato.</p>';
-  const hist=C.hist.length?`<div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th class="num">Posto</th><th class="num">Saldo previsto</th><th class="num">Saldo reale</th><th>Consuntivo</th></tr></thead><tbody>${C.hist.map(h=>`<tr class="nohov"><td>${h.s}</td><td class="num strong">${h.pos}°${h.pos===1?' 🏆':''}</td><td class="num">${signK(h.prev)}</td><td class="num">${signK(h.act)}</td><td class="${h.ok?'good':'bad'} strong">${h.ok?'in tolleranza':'fuori tolleranza'}</td></tr>`).join('')}</tbody></table></div>`
+  const cons=s=>C.hist.find(h=>h.s===s);
+  const hist=places.length?`<div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th class="num">Posto</th><th class="num">Saldo previsto</th><th class="num">Saldo reale</th><th>Consuntivo</th></tr></thead><tbody>${places.map(x=>{ const h=cons(x.s);
+      return `<tr class="nohov"><td>${x.s}</td><td class="num strong">${x.ex?'<span class="bad">esclusa</span>':x.pos+'°'}${x.pos===1&&!x.ex?' 🏆':''}${x.cc?` <span class="muted small" title="Capocannoniere">⚽ ${esc(x.cc[1])}</span>`:''}</td>${h?`<td class="num">${signK(h.prev)}</td><td class="num">${signK(h.act)}</td><td class="${h.ok?'good':'bad'} strong">${h.ok?'in tolleranza':'fuori tolleranza'}</td>`:'<td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>'}</tr>`; }).join('')}</tbody></table></div>`
     : '<p class="empty">Nessuna stagione chiusa finora.</p>';
   return `<div class="prof-back"><button class="btn ghost small" data-act="back">‹ Indietro</button></div>
   <section class="card prof-h" style="--c:${C.c}"><div><p class="eyebrow">Profilo del club${id===0?' · così vedono il tuo club le altre società':''}</p><h2><span class="chip big" style="--c:${C.c}"></span>${esc(C.n)}</h2>
     <p class="muted">${C.excl?'<b class="bad">Escluso dal campionato</b> · ':''}${C.pos}° in classifica · ${C.pts} punti${C.pen?` <b class="bad">(−${C.pen} di penalizzazione)</b>`:''}${C.penNext?` · −${C.penNext} punti già maturati per la prossima stagione`:''} · ${C.tab.v} vinte, ${C.tab.n} pareggiate, ${C.tab.p} perse · gol ${C.tab.gf}–${C.tab.gs}</p>
     ${C.form.length?`<p>${C.form.map(f=>`<span class="fm f${f}">${f}</span>`).join('')}</p>`:''}</div>
-    ${wins.length?`<p class="pal" title="Campionati vinti">🏆 ${wins.length===1?'Campione nella stagione '+wins[0].s:wins.length+' scudetti (stagioni '+wins.map(h=>h.s).join(', ')+')'}</p>`:''}</section>
+    ${wins.length||podi?`<p class="pal" title="Dall'albo d'oro">${wins.length?`🏆 ${wins.length===1?'Campione nella stagione '+wins[0].s:wins.length+' scudetti (stagioni '+wins.slice().reverse().map(h=>h.s).join(', ')+')'}`:''}${podi?`${wins.length?' · ':''}${podi===1?'un altro podio':podi+' altri podi'}`:''}</p>`:''}</section>
   ${id===0?'<p class="muted small center">Così vedono il tuo club le altre società: niente cassa, stipendi, debiti, morale o trattative; i giocatori con le valutazioni che conoscono dall\'esterno.</p>':''}
+  ${presHTML(id,PR)}
   <section class="grid3s">
    <div class="card"><p class="eyebrow">Allenatore</p><p class="big name">${esc(C.coach.n)}</p><p class="muted">${C.coach.age} anni · modulo preferito ${C.coach.mod}</p></div>
    <div class="card"><p class="eyebrow">Strutture</p><ul class="chk">${C.fac.map(x=>`<li><span>${x.n}</span><span></span><b>liv. ${x.l}/5</b></li>`).join('')}</ul></div>
@@ -187,16 +220,31 @@ function vProfile(id){ const C=publicClub(id); if(!C){ clubView=null; return '';
   <section class="card"><p class="eyebrow">Palmarès e stagioni passate</p>${hist}</section>`;
 }
 
+/* riquadro «Presidente» nel profilo: carriera pubblica del presidente umano; i club del computer non hanno un presidente con nome */
+function presHTML(id,PR){
+  if(!PR){ const n=(G.T[id]&&G.T[id].presN)||0; return `<section class="card pres"><p class="eyebrow">Presidente</p><p class="muted">Club guidato da un presidente del computer${n?`: la banca l'ha sostituito ${n===1?'una volta':n+' volte'}`:''}.</p></section>`; }
+  const H=PR.h.slice().reverse(), cur=PR.cur, clubs=[...new Set(PR.h.map(h=>h.c).concat(cur?[cur.c]:[]))], tr=PR.h.reduce((a,h)=>a+h.tr,0), fi=PR.h.filter(h=>h.fired).length, ns=new Set(PR.h.map(h=>h.s).concat(cur?[cur.s]:[])).size;
+  const cn=c=>G.T[c]?clubLink(c):'–';
+  return `<section class="card pres"><div class="head"><p class="eyebrow">Presidente</p><p class="big name">${esc(PR.n)}</p>
+    <p class="muted">${ns===1?'Una stagione':ns+' stagioni'}${cur&&!PR.h.some(h=>h.s===cur.s&&h.c===cur.c)?' (compresa quella in corso)':''} · ${clubs.length===1?'un club guidato':clubs.length+' club guidati'} · ${tr?(tr===1?'uno scudetto':tr+' scudetti'):'nessuno scudetto'} · ${fi?(fi===1?'licenziato una volta':'licenziato '+fi+' volte'):'mai licenziato'}</p></div>
+    ${H.length||cur?`<div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th>Club</th><th class="num">Posto</th><th>Trofei</th><th>Consuntivo</th><th>Come è finita</th></tr></thead><tbody>${cur?`<tr class="nohov"><td>${cur.s}</td><td>${cn(cur.c)}</td><td class="num">${cur.pos}° <span class="muted small">oggi</span></td><td>—</td><td class="muted">—</td><td class="muted">in corso</td></tr>`:''}${H.map(h=>`<tr class="nohov"><td>${h.s}</td><td>${cn(h.c)}</td><td class="num strong">${h.pos?h.pos+'°':'—'}</td><td>${h.tr?'🏆 Scudetto':'—'}</td><td class="${h.ok==null?'muted':h.ok?'good':'bad'}">${h.ok==null?'—':h.ok?'in tolleranza':'fuori tolleranza'}</td><td class="${h.fired?'bad':''}">${h.fired?(h.fired>14?'licenziato a fine stagione':'licenziato alla giornata '+h.fired):'fine stagione'}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`; }
+
 /* ---------- finestre: menu ⋯, novità, nome della segretaria, avviso prima di giocare ---------- */
 function vModal(){ const nm=secName();
   let h='';
   if(modal==='menu') h=`<div class="neg-h"><div><p class="eyebrow">Presidente · v${VERSION}</p><h2>Menu</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
-    <div class="menu"><button class="btn ghost" data-act="novita">Novità della versione</button><button class="btn ghost" data-act="secname">Cambia nome della segretaria</button>
+    <div class="menu"><button class="btn ghost" data-act="novita">Novità della versione</button><button class="btn ghost" data-act="secname">Cambia nome della segretaria</button><button class="btn ghost" data-act="expg">Esporta la partita</button><button class="btn ghost" data-act="impg">Importa una partita</button><input type="file" id="imp-file" accept=".json,application/json" hidden>
     ${confirmReset?`<div class="reset"><span>Ricominciare cancella questa partita.</span><button class="btn danger small" data-act="reset2">Sì, ricomincia</button><button class="btn ghost small" data-act="reset0">Annulla</button></div>`:`<button class="btn ghost danger-t" data-act="reset1">Ricomincia da capo</button>`}</div>`;
   else if(modal==='novita') h=`<div class="neg-h"><div><p class="eyebrow">Novità · ${esc(CHANGELOG[0][1])}</p><h2>Versione ${VERSION}</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
     ${CHANGELOG.slice(0,1).map(([v,d,l])=>`<ul class="chg">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')}<div class="row"><button class="btn" data-act="mclose">Chiudi</button></div>`;
   else if(modal==='secname') h=`<div class="neg-h"><div><p class="eyebrow">Segreteria</p><h2>Nome della segretaria</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
     <form id="sec-form" class="secf"><label for="sec-new">Come si chiama?</label><input id="sec-new" maxlength="20" value="${esc(nm)}" autocomplete="off"><div class="row"><button class="btn" type="submit">Salva</button><button class="btn ghost" type="button" data-act="mclose">Annulla</button></div></form>`;
+  else if(modal==='import'){ const I=IMP||{err:'Nessun file scelto.'}, beta=typeof ACC!=='undefined'&&ACC.on;
+    h=`<div class="neg-h"><div><p class="eyebrow">Menu</p><h2>Importa una partita</h2></div><button class="x" data-act="impno" aria-label="Chiudi">×</button></div>
+    ${I.err?`<p class="bad" role="alert">${esc(I.err)}</p><div class="row"><button class="btn" data-act="impno">Chiudi</button></div>`
+      :`<p>Nel file c'è questa partita:</p><ul class="chk imp"><li><span>Club</span><span></span><b>${esc(I.club)}</b></li><li><span>Stagione</span><span></span><b>${I.s}</b></li><li><span>Giornata</span><span></span><b>${I.md}/14</b></li>${I.ver?`<li><span>Versione</span><span></span><b>${esc(I.ver)}</b></li>`:''}${I.data?`<li><span>Esportata il</span><span></span><b>${esc(new Date(I.data).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}))}</b></li>`:''}</ul>
+       <p class="warn-t">Se la carichi, sostituisce la partita di adesso${G?` (${esc(G.T[0].n)}, stagione ${G.season}, giornata ${G.md})`:''}${beta?', anche la copia salvata online nel tuo account':''}. Non si può annullare: se vuoi tenerla, esportala prima.</p>
+       <div class="row"><button class="btn danger" data-act="impok">Sì, carica questa partita</button><button class="btn ghost" data-act="impno">Annulla</button></div>`}`; }
   else if(modal==='secwarn'){ const u=secItems().filter(x=>x.lv==='urg');
     h=`<div class="sec-h"><span class="sec-av" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span><div><p class="eyebrow">${esc(nm)} · prima di giocare</p><p class="sec-say">Presidente, ${u.length===1?'c\'è ancora una cosa urgente':'ci sono ancora '+numIt(u.length)+' cose urgenti'}:</p></div></div>
     <ul class="secw">${u.map(x=>`<li>${esc(x.short)}</li>`).join('')}</ul>
@@ -204,6 +252,28 @@ function vModal(){ const nm=secName();
   else return '';
   return `<div class="modal" id="modal-bg" role="dialog" aria-modal="true"><div class="neg-in modal-in">${h}</div></div>`;
 }
+
+/* ---------- esporta e importa la partita (0.4.1.0) ----------
+   Il file contiene {presidente:1, versione, data, G}: lo stato G com'è, con la versione e la data dell'esportazione.
+   L'importazione controlla il file, mostra club, stagione e giornata, chiede conferma e passa dalle migrazioni di loadFrom(). */
+let IMP=null;
+function exportName(){ const c=String(G.T[0].n||'club').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'club'; return `presidente-${c}-s${G.season}g${G.md}.json`; }
+function exportGame(){ const data={presidente:1, versione:VERSION, data:new Date().toISOString(), G};
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'})); a.download=exportName();
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast('Partita esportata nel file '+a.download+'.'); }
+function readImport(txt){ let x; try{ x=JSON.parse(txt); }catch(e){ return {err:'Il file non è una partita di Presidente: non si riesce a leggere.'}; }
+  const wrap=!!(x&&x.presidente&&x.G), g=wrap?x.G:x, ver=wrap?String(x.versione||''):'';
+  if(!g||typeof g!=='object'||!Array.isArray(g.T)||g.T.length<2||!g.P||typeof g.P!=='object'||!Array.isArray(g.sched)||typeof g.season!=='number'||typeof g.md!=='number'||!g.T[0]||!g.T[0].n) return {err:'Il file non contiene una partita di Presidente valida.'};
+  if(ver && verCmp(ver,VERSION)>0) return {err:`La partita è stata salvata con la versione ${ver}, più nuova di questa (${VERSION}): ricarica la pagina per avere l'ultima versione e riprova.`};
+  return {s:g.season, md:g.md, club:g.T[0].n, ver, data:wrap?x.data:null, txt:JSON.stringify(g)}; }
+function importGame(){ const I=IMP; if(!I||I.err) return;
+  try{ stopViewer(); }catch(e){} const old=G;
+  if(!loadFrom(I.txt)){ G=old; IMP={err:'La partita del file non si riesce a caricare.'}; render(); return; }
+  IMP=null; modal=null; viewer=null; clubView=null; clubBack=null; sheetPid=null; negId=null; bnegOn=false; confirmReset=false; secWarnFor=null; area='scrivania'; sub='home';
+  save(); if(typeof ACC!=='undefined'&&ACC.on&&ACC.upload) ACC.upload();
+  render(); window.scrollTo(0,0); toast(`Partita caricata: ${G.T[0].n}, stagione ${G.season}, giornata ${G.md}.`); }
+document.addEventListener('change', e=>{ if(e.target.id!=='imp-file') return; const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ IMP=readImport(String(rd.result||'')); modal='import'; render(); }; rd.onerror=()=>{ IMP={err:'Il file non si riesce a leggere.'}; modal='import'; render(); }; rd.readAsText(f); });
 
 /* ---------- eventi ---------- */
 document.addEventListener('click', e=>{
@@ -215,6 +285,10 @@ document.addEventListener('click', e=>{
     case 'menu': modal='menu'; confirmReset=false; render(); break;
     case 'mclose': modal=null; confirmReset=false; render(); break;
     case 'novita': modal='novita'; render(); break;
+    case 'expg': exportGame(); break;
+    case 'impg': { const i=$('#imp-file'); if(i){ i.value=''; i.click(); } break; }
+    case 'impok': importGame(); break;
+    case 'impno': IMP=null; modal=null; render(); break;
     case 'secname': modal='secname'; render(); { const i=$('#sec-new'); if(i){ i.focus(); i.select(); } } break;
     case 'secplay': modal=null; render(); advance(true); break;
     case 'secdesk': go('scrivania'); break;
@@ -226,4 +300,4 @@ document.addEventListener('click', e=>{
 document.addEventListener('submit', e=>{ if(e.target.id!=='sec-form'||!G) return;
   const v=($('#sec-new').value||'').trim().slice(0,20); G.sec={n:v||'Giulia'}; save(); modal=null; render(); toast('D\'ora in poi la segretaria si chiama '+secName()+'.'); });
 
-Object.assign(VIEWS,{'scrivania/home':vScrivania,'lega/notizie':vNotizie,'lega/giornata':vGiornata,'lega/marcatori':vMarcatori,'mercato/trattative':vTrattative});
+Object.assign(VIEWS,{'scrivania/home':vScrivania,'lega/notizie':vNotizie,'lega/giornata':vGiornata,'lega/marcatori':vMarcatori,'lega/albo':vAlbo,'mercato/trattative':vTrattative});

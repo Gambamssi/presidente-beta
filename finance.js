@@ -63,13 +63,13 @@ function createLoan(t,amt,n,apr,peg,pids){ const f=finInit(t); f.lid=(f.lid||0)+
   l.pids.forEach(id=>{ if(G.P[id]) G.P[id].peg=l.id; });
   f.loans.push(l); earn(t,'finanziamenti',amt);
   f.hist.unshift({s:G.season,md:G.md,t:`Finanziamento di ${kcrE(amt)} al ${fmtV(apr)}% in ${n} rate da ${fmtK(l.rate)}${l.peg!=='none'?', '+PEG_TXT[l.peg]:''}`});
-  if(t.id===0) news(`La banca concede ${kcrE(amt)} al ${fmtV(apr)}%: ${n} rate da ${fmtK(l.rate)} cr${l.peg!=='none'?', '+PEG_TXT[l.peg]:''}.`,'club');
+  if(t.id===0) news(`La banca concede ${kcrE(amt)} al ${fmtV(apr)}%: ${n} rate da ${fmtK(l.rate)} cr${l.peg!=='none'?', '+PEG_TXT[l.peg]:''}.`,'club',false,t.id);
   return l; }
 function freeLoan(t,l){ (l.pids||[]).forEach(id=>{ const p=G.P[id]; if(p&&p.peg===l.id) p.peg=null; }); if(t.facPeg) for(const k of Object.keys(t.facPeg)) if(t.facPeg[k]===l.id) delete t.facPeg[k]; }
 function repayLoan(t,id){ const f=finInit(t), l=f.loans.find(x=>x.id===id); if(!l) return 'Finanziamento non trovato.';
   if(t.cash<l.pr) return `Servono ${kcrE(l.pr)} in cassa per estinguerlo.`;
   spend(t,'rimborso anticipato',l.pr); freeLoan(t,l); f.loans=f.loans.filter(x=>x!==l);
-  f.hist.unshift({s:G.season,md:G.md,t:`Estinto in anticipo il finanziamento di ${kcrE(l.amt)} (residuo ${kcrE(l.pr)})`}); if(t.id===0){ repAdd(1,'finanziamento estinto in anticipo'); news(`Finanziamento estinto: versati ${kcrE(l.pr)} alla banca.`,'club'); } return null; }
+  f.hist.unshift({s:G.season,md:G.md,t:`Estinto in anticipo il finanziamento di ${kcrE(l.amt)} (residuo ${kcrE(l.pr)})`}); if(t.id===0){ repAdd(1,'finanziamento estinto in anticipo'); news(`Finanziamento estinto: versati ${kcrE(l.pr)} alla banca.`,'club',false,t.id); } return null; }
 /* rate della giornata: si pagano dopo gli stipendi; quello che manca diventa insoluto (con la mora) */
 function bankRound(t){ const f=finInit(t);
   if(f.ins>0){ f.ins=Math.round(f.ins*1.01); const x=Math.max(0,Math.min(f.ins,t.cash)); if(x>0){ spend(t,'rate finanziamenti',x); f.ins-=x; } }
@@ -77,7 +77,7 @@ function bankRound(t){ const f=finInit(t);
   const x=Math.max(0,Math.min(due,t.cash)); if(x>0) spend(t,'rate finanziamenti',x);
   if(due-x>0.5) f.ins+=Math.round(due-x);
   f.loans.filter(l=>l.left<=0).forEach(l=>freeLoan(t,l)); f.loans=f.loans.filter(l=>l.left>0);
-  if(f.ins>0.5){ f.insN++; if(t.id===0) news(f.insN>=3?`Rate non pagate da tre giornate: la banca escute il credito.`:`Cassa vuota: la banca non ha ricevuto tutta la rata (insoluto ${kcrE(f.ins)}). Alla terza giornata di fila il debito diventa quote della banca.`,'club'); }
+  if(f.ins>0.5){ f.insN++; if(t.id===0) news(f.insN>=3?`Rate non pagate da tre giornate: la banca escute il credito.`:`Cassa vuota: la banca non ha ricevuto tutta la rata (insoluto ${kcrE(f.ins)}). Alla terza giornata di fila il debito diventa quote della banca.`,'club',false,t.id); }
   else { f.ins=0; f.insN=0; }
   if(f.insN>=3) escussione(t); }
 /* la banca escute: gli insoluti (e, alla seconda volta, tutto il debito residuo) diventano quote della società */
@@ -95,24 +95,24 @@ function seizePledge(t,l){ const sold=[];
     else { p.team=null; p.abroad=true; sold.push(`${p.ln} (estero)`); }
     l.pr=Math.max(0,l.pr-amt); }
   l.pids=[]; ensureCaptains(t,t.id!==0);
-  if(sold.length){ finInit(t).hist.unshift({s:G.season,md:G.md,t:`La banca escute il pegno e vende ${sold.join(', ')}`}); news(`${t.n}: la banca escute il pegno e vende ${sold.join(', ')} all'80% del valore.`, t.id===0?'club':'market'); } }
+  if(sold.length){ finInit(t).hist.unshift({s:G.season,md:G.md,t:`La banca escute il pegno e vende ${sold.join(', ')}`}); news(`${t.n}: la banca escute il pegno e vende ${sold.join(', ')} all'80% del valore.`, t.id===0?'club':'market',true,t.id); } }
 function convertDebt(t,D,V0,why){ if(D<=0) return; const old=t.own.bank, V=Math.max(V0,clubAssets(t)*0.15,1), q=old/100;
   t.own.bank=Math.min(95,Math.round((q*V+D)/(V+D)*1000)/10);
   const f=finInit(t); f.hist.unshift({s:G.season,md:G.md,t:`Debito di ${kcrE(D)} convertito in quote: la banca passa dal ${fmtV(old)}% al ${fmtV(t.own.bank)}%`});
-  news(`${t.n}: ${why} (${kcrE(D)}). La banca ora ha il ${fmtV(t.own.bank)}% della società.`, t.id===0?'club':'match');
+  news(`${t.n}: ${why} (${kcrE(D)}). La banca ora ha il ${fmtV(t.own.bank)}% della società.`, t.id===0?'club':'match',true,t.id);
   if(t.id===0) repAdd(-5,'debito convertito in quote della banca');
   sharesChanged(t,old); }
 function sharesChanged(t,old){ const b=t.own.bank;
-  if(old<25 && b>=25) news(`${t.n}: con il ${fmtV(b)}% la banca ha il diritto di veto sul preventivo e sulle spese fuori budget.`, t.id===0?'club':'match');
-  if(old<51 && b>=51){ news(`${t.n}: la banca ha la maggioranza (${fmtV(b)}%). Approverà solo preventivi che riducono il debito.`, t.id===0?'club':'match'); issueUltimatum(t,'la banca ha preso la maggioranza della società'); }
-  if(old>=51 && b<51 && t.ult && t.ult.st==='on'){ t.ult.st='off'; if(t.id===0) news('La banca scende sotto il 51%: l\'ultimatum decade.','club'); } }
+  if(old<25 && b>=25) news(`${t.n}: con il ${fmtV(b)}% la banca ha il diritto di veto sul preventivo e sulle spese fuori budget.`, t.id===0?'club':'match',true,t.id);
+  if(old<51 && b>=51){ news(`${t.n}: la banca ha la maggioranza (${fmtV(b)}%). Approverà solo preventivi che riducono il debito.`, t.id===0?'club':'match',true,t.id); issueUltimatum(t,'la banca ha preso la maggioranza della società'); }
+  if(old>=51 && b<51 && t.ult && t.ult.st==='on'){ t.ult.st='off'; if(t.id===0) news('La banca scende sotto il 51%: l\'ultimatum decade.','club',true,t.id); } }
 /* il ricavato di un giocatore in pegno va prima a ridurre il finanziamento che garantisce */
 function bankOkSale(t,p,amt){ if(!p.peg) return null; const f=finInit(t), l=f.loans.find(x=>x.id===p.peg); if(!l){ p.peg=null; return null; }
   return amt>=value(p)*0.9 ? null : `${p.ln} è in pegno alla banca: dà l'ok solo a un prezzo vicino al valore (almeno ${kcrE(Math.ceil(value(p)*0.9/5000)*5000)}).`; }
 function onSold(t,p,amt){ if(!p.peg) return; const f=finInit(t), l=f.loans.find(x=>x.id===p.peg); p.peg=null; if(!l) return;
   l.pids=l.pids.filter(id=>id!==p.id); const x=Math.min(l.pr,amt,Math.max(0,t.cash)); if(x>0){ spend(t,'rimborso anticipato',x); l.pr-=x; }
   if(l.pr<1){ freeLoan(t,l); f.loans=f.loans.filter(z=>z!==l); } else l.rate=Math.round(annuity(l.pr,l.left,l.apr));
-  f.hist.unshift({s:G.season,md:G.md,t:`${p.ln} era in pegno: ${kcrE(x)} della cessione vanno alla banca`}); if(t.id===0) news(`${p.fn} ${p.ln} era in pegno: ${kcrE(x)} della cessione rimborsano il finanziamento.`,'club'); }
+  f.hist.unshift({s:G.season,md:G.md,t:`${p.ln} era in pegno: ${kcrE(x)} della cessione vanno alla banca`}); if(t.id===0) news(`${p.fn} ${p.ln} era in pegno: ${kcrE(x)} della cessione rimborsano il finanziamento.`,'club',false,t.id); }
 function pledgeSweep(t){ const f=finInit(t); for(const l of f.loans){ l.pids=(l.pids||[]).filter(id=>{ const p=G.P[id]; const ok=p&&p.team===t.id&&!p.retired; if(!ok&&p&&p.peg===l.id) p.peg=null; return ok; }); } }
 
 /* ---------- strutture: ampliamenti con l'ok della banca se in pegno o se ha il veto ---------- */
@@ -123,7 +123,7 @@ function buildBlock(t,k){ const l=facLevel(t,k); if(l>=5) return 'Livello massim
   if(t.own.bank>=25 && f.bud && f.bud.s===G.season){ const left=f.bud.lev.inv*1.1+10000-(f.sea.exp.strutture||0); if(c>left) return `Veto della banca (${fmtV(t.own.bank)}%): l'ampliamento non è nel preventivo (restano ${kcrE(Math.max(0,left))} per le strutture).`; }
   return null; }
 function startBuild(t,k){ const b=buildBlock(t,k); if(b) return b; const l=facLevel(t,k), c=FACS[k].cost(l);
-  spend(t,'strutture',c); t.build={k,left:FACS[k].dur}; if(t.id===0) news(`Lavori avviati: ${FACS[k].n} al livello ${l+1}, pronti in ${FACS[k].dur} giornate.`,'club'); return null; }
+  spend(t,'strutture',c); t.build={k,left:FACS[k].dur}; if(t.id===0) news(`Lavori avviati: ${FACS[k].n} al livello ${l+1}, pronti in ${FACS[k].dur} giornate.`,'club',false,t.id); return null; }
 function buyBlock(t,amt){ if(!(t.own&&t.own.bank>=25)) return null; const f=finInit(t), b=f.bud; if(!b||b.s!==G.season) return null;
   const left=b.lev.acq*1.1+10000-(f.sea.exp.acquisti||0); return amt>left ? `Veto della banca (${fmtV(t.own.bank)}%): l'acquisto supera il budget del preventivo (restano ${kcrE(Math.max(0,left))}).` : null; }
 
@@ -213,12 +213,12 @@ function ensureBudget(t,force){ const f=finInit(t); if(f.cash0s!==G.season && G.
 /* revisione a metà stagione, dopo la 7ª giornata */
 function budReview(t){ const f=finInit(t), b=f.bud; if(!b||b.s!==G.season) return; const P=budProject(t,b.lev), sc=(b.saldo-P.saldo)/Math.max(1,b.te);
   b.rev={md:G.md, scost:sc, ok:sc<=REV_TOL, saldo:P.saldo};
-  if(t.id===0){ news(sc<=REV_TOL?`Revisione di metà stagione: i conti sono in linea con il preventivo${sc<0?' (meglio del previsto)':''}.`:`Revisione di metà stagione: saldo previsto ${kcrE(P.saldo)} contro ${kcrE(b.saldo)} del preventivo (scostamento ${Math.round(sc*100)}%, tolleranza ${Math.round(REV_TOL*100)}%). Puoi aggiornare il preventivo una volta, fino alla 9ª giornata.`,'club'); if(sc>REV_TOL) repAdd(-2,'revisione di metà stagione fuori dal preventivo'); }
+  if(t.id===0){ news(sc<=REV_TOL?`Revisione di metà stagione: i conti sono in linea con il preventivo${sc<0?' (meglio del previsto)':''}.`:`Revisione di metà stagione: saldo previsto ${kcrE(P.saldo)} contro ${kcrE(b.saldo)} del preventivo (scostamento ${Math.round(sc*100)}%, tolleranza ${Math.round(REV_TOL*100)}%). Puoi aggiornare il preventivo una volta, fino alla 9ª giornata.`,'club',false,t.id); if(sc>REV_TOL) repAdd(-2,'revisione di metà stagione fuori dal preventivo'); }
   if(sc>REV_TOL && t.own.bank>=51) issueUltimatum(t,'la revisione di metà stagione è fuori dal preventivo'); }
 /* variazione di bilancio decisa dal presidente del computer (lavori o acquisti non previsti) */
 function budVary(t,line,amt){ const b=finInit(t).bud; if(!b||b.s!==G.season||t.id===0) return; const key=line==='strutture'?'inv':'acq'; b.lev[key]+=amt; b.exp[line]=(b.exp[line]||0)+amt; b.te+=amt; b.saldo-=amt; b.cashEnd-=amt; }
 function canRevise(t){ const b=finInit(t).bud; return !!(b && b.s===G.season && b.rev && !b.revUsed && G.md>=7 && G.md<=9); }
-function reviseBudget(t,lev){ const c=budCheck(t,lev); if(!c.ok) return c; const b=makeBudget(t,lev,'pres'); b.revUsed=true; if(t.id===0){ repAdd(-1,'preventivo rivisto a metà stagione'); news('Preventivo aggiornato dopo la revisione di metà stagione.','club'); } return c; }
+function reviseBudget(t,lev){ const c=budCheck(t,lev); if(!c.ok) return c; const b=makeBudget(t,lev,'pres'); b.revUsed=true; if(t.id===0){ repAdd(-1,'preventivo rivisto a metà stagione'); news('Preventivo aggiornato dopo la revisione di metà stagione.','club',false,t.id); } return c; }
 /* consuntivo: tolleranza del 12% sul saldo, misurata sulle uscite previste */
 function closeBudget(t){ const f=finInit(t); if(!f.bud||f.bud.s!==G.season) makeBudget(t,defaultLev(t),'ufficio'); const b=f.bud, A=seaActual(t);
   const ti=Object.values(A.inc).reduce((a,c)=>a+c,0), te=Object.values(A.exp).reduce((a,c)=>a+c,0), saldo=ti-te, sc=(b.saldo-saldo)/Math.max(1,b.te), ok=sc<=BUD_TOL;
@@ -226,8 +226,8 @@ function closeBudget(t){ const f=finInit(t); if(!f.bud||f.bud.s!==G.season) make
   f.budH.unshift({s:G.season, prev:{ti:b.ti,te:b.te,saldo:b.saldo}, act:{ti,te,saldo,finIn:A.finIn}, scost:sc, ok, pos, objPos:b.lev.pos, objOk, rev:b.revUsed, lines:{prev:{inc:b.inc,exp:b.exp},act:{inc:A.inc,exp:A.exp}}}); if(f.budH.length>8) f.budH.length=8;
   f.breach = ok ? Math.max(0,(f.breach||0)-1) : (f.breach||0)+1;
   if(t.id===0){ repAdd(ok?3:-6, ok?'consuntivo in linea con il preventivo':'consuntivo fuori dal preventivo'); repAdd(objOk?2:-2, objOk?`obiettivo sportivo raggiunto (${pos}°)`:`obiettivo sportivo mancato (${pos}° invece di ${b.lev.pos}°)`); if(pos===1) repAdd(6,'campionato vinto');
-    news(`Consuntivo della stagione ${G.season}: saldo ${kcrE(saldo)} contro ${kcrE(b.saldo)} previsti — ${ok?'in tolleranza':'fuori tolleranza'} (${sc>0?'peggio':'meglio'} del ${Math.abs(Math.round(sc*100))}%).`,'club'); }
-  if(!ok && t.own.bank>=25 && t.own.bank<51 && t.id===0) news('La banca, socia al '+fmtV(t.own.bank)+'%, chiede più rigore: un altro consuntivo fuori dal preventivo peserà sul tasso dei finanziamenti.','club');
+    news(`Consuntivo della stagione ${G.season}: saldo ${kcrE(saldo)} contro ${kcrE(b.saldo)} previsti — ${ok?'in tolleranza':'fuori tolleranza'} (${sc>0?'peggio':'meglio'} del ${Math.abs(Math.round(sc*100))}%).`,'club',false,t.id); }
+  if(!ok && t.own.bank>=25 && t.own.bank<51 && t.id===0) news('La banca, socia al '+fmtV(t.own.bank)+'%, chiede più rigore: un altro consuntivo fuori dal preventivo peserà sul tasso dei finanziamenti.','club',false,t.id);
   if(!ok && t.own.bank>=51){ if(t.ult && (t.ult.s===G.season || t.ult.st==='on')) fire(t,'consuntivo fuori dal preventivo dopo l\'ultimatum della banca'); else issueUltimatum(t,'consuntivo fuori dal preventivo',true); }
   f.valH=f.valH||[]; f.valH.unshift({s:G.season,v:Math.round(netValue(t)),bank:t.own.bank}); if(f.valH.length>10) f.valH.length=10;
   if(f.insN===0) f.esc=0; }
@@ -235,14 +235,14 @@ function closeBudget(t){ const f=finInit(t); if(!f.bud||f.bud.s!==G.season) make
 /* ---------- ultimatum e licenziamento ---------- */
 function issueUltimatum(t,why,nextSeason){ if(t.ult && t.ult.st==='on') return; const due=nextSeason?4:Math.min(14,G.md+4);
   t.ult={st:'on', s:nextSeason?G.season+1:G.season, md:G.md, due, why};
-  news(t.id===0?`Ultimatum della banca: ${why}. Entro la ${due===14?'fine della stagione':due+'ª giornata'}${nextSeason?' della prossima stagione':''} servono rate e stipendi pagati e conti in linea con il preventivo, altrimenti sarai licenziato.`:`${t.n}: ultimatum della banca al presidente (${why}).`, t.id===0?'club':'match'); }
+  news(t.id===0?`Ultimatum della banca: ${why}. Entro la ${due===14?'fine della stagione':due+'ª giornata'}${nextSeason?' della prossima stagione':''} servono rate e stipendi pagati e conti in linea con il preventivo, altrimenti sarai licenziato.`:`${t.n}: ultimatum della banca al presidente (${why}).`, t.id===0?'club':'match',true,t.id); }
 function ultConds(t){ const f=finInit(t), b=f.bud; const P=b&&b.s===G.season?budProject(t,b.lev):null, sc=P?(b.saldo-P.saldo)/Math.max(1,b.te):0;
   return [{ok:f.ins<1, t:'nessuna rata non pagata'}, {ok:arrears(t)<1, t:'stipendi in regola'}, {ok:sc<=BUD_TOL, t:`conti in linea con il preventivo (scostamento ${Math.round(sc*100)}%, massimo ${Math.round(BUD_TOL*100)}%)`}]; }
 function ultCheck(t){ const u=t.ult; if(!u||u.st!=='on'||u.s!==G.season||G.md<u.due) return; if(t.own.bank<51){ u.st='off'; return; }
-  const c=ultConds(t); if(c.every(x=>x.ok)){ u.st='ok'; if(t.id===0){ repAdd(3,'ultimatum della banca superato'); news('Ultimatum superato: la banca conferma la fiducia al presidente.','club'); } }
+  const c=ultConds(t); if(c.every(x=>x.ok)){ u.st='ok'; if(t.id===0){ repAdd(3,'ultimatum della banca superato'); news('Ultimatum superato: la banca conferma la fiducia al presidente.','club',true,t.id); } }
   else { u.st='ko'; fire(t,'ultimatum non rispettato: '+c.filter(x=>!x.ok).map(x=>x.t).join(', ')); } }
-function fire(t,why){ if(t.id===0){ if(G.fired||G.pendFire) return; repAdd(-12,'licenziato dalla banca'); G.pendFire={why}; t.ult=null; news(`Licenziato: ${why}. La banca nomina un nuovo presidente al posto tuo.`,'club'); }
-  else { t.presN=(t.presN||0)+1; t.ult=null; finInit(t).breach=0; news(`${t.n}: la banca sostituisce il presidente (${why}).`,'match'); } }
+function fire(t,why){ if(t.id===0){ if(G.fired||G.pendFire) return; repAdd(-12,'licenziato dalla banca'); G.pendFire={why}; t.ult=null; news(`Licenziato: ${why}. La banca nomina un nuovo presidente al posto tuo.`,'club',true,t.id); }
+  else { t.presN=(t.presN||0)+1; t.ult=null; finInit(t).breach=0; news(`${t.n}: la banca sostituisce il presidente (${why}).`,'match',true,t.id); } }
 function clubAppeal(t){ const st=standings(); return (8-st.indexOf(t))*0.5+squadValue(t)/1e6+Math.max(0,t.cash)/1e6-bankDebt(t)/1e6-t.own.bank/15+facTotal(t)/2e6; }
 function makeOffers(){ const cand=G.T.filter(t=>t.id!==0).sort((a,b)=>clubAppeal(b)-clubAppeal(a)), rep=G.rep??50, n=rep<20?2:3;
   const i0=clamp(Math.round((1-rep/100)*(cand.length-1)-1),0,cand.length-n); return cand.slice(i0,i0+n).map(t=>t.id); }
@@ -253,12 +253,14 @@ function swapTeams(a,b){ const A=G.T[a], B=G.T[b]; G.T[a]=B; G.T[b]=A; B.id=a; A
   G.sched=G.sched.map(r=>r.map(([h,x])=>[sw(h),sw(x)])); G.res=G.res.map(r=>r.map(m=>({...m,h:sw(m.h),a:sw(m.a)})));
   (G.req||[]).forEach(r=>{ if(r.st==='open' && (r.team===a||r.team===b)) r.st='exp'; r.team=sw(r.team); if(r.buyer!=null&&r.buyer>=0) r.buyer=sw(r.buyer); if(r.opp!=null) r.opp=sw(r.opp); if(r.from!=null) r.from=sw(r.from); });
   G.T.forEach(t=>(t.miss||[]).forEach(m=>{ if(m.opp!=null) m.opp=sw(m.opp); }));
-  G.last=null; G.cands=null; G.bneg=null; }
+  remapClubs(sw); G.last=null; G.cands=null; G.bneg=null; }
 function acceptOffer(k){ const F=G.fired; if(!F||!F.offers.includes(k)) return; const old=G.T[0];
-  swapTeams(0,k); const t=G.T[0], f=finInit(t);
+  /* carriera del presidente (0.4.1.0): licenziato a metà stagione, la riga del club lasciato si chiude ora; a fine stagione l'ha già scritta endSeason */
+  const pr=(G.prs||[]).find(x=>x.u&&x.t===0); if(pr && F.md>0 && F.s===G.season) presLeave(pr,F.md);
+  swapTeams(0,k); const t=G.T[0], f=finInit(t); if(pr) pr.t=0;
   old.promise=null; old.bonus=null; t.ult=null; G.fired=null; G.prez=(G.prez||0)+1;
   if(G.md===0) f.bud=null;
-  news(`Nuovo incarico: sei il presidente di ${t.n}. Allenatore ${t.coach.n}, cassa ${kcrE(t.cash)}, la banca ha il ${fmtV(t.own.bank)}% della società.`,'club'); }
+  news(`Nuovo incarico: sei il presidente di ${t.n}. Allenatore ${t.coach.n}, cassa ${kcrE(t.cash)}, la banca ha il ${fmtV(t.own.bank)}% della società.`,'club',false,t.id); }
 
 /* ---------- riacquisto delle quote ---------- */
 function buyBackPrice(t,pct){ return Math.round(Math.max(0,netValue(t))*pct/100*1.05/1000)*1000; }
@@ -268,7 +270,7 @@ function buyBackBlock(t,pct){ const f=finInit(t); if(t.own.bank<=0) return 'La b
   const h=f.budH&&f.budH[0]; if(h&&!h.ok&&h.s===G.season-1) return 'L\'ultimo consuntivo è fuori dal preventivo: la banca aspetta un bilancio in ordine.';
   const c=buyBackPrice(t,pct); if(t.cash-c<3*(wageBill(t)+staffCost(t))) return `Servono ${kcrE(c)} più tre giornate di stipendi in cassa.`; return null; }
 function buyBack(t,pct){ const b=buyBackBlock(t,pct); if(b) return b; const c=buyBackPrice(t,pct), old=t.own.bank; spend(t,'riacquisto quote',c); t.own.bank=Math.max(0,Math.round((old-pct)*10)/10);
-  finInit(t).hist.unshift({s:G.season,md:G.md,t:`Riacquistato il ${fmtV(pct)}% della società per ${kcrE(c)}`}); if(t.id===0){ repAdd(2,'quote riacquistate dalla banca'); news(`Riacquistato dalla banca il ${fmtV(pct)}% per ${kcrE(c)}: ora la banca ha il ${fmtV(t.own.bank)}%.`,'club'); } else news(`${t.n} riacquista quote dalla banca: ora ha il ${fmtV(t.own.bank)}%.`,'match');
+  finInit(t).hist.unshift({s:G.season,md:G.md,t:`Riacquistato il ${fmtV(pct)}% della società per ${kcrE(c)}`}); if(t.id===0){ repAdd(2,'quote riacquistate dalla banca'); news(`Riacquistato dalla banca il ${fmtV(pct)}% per ${kcrE(c)}: ora la banca ha il ${fmtV(t.own.bank)}%.`,'club',true,t.id); } else news(`${t.n} riacquista quote dalla banca: ora ha il ${fmtV(t.own.bank)}%.`,'match',true,t.id);
   sharesChanged(t,old); return null; }
 
 /* ---------- presidenti del computer: banca, strutture, quote ---------- */
