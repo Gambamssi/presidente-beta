@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<style>html,body{margin:0}</style>
+<title>EVIVORA &mdash; Sei il presidente</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="style.css?v=0.4.2.0" onerror="this.onerror=null;this.href='style.css'">
+</head>
+<body>
+<header id="top" class="top" hidden></header>
+<nav id="tabs" class="tabs" aria-label="Aree" hidden></nav>
+<nav id="subtabs" class="subtabs" aria-label="Sotto-schede" hidden></nav>
+<main id="view"></main>
+<div id="sheet" class="sheet" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<script src="vendor/three.min.js"></script>
+<script src="config.js?v=0.4.2.0"></script>
+<script>window.PRES_CONF=window.PRES_CONF||{beta:true};</script>
+<script src="vendor/supabase.js"></script>
+<script>
+/* carica i moduli in ordine; se l'indirizzo con ?v= non risponde, riprova senza */
+(function(){ var V='0.4.2.0', F=['engine.js','finance.js','match.js','version.js','ui.js','ui_fin.js','ui_home.js','account.js','viewer.js','boot.js'], i=0;
+  function fail(f){ return function(){ var v=document.getElementById('view'); if(v) v.innerHTML='<p style="padding:24px">Non riesco a caricare '+f+'. Ricarica la pagina.</p>'; }; }
+  function add(src,onerr){ var s=document.createElement('script'); s.src=src; s.charset='utf-8'; s.async=false; s.onload=next; s.onerror=onerr; document.body.appendChild(s); }
+  function next(){ if(i>=F.length) return; var f=F[i++]; add(f+'?v='+V, function(){ add(f, fail(f)); }); }
+  next(); })();
+</script>
+</body>
+</html>
