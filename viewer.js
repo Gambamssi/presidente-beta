@@ -2,8 +2,12 @@
 const mkey = m=>G.season+'-'+G.md+'-'+m.h;
 const REPLAY_RATE=1.4;   // il replay va al rallentatore
 // x1 = tempo reale (90' in 90'), x2 = la partita dura 15', x4 = la partita dura 5'
-const SPEED_TXT={1:'Velocità normale',2:'Partita in 15 minuti',4:'Partita in 5 minuti'};
-function tickRate(v){ return v.speed===1 ? 1/DT : v.speed===2 ? v.nT/900 : v.nT/300; }
+/* 0.4.2.0: con l'orologio vero 1x mostra la partita a metà del tempo reale (circa 48 minuti); 2x e 4x durano come prima */
+const SPEED_TXT={1:'Partita in circa 48 minuti',2:'Partita in 15 minuti',4:'Partita in 5 minuti'};
+function tickRate(v){ return v.speed===1 ? 2/DT : v.speed===2 ? v.nT/900 : v.nT/300; }
+/* 0.4.2.0: i frame della simulazione sono a 16 bit (centimetri): vFr li riporta in metri (con orientamento e tuffo), con una piccola memoria */
+function vFr(v,k){ const c=v.fc||(v.fc=new Map()); let f=c.get(k); if(f) return f; const s=v.sim.frames[k]; if(!s) return null;
+  f=frDecode(s, v.sim.cols.length); c.set(k,f); if(c.size>64) c.delete(c.keys().next().value); return f; }
 /* velocità preferita (0.4.1.1): preferenza dell'interfaccia nel browser, mai dentro G né online; la prima volta 2x */
 const SPEED_KEY='presidente-pref-vel';
 function vPrefSpeed(){ try{ const s=+localStorage.getItem(SPEED_KEY); if(s===1||s===2||s===4) return s; }catch(_){} return 2; }
@@ -70,7 +74,7 @@ function loop(now){
   if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
   else if(v.phase==='live' && v.playing){
     const sp1 = use3D() && !!activeWin(v);
-    v.t=Math.min(v.nT-1, v.t+(sp1?1/DT:tickRate(v))*dt);
+    v.t=Math.min(v.nT-1, v.t+(sp1?2/DT:tickRate(v))*dt);
     processEvents(true);
     if(v.pq.length && v.t>=v.pq[0].at){ const p=v.pq.shift(); if(use3D() && v.t<p.t1+40) startReplay(p); }
     if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; if(use3D()){ v.t=v.sim.htTick; startScene('ht'); } }
@@ -175,7 +179,7 @@ function cardShownAt(t0,coach){ const fr=viewer.sim.frames, n=viewer.sim.cols.le
 const STOP_EV=new Set(['fo','off','goal','cor','pen','fkset','sub','inj','ht','yc','rc','coachoff']);
 function vPrep(v){
   const sim=v.sim, fr=sim.frames, nT=v.nT, n=sim.cols.length, nb=n*2;
-  const bx=k=>fr[k][nb], by=k=>fr[k][nb+1];
+  const bx=k=>frV(fr[k],nb), by=k=>frV(fr[k],nb+1);
   const out=k=>bx(k)<0||bx(k)>105||by(k)<0||by(k)>68;
   const S=new Set([0, sim.htTick]);
   sim.ev.forEach(e=>{ if(STOP_EV.has(e.type)) S.add(Math.max(0,Math.min(nT-1,e.t))); });
@@ -185,19 +189,8 @@ function vPrep(v){
     for(let k=s+1;k<=lim;k++){ const d=Math.hypot(bx(k)-bx(k-1),by(k)-by(k-1));
       if(still<0){ if(d<0.02) still=k; } else if(d>0.05 && d<3) return k-1; }
     return still<0 ? s+1 : lim; });
-  /* rigori: la simulazione decide dove va la palla, non il lato del portiere. Il visore lo ricava dal tiro:
-     parata → si tuffa verso la palla; gol → lato sbagliato; fuori o palo → lato della palla */
+  /* 0.4.2.0: il tuffo del portiere (anche sui rigori) lo decide la simulazione: posizione e inclinazione sono nei frame */
   v.dives=[];
-  sim.ev.forEach(e=>{ if(e.type!=='spgo' || e.kind!=='pen') return; const t0=e.t, def=1-e.side; if(!fr[t0]) return;
-    const k=sim.cols.findIndex((id,i)=>v.info[id] && v.info[id].gk && v.team[i]===def && !isNaN(fr[t0][i*2])); if(k<0) return;
-    const end=sim.ev.find(x=>x.t>=t0 && x.t<=t0+20 && (x.type==='goal'||x.type==='miss'));
-    const ta=Math.min(nT-1, end?end.t:t0+1), gy=fr[t0][k*2+1], ballY=by(ta);
-    const side=(ballY-gy)>0.3?1:(ballY-gy)<-0.3?-1:(hashU(String(v.key),t0)<0.5?1:-1);
-    let ty;
-    if(end && end.type==='goal') ty=gy-side*1.9;
-    else if(Math.abs(ballY-gy)<2.2) ty=gy+side*Math.max(1.0,Math.abs(ballY-gy));
-    else ty=gy+side*1.9;
-    v.dives.push({k, t0, ta, ty, gy, s:Math.sign(ty-gy)||1, sx:e.x, sy:e.y}); });
   /* cartellini: tick in cui l'arbitro mostra il cartellino e destinatario */
   const nc=nb+18; v.cards=[];
   sim.ev.forEach(e=>{ if(e.type!=='yc'&&e.type!=='rc'&&e.type!=='coachoff') return; const coach=e.type==='coachoff';
@@ -213,7 +206,7 @@ function diveAt(t){ const v=viewer; if(!v||!v.dives) return null;
     const u = a<1.1 ? ez(a/1.1) : a<5 ? 1 : a<8 ? 1-ez((a-5)/3) : 0; if(u<=0) continue; return {d, u, a}; }
   return null; }
 function cardTarget(f,t){ const c=cardAt(t); if(!c) return null; if(c.coach!=null) return {x:52.5+(c.coach===0?-9:9), y:-2.4};
-  let p=c.k>=0?f.P[c.k]:null; if(!p && c.k>=0){ const fr=viewer.sim.frames[Math.max(0,Math.min(viewer.nT-1,c.tc))]; if(fr && !isNaN(fr[c.k*2])) p={x:fr[c.k*2], y:fr[c.k*2+1]}; } return p&&!p.hidden?{x:p.x,y:p.y}:null; }
+  let p=c.k>=0?f.P[c.k]:null; if(!p && c.k>=0){ const fr=viewer.sim.frames[Math.max(0,Math.min(viewer.nT-1,c.tc))]; if(fr && !isNaN(frV(fr,c.k*2))) p={x:frV(fr,c.k*2), y:frV(fr,c.k*2+1)}; } return p&&!p.hidden?{x:p.x,y:p.y}:null; }
 function cardAt(t){ const v=viewer; if(!v||!v.cards) return null; let c=null; for(const x of v.cards) if(t>=x.t0-1 && t<=x.t1+1) c=x; return c; }
 
 /* ---------- 0.4.1.1: un solo tasto «Avanti» ----------
@@ -311,7 +304,7 @@ function sceneFrame(ts){
 }
 /* posizioni interpolate al tick t */
 function frameAt(t){
-  const v=viewer, fr=v.sim.frames, n=v.sim.cols.length; t=Math.max(0,t||0); const i=Math.max(0,Math.min(fr.length-1,Math.floor(t))), j=Math.min(fr.length-1,i+1), f=t-i, A=fr[i], B=fr[j];
+  const v=viewer, fr=v.sim.frames, n=v.sim.cols.length; t=Math.max(0,t||0); const i=Math.max(0,Math.min(fr.length-1,Math.floor(t))), j=Math.min(fr.length-1,i+1), f=t-i, A=vFr(v,i), B=vFr(v,j);
   const P=new Array(n); for(let k=0;k<n;k++){ const ax=A[k*2]; if(isNaN(ax)){ P[k]=null; continue; } const bx=isNaN(B[k*2])?ax:B[k*2], by=isNaN(B[k*2+1])?A[k*2+1]:B[k*2+1]; P[k]={x:ax+(bx-ax)*f, y:A[k*2+1]+(by-A[k*2+1])*f}; }
   let bx,by,bz; const nb=n*2;
   if(B.length>=nb+12 && j>i){ const pts=[[A[nb],A[nb+1],A[nb+2]],[B[nb+3],B[nb+4],B[nb+5]],[B[nb+6],B[nb+7],B[nb+8]],[B[nb+9],B[nb+10],B[nb+11]],[B[nb],B[nb+1],B[nb+2]]];
@@ -319,8 +312,10 @@ function frameAt(t){
   else { bx=A[nb]+(B[nb]-A[nb])*f; by=A[nb+1]+(B[nb+1]-A[nb+1])*f; bz=A[nb+2]+(B[nb+2]-A[nb+2])*f; }
   let RF=null, card=0, flag=0; if(A.length>=nb+20){ const g=(k)=>{ const ax=A[nb+12+k*2], ay=A[nb+13+k*2], bx_=B[nb+12+k*2], by_=B[nb+13+k*2]; return {x:ax+(bx_-ax)*f, y:ay+(by_-ay)*f}; }; RF=[g(0),g(1),g(2)]; card=A[nb+18]; flag=A[nb+19]; }
   const cap = A.length>=nb+22 ? [A[nb+20],A[nb+21]] : [-1,-1];
-  const dv=diveAt(t); if(dv && P[dv.d.k]){ const p=P[dv.d.k]; P[dv.d.k]={x:p.x, y:p.y+(dv.d.ty-p.y)*dv.u}; }
-  return {P, bx, by, bz, own:v.sim.owners[i], RF, card, flag, cap, dive:dv};
+  /* 0.4.2.0: orientamento del corpo e inclinazione del portiere dalla simulazione */
+  const O=new Array(n); for(let k=0;k<n;k++){ const a=A[nb+24+k], b=B[nb+24+k]; let d=b-a; if(d>Math.PI) d-=2*Math.PI; else if(d<-Math.PI) d+=2*Math.PI; O[k]=a+d*f; }
+  const tilt=[A[nb+22]+(B[nb+22]-A[nb+22])*f, A[nb+23]+(B[nb+23]-A[nb+23])*f];
+  return {P, bx, by, bz, own:v.sim.owners[i], RF, card, flag, cap, O, tilt, dive:null};
 }
 function activeEvent(t){ const ev=viewer.sim.ev; let best=null; for(let k=Math.max(0,viewer.evI-6);k<ev.length;k++){ const e=ev[k]; if(e.t>t+8) break; if(e.t>=t-4 && e.type!=='fo' && e.p && e.p.length) best=e; } return best; }
 
@@ -553,13 +548,14 @@ function draw3D(t, ivOn, sp){
     g.position.y=0; g.visible=true;
     const x=p.x-52.5, z=p.y-34; const vx=((q||p).x-p.x)/0.5, vz=((q||p).y-p.y)/0.5, sp=Math.hypot(vx,vz);
     if(ivOn && k===starK){ g.position.x+=(x-g.position.x)*Math.min(1,dt*3); g.position.z+=(z-g.position.z)*Math.min(1,dt*3); } else g.position.set(x,0,z);
-    const face = k===starK ? Math.atan2(V3.cp.x-g.position.x, V3.cp.z-g.position.z) : sp>0.6 ? Math.atan2(vx,vz) : inScene ? 0 : Math.atan2(bx-x, bz-z);
-    g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*8);
+    const so=f.O&&!inScene&&!ivOn?f.O[k]:null;   /* 0.4.2.0: il corpo guarda dove dice la simulazione */
+    const face = k===starK ? Math.atan2(V3.cp.x-g.position.x, V3.cp.z-g.position.z) : so!=null&&isFinite(so) ? Math.atan2(Math.cos(so),Math.sin(so)) : sp>0.6 ? Math.atan2(vx,vz) : inScene ? 0 : Math.atan2(bx-x, bz-z);
+    if(so!=null&&isFinite(so)) g.rotation.y=face; else g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*8);
     const u=g.userData; u.ph+=sp*dt*1.7*(ivOn?0:1); const amp=ivOn?0:Math.min(0.85,sp*0.09), s=Math.sin(u.ph)*amp;
     u.legs[0].rotation.x=s; u.legs[1].rotation.x=-s; u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0;
     g.rotation.z=0;
-    if(f.dive && k===f.dive.d.k && !ivOn){ const dv=f.dive, d=dv.d, fc=Math.atan2((d.sx-52.5)-x,(d.sy-34)-z);
-      g.rotation.y=fc; const lean=dv.u*1.25, sf=Math.sin(fc)||1; g.rotation.z=d.s*Math.sign(sf)*lean; g.position.y=Math.sin(Math.min(1,dv.a/1.1)*Math.PI)*0.35*dv.u;
+    const inf_=v.info[v.sim.cols[k]], tl=f.tilt&&inf_&&inf_.gk&&!ivOn&&!inScene?f.tilt[v.team[k]]:0;
+    if(tl && Math.abs(tl)>0.05){ const fc=g.rotation.y, lean=Math.min(1.25,Math.abs(tl)), sf=Math.sin(fc)||1; g.rotation.z=Math.sign(tl)*Math.sign(sf)*lean; g.position.y=0.35*lean/1.25;   /* tuffo (0.4.2.0: dalla simulazione) */
       u.arms[0].rotation.x=Math.PI*0.95; u.arms[1].rotation.x=Math.PI*0.95; u.arms[0].rotation.z=-0.2; u.arms[1].rotation.z=0.2; u.legs[0].rotation.x=0.15; u.legs[1].rotation.x=-0.15; }
     const ev=v.rep?v.rep.e:null;
     if(ev && ev.type==='goal' && t>=ev.t+1 && v.sim.cols[k]===ev.p[0]){ const w=Math.sin(now/140)*0.25; u.arms[0].rotation.x=Math.PI*0.95+w; u.arms[1].rotation.x=Math.PI*0.95-w; u.arms[0].rotation.z=-0.35; u.arms[1].rotation.z=0.35; }

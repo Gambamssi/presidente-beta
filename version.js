@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.1.2';
+const VERSION = '0.4.2.0';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,19 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.2.0','30 ottobre 2026',[
+    'Partita più realistica: palla e giocatori seguono la fisica vera. La palla vola con gravità, aria ed effetto, rimbalza e rotola rallentando piano piano, prende pali e traversa.',
+    'I gol e i fuori si decidono sulla linea: è gol solo se tutta la palla entra tra i pali e sotto la traversa. Può esserci anche l\'autogol.',
+    'Il portiere para davvero: arriva sulla palla se ha il tempo di muoversi e tuffarsi, la blocca o la respinge (anche in angolo). Sui rigori sceglie un lato.',
+    'I giocatori hanno un corpo: accelerano e frenano, guardano in una direzione, corrono all\'indietro solo per pochi metri, non si sovrappongono e non si spostano più di colpo.',
+    'Il tempo è quello vero. Nel visore 1x mostra la partita a metà del tempo reale (circa 48 minuti); 2x e 4x durano come prima.',
+    'Le partite giocate da ora sono diverse da prima: una partita vecchia rivista nel visore non sarà più uguale.'
+  ]],
+  ['0.4.1.3','30 ottobre 2026',[
+    'Dopo un infortunio per fallo il cambio ora avviene sempre: il sostituto entra prima della punizione o del rigore e prende il posto e il ruolo di chi è uscito. Prima la squadra poteva restare in 10 per tutta la partita, con il sostituto fermo a bordo campo.',
+    'Se una squadra ha già fatto tutti i cambi e un giocatore si fa male, resta in 10 come nel calcio vero, e il registro della partita lo dice.',
+    'Per questo le partite giocate da ora sono un po\' diverse da prima, e una partita vecchia rivista nel visore può non essere più uguale a come la ricordi.'
+  ]],
   ['0.4.1.2','29 ottobre 2026',[
     'Il gioco si chiama Evivora. Tu resti il presidente del tuo club: cambia solo il nome del gioco, la partita salvata continua come prima.',
     'La partita esportata si chiama ora evivora-….json; i file esportati prima (presidente-….json) si importano ancora.'
