@@ -25,6 +25,82 @@ function go(a, s){
   if(was && !onMatchPage()) stopViewer();
   render(); window.scrollTo(0,0);
 }
+/* ---------- indirizzi delle pagine (0.4.2.1, N2) ----------
+   #/<area>/<sotto-scheda> (es. #/squadra/rosa), #/club/<id>, #/giocatore/<id>. Le finestre sopra la pagina (menu, trattative,
+   scheda del giocatore) hanno una voce propria nella cronologia: «Indietro» le chiude. Lo stato di history ricorda l'area sotto
+   il profilo o la scheda (per il ricaricamento). I link delle mail di Supabase (#access_token=…, #error=…, type=recovery) non
+   iniziano con «#/»: non si toccano mai, li legge e li toglie account.js. Solo interfaccia: nessun numero casuale, niente in G. */
+const NAV={first:true, ok:true, n:0};
+const navAuth=()=>/access_token|refresh_token|error_code|error=|type=/.test(location.hash||'');
+function navParse(h){
+  const m=/^#\/(.*)$/.exec(h||''); if(!m) return null;
+  let p; try{ p=m[1].split('/').filter(Boolean).map(decodeURIComponent); }catch(e){ return {bad:true}; }
+  if(!p.length) return {a:'scrivania'};
+  if(p[0]==='giocatore'||p[0]==='club'){ const id=p[1]; if(p.length!==2||!/^\d+$/.test(id)) return {bad:true}; return p[0]==='club'?{club:+id}:{pl:+id}; }
+  if(!AREAS[p[0]]||p.length>2) return {bad:true};
+  if(p[1]!=null && !AREAS[p[0]].subs.some(x=>x[0]===p[1])) return {bad:true};
+  return {a:p[0], s:p[1]||null};
+}
+function navPage(){ return clubView!=null ? '#/club/'+clubView : '#/'+area+(AREAS[area].subs.length>1?'/'+sub:''); }
+function navNow(){
+  const ov = modal ? 'm:'+modal : negId!=null ? 'n:'+negId : (bnegOn&&G.bneg) ? 'b' : sheetPid!=null ? 'g' : null;
+  const h = sheetPid!=null&&!modal&&negId==null&&!(bnegOn&&G.bneg) ? '#/giocatore/'+sheetPid : navPage();
+  return {evv:1, h, a:area, s:sub, c:clubView, pl:sheetPid, ov, key:h+'|'+(ov||'')};
+}
+/* dopo ogni disegno del gioco: scrive l'indirizzo. Finestra aperta → nuova voce; finestra chiusa → torna alla voce di prima */
+function navSync(){
+  if(!NAV.ok || NAV.wait || navAuth()) return;
+  const k=navNow(), s=history.state&&history.state.evv ? history.state : null;
+  try{
+    if(NAV.replace || !s){ NAV.replace=false; k.prev=s?s.prev:null; k.n=s?s.n:NAV.n; history.replaceState(k,'',k.h); return; }
+    if(s.key===k.key) return;
+    const layer=s.ov||s.c!=null;
+    if(layer && s.prev===k.key){ NAV.wait=setTimeout(()=>{ NAV.wait=0; NAV.replace=true; navSync(); },800); history.back(); return; }                                 /* chiusa con × o Esc: come «Indietro» */
+    if(s.ov && (k.ov ? s.a===k.a&&s.s===k.s&&s.c===k.c : true)){ k.prev=s.prev; k.n=s.n; history.replaceState(k,'',k.h); return; } /* una finestra al posto di un'altra */
+    k.prev=s.key; k.n=s.n+1; NAV.n=k.n; history.pushState(k,'',k.h);
+  }catch(e){ NAV.ok=false; }                                                               /* pagina che non permette la cronologia: si gioca senza indirizzi */
+}
+/* porta lo stato della pagina all'indirizzo (ricaricamento, link diretto, «Indietro», «Avanti»). Indirizzo sconosciuto → Scrivania */
+function navTarget(st, h, init){
+  let r=navParse(h); if(!r||r.bad) r={a:'scrivania'};
+  const t={a:r.a, s:r.s, c:null, pl:null, ov:null};
+  if(r.club!=null||r.pl!=null){ t.a=st&&st.a||(init?'scrivania':area); t.s=st&&st.s||(init?null:sub); }
+  if(r.club!=null) t.c=r.club;
+  if(r.pl!=null){ t.pl=r.pl; t.c=st&&st.c!=null?st.c:(init?null:clubView); }
+  if(!AREAS[t.a]) t.a='scrivania';
+  if(!t.s||!AREAS[t.a].subs.some(x=>x[0]===t.s)) t.s=lastSub[t.a]||AREAS[t.a].subs[0][0];
+  if(t.c!=null&&!G.T[t.c]) Object.assign(t,{a:'scrivania', s:'home', c:null, pl:null});
+  if(t.pl!=null&&!G.P[t.pl]) Object.assign(t,{a:'scrivania', s:'home', c:null, pl:null});
+  if(!init&&st&&st.ov&&st.h===h) t.ov=st.ov;
+  return t;
+}
+/* primo disegno con la partita caricata (avvio, ricaricamento, accesso alla beta): apre la schermata dell'indirizzo */
+function navStart(){ NAV.first=false; NAV.replace=true; if(navAuth()) return; const st=history.state&&history.state.evv?history.state:null; navApply(navTarget(st, location.hash, true)); }
+function navApply(t){
+  const was=onMatchPage(), pg0=navPage(), y0=clubBack&&t.c==null?clubBack.y:0;
+  if(t.c!=null&&clubView==null) clubBack={y:window.scrollY}; else if(t.c==null) clubBack=null;
+  area=t.a; sub=t.s; lastSub[t.a]=t.s; clubView=t.c; sheetPid=t.pl; confirmReset=false;
+  const o=t.ov||'';
+  modal = /^m:(menu|novita|secname)$/.test(o) ? o.slice(2) : null;
+  if(!modal&&IMP) IMP=null;
+  negId = o.startsWith('n:') && (G.req||[]).some(x=>x.id===+o.slice(2)&&x.neg) ? +o.slice(2) : null;
+  if(o!=='b'&&bnegOn){ const deal=G.bneg&&G.bneg.st==='deal'; bnegOn=false; G.bneg=null; save(); if(deal) toast('Finanziamento firmato.'); }
+  if(was && !onMatchPage()) stopViewer();
+  return pg0!==navPage() ? y0 : null;
+}
+window.addEventListener('popstate', e=>{
+  if(!G || !NAV.ok || navAuth() || (typeof ACC!=='undefined'&&ACC.on&&ACC.screen)) return;
+  const st=e.state&&e.state.evv?e.state:null, cur=navNow();
+  if(NAV.wait){ clearTimeout(NAV.wait); NAV.wait=0; if(!st||st.key!==cur.key){ NAV.replace=true; navSync(); } return; }  /* arrivo di un history.back() chiesto da navSync */
+  if(st&&st.key===cur.key) return;                                                          /* è la voce già mostrata (chiusura con ×) */
+  const t=navTarget(st, location.hash, false);
+  /* visore aperto: «Indietro» chiude il visore e resta in Lega › Giornata; la partita è già giocata e il risultato resta */
+  if(viewer && onMatchPage() && !cur.ov && !(t.a==='lega'&&t.s==='giornata'&&t.c==null)){
+    stopViewer(); viewer=null; cur.prev=st?st.key:null; cur.n=(st?st.n:NAV.n)+1; try{ history.pushState(cur,'',cur.h); }catch(_){} render();
+    toast('Visore chiuso. La partita è già giocata: il risultato resta qui.'); return; }
+  const y=navApply(t); NAV.replace=true;
+  render(); if(y!=null) window.scrollTo(0,y);
+});
 let filt={r:'',age:'40',src:'all',sort:'val'};
 
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(G)); }catch(e){} }
@@ -387,6 +463,7 @@ const AREA_ICON={
 function render(){
   const on=!!G; $('#top').hidden=!on; $('#tabs').hidden=!on; $('#subtabs').hidden=!on; document.body.classList.toggle('ingame',on);
   if(!G){ $('#view').innerHTML = startScreen(); $('#sheet').hidden=true; ['#negov','#modal'].forEach(s=>{ const x=$(s); if(x) x.remove(); }); return; }
+  if(NAV.first) navStart();
   if(!AREAS[area] || !VIEWS[area+'/'+sub]){ area='scrivania'; sub='home'; }
   const t=G.T[0], pos=standings().findIndex(x=>x.id===0)+1;
   const end=G.md>=G.sched.length;
@@ -406,6 +483,7 @@ function render(){
   const sh=$('#sheet'); if(sheetPid!=null){ sh.innerHTML=vSheet(); sh.hidden=false; } else { sh.hidden=true; sh.innerHTML=''; }
   if(viewer && onMatchPage()) attachViewer();
   if(focusReq!=null){ const el=$('#rq-'+focusReq); focusReq=null; if(el) el.scrollIntoView({block:'center'}); }
+  navSync();
 }
 function startScreen(){
   return `<div class="start"><p class="eyebrow">Bozza giocabile · un solo campionato da 8 squadre</p><h1>EVIVORA</h1><p class="tagline">Sei il presidente</p>
@@ -460,7 +538,7 @@ document.addEventListener('click', e=>{
 document.addEventListener('change', e=>{ const f=e.target.dataset&&e.target.dataset.filt; if(f){ filt[f]=e.target.value; render(); } });
 document.addEventListener('submit', e=>{
   e.preventDefault();
-  if(e.target.id==='start-form'){ const n=$('#club-name').value.trim()||'FC Presidente', sn=($('#sec-name')?$('#sec-name').value.trim():'').slice(0,20)||'Giulia'; newGame(n, (Date.now()%2147483647)|0); G.sec={n:sn}; area='scrivania'; sub='home'; save(); render(); }
+  if(e.target.id==='start-form'){ const n=$('#club-name').value.trim()||'FC Presidente', sn=($('#sec-name')?$('#sec-name').value.trim():'').slice(0,20)||'Giulia'; newGame(n, (Date.now()%2147483647)|0); G.sec={n:sn}; NAV.first=false; area='scrivania'; sub='home'; save(); render(); }
 });
 document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; if(modal){ modal=null; confirmReset=false; render(); } else if(sheetPid!=null){ sheetPid=null; render(); } });
 window.addEventListener('resize', ()=>{ if(viewer) draw(); });

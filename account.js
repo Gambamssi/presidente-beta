@@ -42,6 +42,7 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
       'Il link della mail non ha funzionato. Prova ad accedere con email e password.';
   }
   const pageUrl=()=>location.origin+location.pathname;
+  const authHash=()=>{ const h=location.hash||''; return h.length>1 && !/^#\//.test(h); };   /* il # non è un indirizzo del gioco (#/…): è del link della mail */
   const KEYU=()=>KEY+':'+ACC.user.id;                             /* copia nel browser: una chiave per ogni account */
   const nick=()=>(ACC.prof&&ACC.prof.soprannome)||'';
   const EYE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -244,9 +245,9 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
     const ses=r.data&&r.data.session;
     if(ses && ses.user){ ACC.user=ses.user; ACC.email=ses.user.email||'';
       if(ACC.recovery){ show('nuovapw',{msg:'',err:''}); return; }
-      if(location.hash) history.replaceState(null,'',pageUrl());
+      if(authHash()) history.replaceState(null,'',pageUrl());   /* toglie solo i dati del link della mail: un indirizzo #/… del gioco resta (0.4.2.1) */
       return afterLogin(); }
-    if(location.hash && /error|access_token/.test(location.hash)) history.replaceState(null,'',pageUrl());
+    if(authHash()) history.replaceState(null,'',pageUrl());
     ACC.user=null; show('auth');
     if(ACC.tab==='registrati') checkOpen();
   };
@@ -347,7 +348,7 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
     if(p1!==p2) return show('nuovapw',{err:'Le due password sono diverse.', msg:''});
     let r; try{ r=await withTimeout(ACC.sb.auth.updateUser({password:p1})); }catch(e){ r={error:e}; }
     if(r.error){ if(isNet(r.error)) return offline('nuovapw'); return show('nuovapw',{err:/different|same/i.test(r.error.message||'')?'La nuova password deve essere diversa da quella di prima.':'Non sono riuscito a cambiarla: '+r.error.message, msg:''}); }
-    ACC.recovery=false; if(location.hash) history.replaceState(null,'',pageUrl());
+    ACC.recovery=false; if(authHash()) history.replaceState(null,'',pageUrl());
     if(r.data&&r.data.user) ACC.user=r.data.user;
     toast('Password cambiata.'); afterLogin();
   }

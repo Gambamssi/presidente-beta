@@ -54,7 +54,7 @@ function vViewerHTML(){
     <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div>
     ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">Le scelte degli allenatori</p>${m.inp.ref?`<p class="pl-ref">Arbitro ${esc(m.inp.ref.full||m.inp.ref.n)}${G.refs&&G.refs[m.inp.ref.id]?` · assistenti ${esc(G.refs[m.inp.ref.id].a1)} e ${esc(G.refs[m.inp.ref.id].a2)}`:''}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">Calcio d'inizio</button></div>`:''}
    </div>
-   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button>${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${SPEED_TXT[s]}" aria-pressed="${v.speed===s}">${s}x</button>`).join('')}${(V3.ok!==false&&window.THREE)?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button>${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${SPEED_TXT[s]}" aria-pressed="${v.speed===s}">${s}x</button>`).join('')}${V3.ok!==false?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
    <div class="vstats" id="v-stats"></div>
    <div class="intv" id="v-int" hidden></div>
    <ol class="log" id="v-log"></ol></section>`;
@@ -380,9 +380,27 @@ function draw2D(t, ivOn){
 }
 
 /* ---------- 3D ---------- */
-const V3 = {pref:true, ok:null, r:null, sc:null, cam:null, ball:null, men:new Map(), rings:[], mats:{}, camMode:'tv', cp:null, cl:null, last:0, w:0, h:0};
+const V3 = {pref:true, ok:null, load:false, lt:0, r:null, sc:null, cam:null, ball:null, men:new Map(), rings:[], mats:{}, camMode:'tv', cp:null, cl:null, last:0, w:0, h:0};
 try{ if(localStorage.getItem('presidente-vista')==='2d') V3.pref=false; }catch(e){}
-function use3D(){ if(!V3.pref) return false; if(V3.ok===null) V3.ok=initThree(); return V3.ok; }
+/* three.js a richiesta (0.4.2.1, N2): la pagina non lo carica più all'avvio; arriva solo quando serve il 3D (visore aperto con il 3D
+   acceso, o «Replay 3D: sì»). Indirizzo in window.THREE_SRC (shell.html: cdnjs; beta: vendor/three.min.js). Mentre arriva il visore
+   resta in 2D con «Carico il 3D…»; se non arriva (errore o 20 s) resta il 2D. Solo disegno: la partita non cambia. */
+function vThreeMsg(){ const e=$('#v-3msg'); if(e) e.hidden=!V3.load; }
+function vThreeDone(ok){
+  if(!V3.load) return; V3.load=false; clearTimeout(V3.lt);
+  if(ok&&window.THREE) V3.ok=null; else { V3.ok=false; toast('Il 3D non si è caricato: il visore resta in 2D.'); }
+  vThreeMsg();
+  if(viewer){ if(V3.ok!==false) setupMatch3D(); if(onMatchPage()) render(); }
+}
+function loadThree(){
+  if(window.THREE || V3.load || V3.ok===false) return;
+  const src=window.THREE_SRC; if(!src){ V3.ok=false; return; }
+  V3.load=true; vThreeMsg();
+  const s=document.createElement('script'); s.src=src; s.async=true;
+  s.onload=()=>vThreeDone(true); s.onerror=()=>vThreeDone(false); V3.lt=setTimeout(()=>vThreeDone(false),20000);
+  document.head.appendChild(s);
+}
+function use3D(){ if(!V3.pref) return false; if(V3.ok===null){ if(!window.THREE){ loadThree(); return false; } V3.ok=initThree(); } return V3.ok; }
 const lin = c=>new THREE.Color(c).convertSRGBToLinear();
 function mat(c){ if(!V3.mats[c]) V3.mats[c]=new THREE.MeshLambertMaterial({color:lin(c)}); return V3.mats[c]; }
 function lum(hex){ const n=parseInt(hex.slice(1),16); return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255; }

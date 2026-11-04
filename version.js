@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.2.0';
+const VERSION = '0.4.2.1';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,12 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.2.1','4 novembre 2026',[
+    'Ogni schermata ha il suo indirizzo (per esempio #/squadra/rosa o #/mercato/cerca, e #/giocatore/… e #/club/… per schede e profili): si può salvare nei preferiti o mandare un link.',
+    'Il tasto «Indietro» del browser e del telefono riporta alla schermata di prima e chiude finestre, schede dei giocatori e trattative; «Avanti» le riapre. Ricaricando la pagina si resta sulla stessa schermata.',
+    'Durante la partita «Indietro» chiude il visore e resta in Lega › Giornata: la partita è già giocata e il risultato resta.',
+    'Il gioco si apre più in fretta: la grafica 3D si scarica solo quando si guarda una partita in 3D (il primo accesso pesa circa la metà). Se il 3D non arriva, il visore resta in 2D.'
+  ]],
   ['0.4.2.0','30 ottobre 2026',[
     'Partita più realistica: palla e giocatori seguono la fisica vera. La palla vola con gravità, aria ed effetto, rimbalza e rotola rallentando piano piano, prende pali e traversa.',
     'I gol e i fuori si decidono sulla linea: è gol solo se tutta la palla entra tra i pali e sotto la traversa. Può esserci anche l\'autogol.',
