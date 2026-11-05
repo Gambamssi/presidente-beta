@@ -62,8 +62,8 @@ function accStart(){}  /* sostituita qui sotto quando la beta è accesa */
   function pwField(id, ac, lbl){ return `<label for="${id}">${lbl}</label><div class="pwf"><input id="${id}" type="password" autocomplete="${ac}" minlength="8" required><button type="button" class="eye" data-act="acc-eye" aria-label="Mostra la password" title="Mostra la password">${EYE}</button></div>`; }
   function topAcc(){
     const who=ACC.user?(nick()||ACC.user.email||''):'';
-    return `<div class="brand"><span class="wm">EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><span class="beta-tag">Versione di prova</span></div>
-      <div class="acts">${ACC.user?`<span class="acc-me" title="${esc(ACC.user.email||'')}">${esc(who)}</span><button class="btn ghost small" data-act="acc-out">Esci</button>`:''}</div>`;
+    return `<div class="brand"><span class="wm">${LOGO_SVG}EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><span class="beta-tag">Versione di prova</span></div>
+      <div class="acts">${ACC.user?`<span class="acc-me" title="${esc(ACC.user.email||'')}">${esc(who)}</span><button class="btn ghost small" data-act="acc-out">Esci</button>`:''}${themeBtn()}</div>`;
   }
   function introHTML(){
     return `<section class="card acc-intro"><p class="eyebrow">Beta chiusa · versione ${VERSION}</p><h1 class="acc-t">EVIVORA</h1><p class="tagline">Sei il presidente</p>

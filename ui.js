@@ -193,7 +193,7 @@ const v10 = v=>v==null?'–':(v/10).toFixed(1).replace('.',',');
 function vAllenatore(){
   const t=G.T[0], c=t.coach;
   const cands = G.cands? `<div class="cands"><p class="eyebrow">Allenatori liberi · costo con buonuscita</p>${G.cands.map((x,i)=>`<div class="cand"><div><b>${esc(x.n)}</b> · ${x.age} anni · ${x.mod}<p class="muted">Tattica ${x.tat} · Allenamento ${x.all} · Giovani ${x.gio} · Gruppo ${x.ges}</p></div><button class="btn small" data-act="hire" data-i="${i}">Ingaggia · ${kcr(coachCost(x)+120000)}</button></div>`).join('')}<button class="btn ghost small" data-act="nocands">Tieni ${esc(c.n)}</button></div>` : `<button class="btn ghost small" data-act="cands">Valuta un esonero</button>`;
-  return `<section class="card coach"><p class="eyebrow">Allenatore</p><div class="coachrow"><div><p class="big name">${esc(c.n)}</p><p class="muted">${c.age} anni · modulo preferito ${c.mod}${c.squal>0?' · <b class="bad">squalificato per la prossima partita</b>':''}</p></div>
+  return pageHead('Squadra · staff tecnico',esc(c.n),`Allenatore · ${c.age} anni · modulo preferito ${c.mod}`,{right:`<span class="ev-tbface" aria-hidden="true">${faceHTML(Math.floor(hashU(c.n,9)*1e6)+1,{eta:c.age,ruolo:'allenatore',colori:{primario:clubArt(0).primario,secondario:clubArt(0).secondario}})}</span>`})+`<section class="card coach ev-panel"><p class="eyebrow">Allenatore</p><div class="coachrow"><div><p class="big name">${esc(c.n)}</p><p class="muted">${c.age} anni · modulo preferito ${c.mod}${c.squal>0?' · <b class="bad">squalificato per la prossima partita</b>':''}</p></div>
    <dl class="attrs">${[['Tattica',c.tat],['Allenamento',c.all],['Giovani',c.gio],['Gestione gruppo',c.ges],['Temperamento',c.car??10]].map(([k,v])=>`<div><dt>${k}</dt><dd>${bar(v)}<span class="num">${v}</span></dd></div>`).join('')}</dl></div>
    <p class="muted">Sceglie lui modulo e titolari: tiene conto di valutazione, stanchezza e, se ha un buon voto in “Giovani”, dà spazio ai ragazzi. Un temperamento alto lo porta a protestare con l'arbitro: rischia l'allontanamento e la squalifica per la partita dopo.</p>${cands}</section>`;
 }
@@ -201,43 +201,56 @@ function vAllenatore(){
 function vSpogliatoio(){
   const t=G.T[0], c=t.coach, pl=teamPlayers(t).filter(p=>!p.retired), happy=pl.slice().sort((a,b)=>b.mor-a.mor)[0], sad=pl.slice().sort((a,b)=>a.mor-b.mor)[0], cap=G.P[t.cap], vc=G.P[t.vcap];
   const line=(p,lbl)=>p?`<li><b>${nameBtn(p)}</b> <span class="muted">${lbl} · morale ${morLevel(p.mor)}${p.morC&&p.morC[0]?' — '+esc(p.morC[0].t):''}</span></li>`:'';
-  return `<section class="card"><p class="eyebrow">Spogliatoio</p><div class="sp-top"><div><p class="muted">Clima della società</p><p class="big">${morLevel(clubClimate(t)).replace(/^./,x=>x.toUpperCase())}</p>${bar(clubClimate(t),20,'mor')}<p class="muted small">Media del morale di giocatori e allenatore (capitano, vice e allenatore contano di più). Nelle trattative chi sta bene in società scende più volentieri.</p></div><div><p class="muted">Morale dell'allenatore</p><p class="big">${morLevel(c.mor??12).replace(/^./,x=>x.toUpperCase())}</p>${bar(c.mor??12,20,'mor')}</div><div><p class="muted">Ultimi voti dell'allenatore</p><p class="big">${(c.rts||[]).length?c.rts.slice(-5).map(x=>x==null?'–':String(x).replace('.',',')).join(' · '):'–'}</p></div></div>
+  return pageHead('Squadra · gruppo','Spogliatoio',`Clima ${morLevel(clubClimate(t))} · capitano ${cap?esc(cap.fn+' '+cap.ln):'–'}`)+`<section class="card ev-panel"><p class="eyebrow">Spogliatoio</p><div class="sp-top"><div><p class="muted">Clima della società</p><p class="big">${morLevel(clubClimate(t)).replace(/^./,x=>x.toUpperCase())}</p>${bar(clubClimate(t),20,'mor')}<p class="muted small">Media del morale di giocatori e allenatore (capitano, vice e allenatore contano di più). Nelle trattative chi sta bene in società scende più volentieri.</p></div><div><p class="muted">Morale dell'allenatore</p><p class="big">${morLevel(c.mor??12).replace(/^./,x=>x.toUpperCase())}</p>${bar(c.mor??12,20,'mor')}</div><div><p class="muted">Ultimi voti dell'allenatore</p><p class="big">${(c.rts||[]).length?c.rts.slice(-5).map(x=>x==null?'–':String(x).replace('.',',')).join(' · '):'–'}</p></div></div>
     <ul class="morc">${line(cap,'capitano')}${line(vc,'vicecapitano')}${happy&&happy!==cap&&happy!==vc?line(happy,'il più carico'):''}${sad&&sad!==cap&&sad!==vc&&sad.mor<11?line(sad,'il più scontento'):''}</ul>
     <p class="muted">Il morale si muove dopo ogni partita: voto, risultato, gol, minuti giocati, clima nello spogliatoio (il capitano conta di più) e umore dell'allenatore. Torna sempre lentamente verso la normalità. In partita vale quanto un buon acquisto, nel bene e nel male.</p></section>`;
 }
 
+function plBadges(p, mine){
+  return `${p.team!=null&&G.T[p.team].cap===p.id?' <span class="badge-s capb" title="Capitano">C</span>':p.team!=null&&G.T[p.team].vcap===p.id?' <span class="badge-s vcapb" title="Vicecapitano">VC</span>':''}${G.note[p.id]?' <span class="gold" title="Nel taccuino">◆</span>':''}${!mine&&G.T[0].promise&&p.r===G.T[0].promise.role?(ovrView(p)[0]>=G.T[0].promise.thr-0.05?' <span class="badge-s prm" title="Soddisfa la promessa fatta all\'allenatore">promessa ✓</span>':ovrView(p)[1]>=G.T[0].promise.thr?' <span class="badge-s prm2" title="Potrebbe soddisfare la promessa: fallo valutare">promessa ?</span>':''):''}${mine&&p.peg?' <span class="badge-s peg" title="In pegno alla banca">pegno</span>':''}${p.inj>0?` <span class="badge-s inj" title="Infortunato">✚ ${p.inj}</span>`:''}${p.sq>0?' <span class="badge-s sq" title="Squalificato">squal.</span>':''}`; }
+/* righe dei giocatori (Rosa e Cerca giocatori): al telefono diventano schede (etichette da data-l) */
 function playerRows(list, mine){
   return list.map(p=>`<tr data-act="sheet" data-pid="${p.id}" class="${G.note[p.id]?'noted':''}">
-    <td>${roleTag(p.r)}</td><td class="nm">${nameBtn(p)}${p.team!=null&&G.T[p.team].cap===p.id?' <span class="badge-s capb" title="Capitano">C</span>':p.team!=null&&G.T[p.team].vcap===p.id?' <span class="badge-s vcapb" title="Vicecapitano">VC</span>':''}${G.note[p.id]?' <span class="gold" title="Nel taccuino">◆</span>':''}${!mine&&G.T[0].promise&&p.r===G.T[0].promise.role?(ovrView(p)[0]>=G.T[0].promise.thr-0.05?' <span class="badge-s prm" title="Soddisfa la promessa fatta all\'allenatore">promessa ✓</span>':ovrView(p)[1]>=G.T[0].promise.thr?' <span class="badge-s prm2" title="Potrebbe soddisfare la promessa: fallo valutare">promessa ?</span>':''):''}${mine&&p.peg?' <span class="badge-s peg" title="In pegno alla banca">pegno</span>':''}${p.inj>0?` <span class="badge-s inj" title="Infortunato">✚ ${p.inj}</span>`:''}${p.sq>0?' <span class="badge-s sq" title="Squalificato">squal.</span>':''}</td><td class="num">${p.age}</td>
-    ${mine?'':`<td>${p.team==null?'<span class="muted">Svincolato</span>':clubLink(p.team)}</td>`}
-    <td class="num strong">${ovrTxt(p)}</td><td>${starsHTML(p)}</td>
-    ${mine?`<td title="Morale ${morLevel(p.mor)}${p.morC&&p.morC[0]?': '+esc(p.morC[0].t):''}">${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</td><td class="num">${Math.round(p.fat)}%</td>${(S=>`<td class="num sg">${S.a}</td><td class="num">${S.g}</td><td class="num">${v10(S.v)}</td>`)(seaStat(p))}${(C=>`<td class="num sg">${C.a}</td><td class="num">${C.g}</td>`)(carStat(p))}<td class="num sg">${fmt(p.wg)}</td><td class="num">${p.ct}</td>`
-          :`<td class="num">${kcr(value(p))}</td><td class="num">${obsN(p)}/3</td>`}
+    <td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(p, nameBtn(p)+plBadges(p,mine), `${ROLE_NAME[p.r]} · ${p.age} anni${mine?'':' · '+(p.team==null?'svincolato':esc(G.T[p.team].n))}`)}</td><td class="num mh">${p.age}</td>
+    ${mine?'':`<td class="mh">${p.team==null?'<span class="muted">Svincolato</span>':clubLink(p.team)}</td>`}
+    <td class="num strong mv" data-l="Val.">${ovrTxt(p)}</td><td data-l="Potenziale"${mine?' class="mh"':''}>${starsHTML(p)}</td>
+    ${mine?`<td data-l="Morale" title="Morale ${morLevel(p.mor)}${p.morC&&p.morC[0]?': '+esc(p.morC[0].t):''}">${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</td><td class="num" data-l="Fatica">${Math.round(p.fat)}%</td>${(S=>`<td class="num sg" data-l="Presenze">${S.a}</td><td class="num" data-l="Gol">${S.g}</td><td class="num" data-l="Media">${v10(S.v)}</td>`)(seaStat(p))}${(C=>`<td class="num sg mh">${C.a}</td><td class="num mh">${C.g}</td>`)(carStat(p))}<td class="num sg mh" data-l="Stip./g">${fmt(p.wg)}</td><td class="num" data-l="Contratto">${p.ct} ${p.ct===1?'anno':'anni'}</td>`
+          :`<td class="num" data-l="Valore">${kcr(value(p))}</td><td class="num" data-l="Relazioni">${obsN(p)}/3</td>`}
   </tr>`).join('');
 }
 function vRosa(){
-  const pl=teamPlayers(G.T[0]).sort((a,b)=>'PDCA'.indexOf(a.r)-'PDCA'.indexOf(b.r) || ovr(b)-ovr(a));
-  return `<section class="card"><div class="head"><p class="eyebrow">Rosa · ${pl.length} giocatori</p><p class="muted">Attributi esatti per i tuoi giocatori; il potenziale resta nascosto finché non lo fai valutare. Presenze, gol e media voto della stagione in corso e della carriera.</p></div>
-  <div class="tw"><table><thead><tr class="grp"><th colspan="7"></th><th colspan="3" class="sg">Stagione ${G.season}</th><th colspan="2" class="sg">Carriera</th><th colspan="2" class="sg"></th></tr><tr><th>R</th><th>Nome</th><th class="num">Età</th><th class="num">Val.</th><th>Potenziale</th><th>Morale</th><th class="num">Fatica</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num" title="Media voto della stagione">Media</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num sg">Stip./g</th><th class="num">Anni contr.</th></tr></thead><tbody>${playerRows(pl,true)}</tbody></table></div></section>`;
+  const t=G.T[0], pl=teamPlayers(t).sort((a,b)=>'PDCA'.indexOf(a.r)-'PDCA'.indexOf(b.r) || ovr(b)-ovr(a));
+  const inj=pl.filter(p=>p.inj>0).length, fat=pl.length?Math.round(pl.reduce((s,p)=>s+p.fat,0)/pl.length):0;
+  return pageHead('Squadra · gestione giocatori','La tua rosa',`${pl.length} giocatori · stagione ${G.season}, giornata ${G.md}/14`)
+  +kpiHTML([['Giocatori',pl.length,`${pl.filter(p=>p.r==='P').length} portieri · massimo 24`],['Infortunati',inj||'Nessuno',inj?'fuori per qualche giornata':'tutti disponibili',inj?'bad':''],['Fatica media',fat+'%','recupera tra una giornata e l\'altra'],['Clima',cap1(morLevel(clubClimate(t))),'morale della società']])
+  +`<section class="card ev-panel"><div class="head"><h2 class="ev-ptitle">Elenco giocatori <small>(${pl.length})</small></h2><p class="muted">Attributi esatti per i tuoi giocatori; il potenziale resta nascosto finché non lo fai valutare. Presenze, gol e media voto della stagione in corso e della carriera.</p></div>
+  <div class="tw"><table class="ev-ptab rosa"><thead><tr class="grp"><th colspan="7"></th><th colspan="3" class="sg">Stagione ${G.season}</th><th colspan="2" class="sg">Carriera</th><th colspan="2" class="sg"></th></tr><tr><th>R</th><th>Giocatore</th><th class="num">Età</th><th class="num">Val.</th><th>Potenziale</th><th>Morale</th><th class="num">Fatica</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num" title="Media voto della stagione">Media</th><th class="num sg">Pres.</th><th class="num">Gol</th><th class="num sg">Stip./g</th><th class="num">Contratto</th></tr></thead><tbody>${playerRows(pl,true)}</tbody></table></div></section>`;
 }
 function vMercato(){
   let list=Object.values(G.P).filter(p=>!p.retired && p.team!==0 && (p.team!=null || G.FA.includes(p.id)));
+  const all=list.length;
   if(filt.r) list=list.filter(p=>p.r===filt.r);
   list=list.filter(p=>p.age<=+filt.age);
   if(filt.src==='fa') list=list.filter(p=>p.team==null); if(filt.src==='club') list=list.filter(p=>p.team!=null);
   list.sort(filt.sort==='age'?(a,b)=>a.age-b.age:filt.sort==='obs'?(a,b)=>obsN(b)-obsN(a):(a,b)=>value(b)-value(a));
   const sel=(id,opts,v)=>`<select id="${id}" data-filt="${id.slice(2)}">${opts.map(([k,l])=>`<option value="${k}"${k===v?' selected':''}>${l}</option>`).join('')}</select>`;
-  return `<section class="card"><div class="head"><p class="eyebrow">Mercato · ${list.length} giocatori</p><p class="muted">Il valore di mercato dipende solo da livello attuale ed età: i talenti nascosti costano poco. Relazioni rimaste: <b>${G.scoutLeft}</b>/3.</p></div>
-  <div class="filters"><label>Ruolo ${sel('f-r',[['','Tutti'],['P','Portieri'],['D','Difensori'],['C','Centrocampisti'],['A','Attaccanti']],filt.r)}</label>
+  return pageHead('Mercato · osservatori','Cerca giocatori',`Ricerca e valutazione dei profili · ${all} giocatori nei club e svincolati`)
+  +`<div class="ev-layout"><aside class="ev-side"><section class="card ev-panel"><h2 class="ev-ptitle">Filtra ricerca</h2>
+   <div class="filters ev-fields"><label>Ruolo ${sel('f-r',[['','Tutti'],['P','Portieri'],['D','Difensori'],['C','Centrocampisti'],['A','Attaccanti']],filt.r)}</label>
    <label>Età fino a ${sel('f-age',[['19','19'],['21','21'],['23','23'],['40','tutte']],filt.age)}</label>
    <label>Dove ${sel('f-src',[['all','Ovunque'],['club','Nei club'],['fa','Svincolati']],filt.src)}</label>
-   <label>Ordina ${sel('f-sort',[['val','Valore'],['age','Età'],['obs','Osservazioni']],filt.sort)}</label></div>
-  <div class="tw"><table><thead><tr><th>R</th><th>Nome</th><th class="num">Età</th><th>Squadra</th><th class="num">Val.</th><th>Potenziale</th><th class="num">Valore</th><th class="num">Relaz.</th></tr></thead><tbody>${playerRows(list.slice(0,90),false)}</tbody></table></div></section>`;
+   <label>Ordina ${sel('f-sort',[['val','Valore'],['age','Età'],['obs','Osservazioni']],filt.sort)}</label></div></section>
+   <section class="card ev-panel"><h2 class="ev-ptitle">Osservatore</h2><p class="ev-bignum">${G.scoutLeft}<small>/3</small></p><p class="muted">Relazioni rimaste. Mandalo dalla scheda del giocatore: ogni relazione stringe la valutazione e scopre il potenziale.</p><p class="muted small">Il valore di mercato dipende solo da livello attuale ed età: i talenti nascosti costano poco.</p></section></aside>
+  <section class="card ev-panel ev-main"><div class="head"><h2 class="ev-ptitle">Risultati <small>(${list.length}${list.length>90?', i primi 90':''})</small></h2><p class="muted">Tocca un giocatore per aprire la scheda: osservatore, taccuino e trattativa.</p></div>
+  <div class="tw"><table class="ev-ptab cerca"><thead><tr><th>R</th><th>Giocatore</th><th class="num">Età</th><th>Squadra</th><th class="num">Val.</th><th>Potenziale</th><th class="num">Valore</th><th class="num">Relaz.</th></tr></thead><tbody>${playerRows(list.slice(0,90),false)}</tbody></table></div></section></div>`;
 }
 function vClassifica(){
-  const st=standings();
-  return `<section class="card"><div class="head"><p class="eyebrow">Classifica · stagione ${G.season} · giornata ${G.md}/14</p></div><div class="tw"><table class="tab"><thead><tr><th class="num">#</th><th>Squadra</th><th class="num">G</th><th class="num">V</th><th class="num">N</th><th class="num">P</th><th class="num">GF</th><th class="num">GS</th><th class="num">DR</th><th class="num">Pt</th><th>Forma</th></tr></thead><tbody>
-  ${st.map((t,i)=>`<tr class="${t.id===0?'me':''}"><td class="num">${i+1}</td><td>${clubLink(t.id,true)}</td><td class="num">${t.tab.g}</td><td class="num">${t.tab.v}</td><td class="num">${t.tab.n}</td><td class="num">${t.tab.p}</td><td class="num">${t.tab.gf}</td><td class="num">${t.tab.gs}</td><td class="num">${t.tab.gf-t.tab.gs}</td><td class="num strong">${teamPts(t)}${t.fin&&t.fin.pen?` <small class="bad">(−${t.fin.pen})</small>`:''}${t.fin&&t.fin.excluded?' <small class="bad">esclusa</small>':''}</td><td>${t.form.map(f=>`<span class="fm f${f}">${f}</span>`).join('')}</td></tr>`).join('')}</tbody></table></div></section>`;
+  const st=standings(), me=st.findIndex(t=>t.id===0)+1, played=G.T.reduce((x,t)=>x+t.tab.g,0)/2;
+  return pageHead('Lega · campionato','Classifica',`Stagione ${G.season} · giornata ${G.md} di 14 · ${st.length} società`)
+  +`<div class="ev-layout ev-layout-r"><section class="card ev-panel ev-main"><h2 class="ev-ptitle">Classifica generale</h2>${G.md===0?'<p class="muted small">La stagione non è ancora iniziata: tutte le squadre hanno zero punti.</p>':''}<div class="tw"><table class="tab ev-standings"><thead><tr><th class="num">#</th><th>Squadra</th><th class="num">G</th><th class="num">V</th><th class="num">N</th><th class="num">P</th><th class="num">GF</th><th class="num">GS</th><th class="num">DR</th><th class="num">Pt</th><th class="fcol">Forma</th></tr></thead><tbody>
+  ${st.map((t,i)=>`<tr class="${t.id===0?'me':''}"><td class="num pos">${String(i+1).padStart(2,'0')}</td><td class="sq">${clubCell(t.id)}</td><td class="num">${t.tab.g}</td><td class="num">${t.tab.v}</td><td class="num">${t.tab.n}</td><td class="num">${t.tab.p}</td><td class="num">${t.tab.gf}</td><td class="num">${t.tab.gs}</td><td class="num">${t.tab.gf-t.tab.gs}</td><td class="num strong">${teamPts(t)}${t.fin&&t.fin.pen?` <small class="bad">(−${t.fin.pen})</small>`:''}${t.fin&&t.fin.excluded?' <small class="bad">esclusa</small>':''}</td><td class="fcol">${t.form.map(f=>`<span class="fm f${f}">${f}</span>`).join('')}</td></tr>`).join('')}</tbody></table></div></section>
+  <aside class="ev-side"><section class="card ev-panel"><h2 class="ev-ptitle">Il campionato</h2><div class="ev-kvs"><div class="ev-kv"><span>Giornata</span><strong>${G.md}/14</strong></div><div class="ev-kv"><span>Squadre</span><strong>${st.length}</strong></div><div class="ev-kv"><span>Partite disputate</span><strong>${played}</strong></div><div class="ev-kv"><span>La tua posizione</span><strong>${me}°</strong></div><div class="ev-kv"><span>Capolista</span><strong>${esc(st[0].n)}</strong></div></div>
+   <p class="muted small">G giocate · V vinte · N pareggiate · P perse · GF gol fatti · GS gol subiti · DR differenza reti · Pt punti.</p></section></aside></div>`;
 }
 function vArbitri(){
   ensureRefs();
@@ -246,9 +259,9 @@ function vArbitri(){
       ${[r.esp,r.car,r.fis,r.err].map((v,i)=>`<td>${bar(v,20,i===3?'warn':'')}<span class="num">${v}</span></td>`).join('')}
       <td class="num">${r.g}</td><td class="num strong">${avg}</td><td class="num">${r.er}</td><td class="num">${r.g?((r.yc)/r.g).toFixed(1).replace('.',','):'–'}</td><td class="num">${r.rc}</td><td class="num">${r.pen}</td></tr>`; }).join('');
   const last=G.last? `<ul class="refl">${G.last.map(m=>{ const r=G.refs[m.refId]; return r?`<li><span>${clubLink(m.h)} – ${clubLink(m.a)} <b>${m.gh}-${m.ga}</b></span><span>${esc(r.n)}</span><span class="num strong">${String(m.ref.voto).replace('.',',')}</span><span class="muted">${m.ref.errs.length?m.ref.errs.length+(m.ref.errs.length===1?' errore':' errori'):'nessun errore'}</span></li>`:''; }).join('')}</ul>` : '<p class="empty">Le designazioni arrivano con la prima giornata.</p>';
-  return `<section class="card"><div class="head"><p class="eyebrow">Terne arbitrali · stagione ${G.season}</p><p class="muted">Una terna per ogni partita della giornata: arbitro e due assistenti. Ogni terna ha le sue caratteristiche: <b>esperienza</b>, <b>cartellini</b> (quanto è severa), <b>fischio facile</b> (quanto concede falli e rigori) ed <b>errori</b> (quanto è soggetta a sbagliare). In una partita può sbagliare da 0 a 2 decisioni: le vedi alla moviola. A fine gara riceve un voto. Quando ci saranno più campionati, le terne più esperte arbitreranno le categorie superiori.</p></div>
+  return pageHead('Lega · arbitri','Terne arbitrali',`Stagione ${G.season} · ${G.refs.length} terne · una per partita`)+`<section class="card ev-panel"><div class="head"><p class="eyebrow">Terne arbitrali · stagione ${G.season}</p><p class="muted">Una terna per ogni partita della giornata: arbitro e due assistenti. Ogni terna ha le sue caratteristiche: <b>esperienza</b>, <b>cartellini</b> (quanto è severa), <b>fischio facile</b> (quanto concede falli e rigori) ed <b>errori</b> (quanto è soggetta a sbagliare). In una partita può sbagliare da 0 a 2 decisioni: le vedi alla moviola. A fine gara riceve un voto. Quando ci saranno più campionati, le terne più esperte arbitreranno le categorie superiori.</p></div>
   <div class="tw"><table class="tab"><thead><tr><th>Terna</th><th>Esperienza</th><th>Cartellini</th><th>Fischio facile</th><th>Errori</th><th class="num">Gare</th><th class="num">Voto medio</th><th class="num">Errori fatti</th><th class="num">Gialli/gara</th><th class="num">Rossi</th><th class="num">Rigori</th></tr></thead><tbody>${rows}</tbody></table></div></section>
-  <section class="card"><p class="eyebrow">Ultima giornata · designazioni e voti</p>${last}</section>`;
+  <section class="card ev-panel"><p class="eyebrow">Ultima giornata · designazioni e voti</p>${last}</section>`;
 }
 
 
@@ -271,6 +284,9 @@ function missionsHTML(t, compact){
 }
 
 /* ---------- finestra della trattativa ---------- */
+/* testata delle finestre di trattativa (0.4.2.5): fascia verde con il volto (o lo stemma), il nome e un numero a destra */
+function negHead(p, over, title, sub, rl, rv, tags){
+  return `<div class="neg-h ev-nhead"><span class="ev-nface" aria-hidden="true">${p?plFace(p):crestHTML(0)}</span><div class="ev-ntext"><p class="ev-eyebrow">${over}</p><h2>${title}</h2><p class="ev-nsub">${sub}</p>${tags&&tags.length?`<p class="ev-ntags">${tags.map(x=>`<span>${x}</span>`).join('')}</p>`:''}</div>${rv!=null?`<div class="ev-nval"><small>${rl}</small><b>${rv}</b></div>`:''}<button class="x" data-act="negclose" aria-label="Chiudi">×</button></div>`; }
 let negId=null;
 function negVal(r,v){ if(r.kind==='offerta') return kcr(v)+' cr'; if(r.kind==='acquisto') return r.neg&&r.neg.ph==='club'?kcr(v)+' cr':fmt(v)+' cr a giornata'; return r.kind==='rinforzo'?'un giocatore di valore almeno '+String(v.toFixed(1)).replace('.',','):r.kind==='rinnovo'||r.kind==='aumento'?fmt(v)+' cr a giornata':kcr(v)+' cr'; }
 function vNeg(){
@@ -286,7 +302,7 @@ function vNeg(){
   const pb=Math.round(n.pat/n.pat0*100);
   const motives=Object.entries(NEG_MOT).filter(([k])=>k!=='prestazioni'||w.type==='p');
   return `<div class="neg" role="dialog" aria-label="Trattativa"><div class="neg-in">
-   <div class="neg-h"><div><p class="eyebrow">Trattativa · ${REQ_KIND[r.kind]}</p><h2>${who}</h2></div><button class="x" data-act="negclose" aria-label="Chiudi">×</button></div>
+   ${negHead(w.type==='p'?w.o:null, 'Trattativa · '+REQ_KIND[r.kind], who, w.type==='p'?`${ROLE_NAME[w.o.r]} · ${w.o.age} anni · ${esc(t.n)}`:esc(t.n), 'Morale', cap1(morLevel(mor)))}
    <p class="muted">Chiede ${req}.</p>
    <div class="neg-sides">
      <div class="side"><p class="eyebrow">Il presidente</p><p class="strong">${esc(t.n)}</p><p class="muted">Clima della società: ${morLevel(cl)}</p>${bar(cl,20,'mor')}<p class="muted">Cassa ${kcr(t.cash)} · stipendi/ricavi ${Math.round(wageRatio(t)*100)}%</p></div>
@@ -315,7 +331,7 @@ function vNegOff(r){
     : `<li class="them"><span>${esc(b.n)}</span><p>${esc(h.txt||'')}${h.v!=null?' '+kcr(h.v)+' cr.':''}</p></li>`).join('');
   const open=n.st==='open', st=n.st==='stalled';
   return `<div class="neg" role="dialog" aria-label="Trattativa di mercato"><div class="neg-in">
-   <div class="neg-h"><div><p class="eyebrow">Calciomercato · offerta per un tuo giocatore</p><h2>${esc(p.fn)} ${esc(p.ln)} · ${b.foreign?esc(b.n):clubLink(b.id)}</h2></div><button class="x" data-act="negclose" aria-label="Chiudi">×</button></div>
+   ${negHead(p, 'Mercato · offerta per un tuo giocatore', `${esc(p.fn)} ${esc(p.ln)}`, `${ROLE_NAME[p.r]} · ${p.age} anni · chi compra: ${b.foreign?esc(b.n):clubLink(b.id)}`, 'Offerta iniziale', kcr(r.amt)+' cr')}
    <p class="muted">Offerta iniziale ${kcr(r.amt)} cr · valore di mercato ${kcr(value(p))} cr · stipendio ${fmt(p.wg)} a giornata.</p>
    <div class="neg-sides">
      <div class="side"><p class="eyebrow">Il presidente</p><p class="strong">${esc(t.n)}</p><p class="muted">Clima della società: ${morLevel(cl)}</p>${bar(cl,20,'mor')}<p class="muted">Cassa ${kcr(t.cash)}</p></div>
@@ -344,7 +360,7 @@ function vNegBuy(r){
   const lo=ph==='club'?Math.round(value(p)*0.5/5000)*5000:Math.round(Math.min(n.ask*0.6,p.wg)/50)*50, hi=ph==='club'?n.ask:n.ask, step=ph==='club'?5000:50;
   const def=ph==='club'?Math.round((lo+hi)/2/5000)*5000:Math.round((lo+hi)/2/50)*50;
   return `<div class="neg" role="dialog" aria-label="Trattativa di acquisto"><div class="neg-in">
-   <div class="neg-h"><div><p class="eyebrow">Calciomercato · acquisto · ${from?(ph==='club'?'fase 1 di 2: accordo con il club':'fase 2 di 2: contratto con il giocatore'):'svincolato: contratto con il giocatore'}</p><h2>${esc(p.fn)} ${esc(p.ln)}${from?' · '+clubLink(from.id):''}</h2></div><button class="x" data-act="negclose" aria-label="Chiudi">×</button></div>
+   ${negHead(p, 'Mercato · acquisto · '+(from?(ph==='club'?'fase 1 di 2: accordo con il club':'fase 2 di 2: contratto con il giocatore'):'svincolato: contratto con il giocatore'), `${esc(p.fn)} ${esc(p.ln)}`, `${ROLE_NAME[p.r]} · ${p.age} anni · ${from?clubLink(from.id):'svincolato'}`, 'Valore di mercato', kcr(value(p))+' cr', [p.r+' · '+ROLE_NAME[p.r], 'Valutazione '+ovrTxt(p)])}
    <p class="muted">${ROLE_NAME[p.r]}, ${p.age} anni · valutazione ${ovrTxt(p)} · valore di mercato ${kcr(value(p))} cr · stipendio attuale ${fmt(p.wg)} a giornata.${n.fee?` Prezzo concordato con il club: <b>${kcr(n.fee)} cr</b>.`:''}</p>
    <div class="neg-sides">
      <div class="side"><p class="eyebrow">Il presidente</p><p class="strong">${esc(t.n)}</p><p class="muted">Clima della società: ${morLevel(cl)}</p>${bar(cl,20,'mor')}<p class="muted">Cassa ${kcr(t.cash)} · stipendi/ricavi ${Math.round(wageRatio(t)*100)}%</p></div>
@@ -384,6 +400,12 @@ function reqsHTML(){
   return `<section class="card" id="reqs"><p class="eyebrow">Richieste in attesa</p><p class="muted">Chi vince chiede di più, chi è in difficoltà si accontenta di meno: oggi la squadra è ${S>0.45?'<b>in gran forma</b>, le richieste sono alte':S>0.1?'<b>in buona forma</b>':S<-0.2?'<b>in difficoltà</b>, le richieste sono basse':'<b>nella media</b>'}. Ogni scelta pesa sul morale e sui conti.</p><ul class="rql">${reqs.length?reqs.map(reqItem).join(''):'<p class="empty">Nessuna richiesta in attesa.</p>'}</ul></section>`;
 }
 /* ---------- Società › Conti ---------- */
+/* fascia comune di Società: stagione, giornata, club e clima (dati già nella testata) */
+function socChips(){ const t=G.T[0]; return ['Stagione '+G.season,'G'+G.md+' / 14',esc(t.n),'<span class="gold-t">Clima '+morLevel(clubClimate(t))+'</span>']; }
+/* ciambella del patrimonio (solo disegno: strutture, cartellini e cassa positiva; i debiti a parte) */
+function donutHTML(parts, mid, lbl){ const tot=parts.reduce((s,p)=>s+Math.max(0,p[1]),0)||1, C=2*Math.PI*42; let off=0;
+  const seg=parts.map(([,v,c])=>{ const L=Math.max(0,v)/tot*C, h=`<circle r="42" cx="60" cy="60" fill="none" stroke="var(${c})" stroke-width="16" stroke-dasharray="${L.toFixed(2)} ${(C-L).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`; off+=L; return h; }).join('');
+  return `<div class="ev-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(lbl)}"><g transform="rotate(-90 60 60)"><circle r="42" cx="60" cy="60" fill="none" stroke="var(--ev-border)" stroke-width="16"/>${seg}</g></svg><div class="ev-donut-c"><b>${mid}</b><small>valore totale</small></div></div>`; }
 function vConti(){
   const t=G.T[0], f=finInit(t), r=wageRatio(t), lv=ratioLevel(r), arr=arrears(t), debt=bankDebt(t);
   const cats=(o)=>Object.entries(o).sort((a,b)=>b[1]-a[1]);
@@ -391,30 +413,32 @@ function vConti(){
   const left=Math.max(0,14-G.md), proj=t.cash+left*(roundIncome(t)-wageBill(t)-staffCost(t))-f.loans.reduce((s,l)=>s+l.rate*Math.min(l.left,left),0);
   const chk=[0,1,2,3,4].map(k=>{ const c=f.checks.find(x=>x.k===k&&x.s===G.season), when=k<4?`dopo la giornata ${CHECKS[k]}`:'a fine stagione';
       return `<li><span>${CHECK_LBL[k]}</span><span class="muted">${when}</span><b class="${c?(c.ok?'ok':'ko'):''}">${c?(c.ok?'in regola':c.excl?'esclusione':'−'+c.pts+' punti'+(c.next?' (prossima stagione)':'')):'—'}</b></li>`; }).join('');
-  return `<section class="grid4">
-    <div class="card"><p class="eyebrow">Cassa</p><p class="big ${t.cash<0?'bad':''}">${kcr(t.cash)} <small>cr</small></p><p class="muted">Previsione a fine stagione: ${kcr(proj)} · popolarità ${Math.round(t.pop)}/100</p></div>
-    <div class="card"><p class="eyebrow">Stipendi arretrati</p><p class="big ${arr>0?'bad':''}">${kcr(arr)}</p><p class="muted">${arr>0?'Da pagare prima del prossimo controllo.':'Tutti pagati.'}</p></div>
-    <div class="card"><p class="eyebrow">Debiti con la banca</p><p class="big ${f.ins?'bad':''}">${kcr(debt)}</p><p class="muted">${f.loans.length?f.loans.map(l=>`${l.left} rate da ${fmt(l.rate)}`).join(' · '):'Nessun finanziamento.'}${f.ins?` · insoluto ${kcr(f.ins)}`:''}</p></div>
-    <div class="card"><p class="eyebrow">Penalizzazione</p><p class="big ${f.pen?'bad':''}">${f.pen?'−'+f.pen+' pt':'nessuna'}</p><p class="muted">${f.penNext?'Già maturati −'+f.penNext+' punti per la prossima stagione.':'Stipendi in regola ai controlli.'}</p></div>
+  const mx=Math.max(ti,te,1);
+  return pageHead('Società · conti','La salute finanziaria',`Situazione economica · giornata ${G.md} di 14`,{chips:socChips()})
+  +kpiHTML([['Cassa',`<span class="${t.cash<0?'bad':''}">${kcr(t.cash)} cr</span>`,'','hi'],['Valore della società',`<span class="${netValue(t)<0?'bad':''}">${kcr(netValue(t))} cr</span>`],['Stipendi e ricavi',`<span class="sem ${lv}">${Math.round(r*100)}%</span>`],['Stipendi arretrati',kcr(arr),arr>0?'Da pagare prima del prossimo controllo.':'Tutti pagati.',arr>0?'bad':''],
+     ['Debiti con la banca',kcr(debt),(f.loans.length?f.loans.map(l=>`${l.left} rate da ${fmt(l.rate)}`).join(' · '):'Nessun finanziamento.')+(f.ins?` · insoluto ${kcr(f.ins)}`:''),f.ins?'bad':''],['Previsione a fine stagione',kcr(proj)+' cr','saldo di cassa previsto'],['Popolarità',Math.round(t.pop)+'/100','tifosi della società'],['Penalizzazione',f.pen?'−'+f.pen+' pt':'Nessuna',f.penNext?'Già maturati −'+f.penNext+' punti per la prossima stagione.':'Stipendi in regola ai controlli.',f.pen?'bad':'']],'ev-kpis4')
+  +`<section class="ev-grid2">${patrimonioHTML(t)}
+   <div class="card ev-panel"><p class="ev-kick">Quadro della stagione ${G.season}</p><h2 class="ev-ptitle">Il saldo della gestione</h2>
+    <div class="ev-flow"><div><span>Entrate</span><b>${fmt(ti)} cr</b></div><span class="ev-flowbar"><span style="width:${(ti/mx*100).toFixed(1)}%"></span></span>
+    <div><span>Uscite</span><b>${fmt(te)} cr</b></div><span class="ev-flowbar out"><span style="width:${(te/mx*100).toFixed(1)}%"></span></span></div>
+    <p class="strong">Saldo della stagione: <span class="${ti-te<0?'bad':''}">${kcr(ti-te)}</span></p><p class="muted small">Barre in proporzione alla voce più grande. Il confronto con il preventivo è in Società › Bilancio.</p></div></section>
+  <section class="ev-grid2">
+   <div class="card ev-panel"><h2 class="ev-ptitle">Entrate della stagione</h2><table class="bil"><thead><tr><th>Voce</th><th class="num">cr</th></tr></thead><tbody>${inc.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('')||'<tr><td class="muted">—</td><td></td></tr>'}<tr class="tot"><td>Totale</td><td class="num">${fmt(ti)}</td></tr></tbody></table></div>
+   <div class="card ev-panel"><h2 class="ev-ptitle">Uscite della stagione</h2><table class="bil"><thead><tr><th>Voce</th><th class="num">cr</th></tr></thead><tbody>${exp.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('')||'<tr><td class="muted">—</td><td></td></tr>'}<tr class="tot"><td>Totale</td><td class="num">${fmt(te)}</td></tr></tbody></table></div>
   </section>
-  <section class="grid2">
-   <div class="card"><p class="eyebrow">Stipendi e ricavi</p><p class="big sem ${lv}">${Math.round(r*100)}%</p><p class="muted">Stipendi e staff (${kcr(wageBill(t)+staffCost(t))} a giornata) rispetto alle entrate medie (${kcr(roundIncome(t))} a giornata). Sotto il 70% i conti sono sani; sopra l'85% ogni richiesta accettata è un rischio e se la cassa finisce gli stipendi non vengono pagati.</p></div>
-   ${patrimonioHTML(t)}
+  <section class="ev-grid2">
+   <div class="card ev-panel"><h2 class="ev-ptitle">Come leggere «Stipendi e ricavi»</h2><p class="big sem ${lv}">${Math.round(r*100)}%</p><p class="muted">Stipendi e staff (${kcr(wageBill(t)+staffCost(t))} a giornata) rispetto alle entrate medie (${kcr(roundIncome(t))} a giornata). Sotto il 70% i conti sono sani; sopra l'85% ogni richiesta accettata è un rischio e se la cassa finisce gli stipendi non vengono pagati.</p></div>
+   <div class="card ev-panel"><h2 class="ev-ptitle">Controlli sugli stipendi</h2><p class="muted">Come in Serie A: a ogni controllo gli stipendi devono essere pagati. Chi non è in regola perde almeno 2 punti, più 2 per ogni periodo precedente ancora non pagato. Al 3° controllo, con più periodi non pagati, scatta l'esclusione dal campionato. Le penalità del 4° controllo e di fine stagione si scontano la stagione successiva.</p><ul class="chk">${chk}</ul></div>
   </section>
-  <section class="grid2">
-   <div class="card"><p class="eyebrow">Entrate e uscite della stagione</p><table class="bil"><thead><tr><th>Entrate</th><th class="num">cr</th></tr></thead><tbody>${inc.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('')||'<tr><td class="muted">—</td><td></td></tr>'}<tr class="tot"><td>Totale</td><td class="num">${fmt(ti)}</td></tr></tbody></table>
-     <table class="bil"><thead><tr><th>Uscite</th><th class="num">cr</th></tr></thead><tbody>${exp.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${fmt(v)}</td></tr>`).join('')||'<tr><td class="muted">—</td><td></td></tr>'}<tr class="tot"><td>Totale</td><td class="num">${fmt(te)}</td></tr></tbody></table>
-     <p class="strong">Saldo della stagione: <span class="${ti-te<0?'bad':''}">${kcr(ti-te)}</span></p><p class="muted small">Il confronto con il preventivo è in Società › Bilancio.</p></div>
-   <div class="card"><p class="eyebrow">Controlli sugli stipendi</p><p class="muted">Come in Serie A: a ogni controllo gli stipendi devono essere pagati. Chi non è in regola perde almeno 2 punti, più 2 per ogni periodo precedente ancora non pagato. Al 3° controllo, con più periodi non pagati, scatta l'esclusione dal campionato. Le penalità del 4° controllo e di fine stagione si scontano la stagione successiva.</p><ul class="chk">${chk}</ul></div>
-  </section>
-  <section class="card"><p class="eyebrow">Ultime decisioni e movimenti</p><ul class="news">${f.hist.slice(0,12).map(h=>`<li><span class="md">G${h.md}</span>${esc(h.t)}</li>`).join('')||'<li class="muted">Ancora nessuna.</li>'}</ul></section>`;
+  <section class="card ev-panel"><h2 class="ev-ptitle">Ultime decisioni e movimenti</h2><ul class="news">${f.hist.slice(0,12).map(h=>`<li><span class="md">G${h.md}</span>${esc(h.t)}</li>`).join('')||'<li class="muted">Ancora nessuna.</li>'}</ul></section>`;
 }
 function vTaccuino(){
   const ids=new Set([...Object.keys(G.note).filter(k=>G.note[k]),...Object.keys(G.seen).filter(k=>G.seen[k].f>0)]);
   const list=[...ids].map(id=>G.P[id]).filter(p=>p&&!p.retired).sort((a,b)=>(G.seen[b.id]?.f||0)-(G.seen[a.id]?.f||0));
-  return `<section class="card"><div class="head"><p class="eyebrow">Taccuino del presidente</p><p class="muted">Le giocate di classe le noti solo nelle partite che guardi. Un lampo può essere fortuna: conta chi si ripete partita dopo partita.</p></div>
-  ${list.length?`<div class="tw"><table><thead><tr><th>R</th><th>Nome</th><th class="num">Età</th><th>Squadra</th><th class="num">Giocate di classe</th><th class="num">Azioni viste</th><th class="num">Partite viste</th><th>Potenziale</th><th class="num">Valore</th></tr></thead><tbody>
-  ${list.map(p=>{const s=G.seen[p.id]||{f:0,a:0,m:0}; return `<tr data-act="sheet" data-pid="${p.id}"><td>${roleTag(p.r)}</td><td class="nm">${nameBtn(p)}</td><td class="num">${p.age}</td><td>${p.team==null?'Svincolato':p.team===0?'<b>Tuo</b>':clubLink(p.team)}</td><td class="num gold strong">${s.f}</td><td class="num">${s.a}</td><td class="num">${s.m||0}</td><td>${starsHTML(p)}</td><td class="num">${kcr(value(p))}</td></tr>`;}).join('')}</tbody></table></div>`
+  return pageHead('Mercato · appunti','Taccuino del presidente',`${list.length?list.length+(list.length===1?' giocatore':' giocatori')+' segnati':'Ancora nessun giocatore'} · le giocate di classe viste in partita`)
+  +`<section class="card ev-panel"><div class="head"><h2 class="ev-ptitle">Giocatori seguiti</h2><p class="muted">Le giocate di classe le noti solo nelle partite che guardi. Un lampo può essere fortuna: conta chi si ripete partita dopo partita.</p></div>
+  ${list.length?`<div class="tw"><table class="ev-ptab tacc"><thead><tr><th>R</th><th>Giocatore</th><th class="num">Età</th><th>Squadra</th><th class="num">Giocate di classe</th><th class="num">Azioni viste</th><th class="num">Partite viste</th><th>Potenziale</th><th class="num">Valore</th></tr></thead><tbody>
+  ${list.map(p=>{const s=G.seen[p.id]||{f:0,a:0,m:0}; return `<tr data-act="sheet" data-pid="${p.id}"><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(p,nameBtn(p),`${ROLE_NAME[p.r]} · ${p.age} anni · ${p.team==null?'svincolato':p.team===0?'tuo':esc(G.T[p.team].n)}`)}</td><td class="num mh">${p.age}</td><td class="mh">${p.team==null?'Svincolato':p.team===0?'<b>Tuo</b>':clubLink(p.team)}</td><td class="num gold strong mv" data-l="Giocate">${s.f}</td><td class="num" data-l="Azioni viste">${s.a}</td><td class="num" data-l="Partite">${s.m||0}</td><td data-l="Potenziale">${starsHTML(p)}</td><td class="num" data-l="Valore">${kcr(value(p))}</td></tr>`;}).join('')}</tbody></table></div>`
   :`<p class="empty">Ancora vuoto. Guarda una partita: quando un giocatore fa una giocata di classe, compare qui. Puoi anche aggiungere giocatori a mano dalla loro scheda.</p>`}</section>`;
 }
 Object.assign(VIEWS,{'squadra/rosa':vRosa,'squadra/allenatore':vAllenatore,'squadra/spogliatoio':vSpogliatoio,'mercato/cerca':vMercato,'mercato/taccuino':vTaccuino,'lega/classifica':vClassifica,'lega/arbitri':vArbitri,'societa/conti':vConti});
@@ -424,24 +448,27 @@ function vSheet(){
   const mine=isMine(p), n=obsN(p), s=G.seen[p.id]||{f:0,a:0,m:0};
   const grp=ATTR_GROUPS.filter(([g])=>g!=='Portiere'||p.r==='P'); if(p.r==='P') grp.unshift(grp.pop());
   const footTxt={D:'destro',S:'sinistro',A:'ambidestro'}[p.foot]||'destro';
-  const at=grp.map(([g,ks])=>`<p class="eyebrow">${g}</p>`+ks.map(k=>{ const v=attrView(p,k);
-    return `<div class="arow"><span title="${esc(ATTR_HELP[k]||'')}">${ATTR_LABEL[k]}</span>${v?`<span class="rng"><span class="r" style="left:${(v[0]-1)/19*100}%;width:${Math.max(2,(v[1]-v[0])/19*100)}%"></span></span><span class="num">${v[0]===v[1]?v[0]:v[0]+'–'+v[1]}</span>`:'<span class="rng"></span><span class="num muted">?</span>'}</div>`; }).join('')).join('');
+  const at=grp.map(([g,ks])=>`<div class="sh-grp"><p class="eyebrow">${g}</p>`+ks.map(k=>{ const v=attrView(p,k);
+    return `<div class="arow"><span title="${esc(ATTR_HELP[k]||'')}">${ATTR_LABEL[k]}</span>${v?`<span class="rng"><span class="r" style="left:${(v[0]-1)/19*100}%;width:${Math.max(2,(v[1]-v[0])/19*100)}%"></span></span><span class="num">${v[0]===v[1]?v[0]:v[0]+'–'+v[1]}</span>`:'<span class="rng"></span><span class="num muted">?</span>'}</div>`; }).join('')+'</div>').join('');
   const pv=potView(p);
   const action = mine
     ? `<button class="btn ghost" data-act="sell" data-pid="${p.id}">Cerca un acquirente</button>`
     : `<button class="btn" data-act="buyopen" data-pid="${p.id}">${(G.req||[]).some(q=>q.kind==='acquisto'&&q.pid===p.id&&q.st==='open')?'Riprendi la trattativa':p.team==null?'Proponi un contratto':'Apri la trattativa'}</button>`;
+  const capt=p.team!=null&&G.T[p.team].cap===p.id?'Capitano':p.team!=null&&G.T[p.team].vcap===p.id?'Vicecapitano':'';
+  const row=(k,v)=>`<div class="ev-kv"><span>${k}</span><strong>${v}</strong></div>`;
   return `<div class="sh-in" role="dialog" aria-label="Scheda di ${esc(p.fn)} ${esc(p.ln)}">
    <button class="x" data-act="close" aria-label="Chiudi">×</button>
-   <p class="eyebrow">${ROLE_NAME[p.r]} · ${p.age} anni · ${p.team==null?'svincolato':clubLink(p.team)}${p.team!=null&&G.T[p.team].cap===p.id?' · capitano':p.team!=null&&G.T[p.team].vcap===p.id?' · vicecapitano':''}</p>
-   <h2>${esc(p.fn)} ${esc(p.ln)}</h2>${p.inj>0?`<p class="badge-s inj">Infortunato: fuori ancora ${p.inj} ${p.inj>1?'giornate':'giornata'}</p>`:''}${p.sq>0?'<p class="badge-s sq">Squalificato per la prossima giornata</p>':''}
+   <div class="sh-hero"><span class="sh-face" aria-hidden="true">${plFace(p)}</span><div class="sh-id"><p class="eyebrow">${mine?'Squadra':'Mercato'} · scheda del giocatore</p><h2>${esc(p.fn)} ${esc(p.ln)}</h2>
+    <p class="sh-sub">${ROLE_NAME[p.r]} · ${p.age} anni · ${p.team==null?'svincolato':clubLink(p.team)}</p><p class="sh-tags"><span class="ev-pill">${p.r} · ${ROLE_NAME[p.r]}</span>${capt?`<span class="ev-pill">${capt}</span>`:''}</p></div></div>
+   ${p.inj>0?`<p class="badge-s inj">Infortunato: fuori ancora ${p.inj} ${p.inj>1?'giornate':'giornata'}</p>`:''}${p.sq>0?'<p class="badge-s sq">Squalificato per la prossima giornata</p>':''}
    <div class="sh-top"><div><p class="eyebrow">Valutazione</p><p class="big">${ovrTxt(p)}</p></div><div><p class="eyebrow">Potenziale</p>${starsHTML(p)}<p class="muted">${pv?'affidabilità '+pv[2]:'non valutato'}</p></div><div><p class="eyebrow">Valore</p><p class="big">${kcr(value(p))}</p></div></div>
    <div class="sh-btns"><button class="btn ghost" data-act="obs" data-pid="${p.id}" ${n>=3?'disabled':''}>${n>=3?'Relazione completa':'Manda l\'osservatore ('+G.scoutLeft+' rimaste)'}</button><button class="btn ghost" data-act="note" data-pid="${p.id}">${G.note[p.id]?'Togli dal taccuino':'Metti nel taccuino'}</button></div>
-   ${at}
-   <div class="phys"><span><b>${p.h||'–'} cm</b> altezza</span><span>piede <b>${footTxt}</b></span><span>${mine||n?`tipo: <b>${esc(p.prof2||'–')}</b>`:'<span class="muted">tipo di giocatore: lo dirà l\'osservatore</span>'}</span></div>
-   <p class="eyebrow">Carattere</p><p>${mine||n?esc(character(p).join(' · ')):'<span class="muted">Lo dirà l\'osservatore.</span>'}</p>
-   ${mine?`<p class="eyebrow">Morale</p><p><b>${morLevel(p.mor).replace(/^./,c=>c.toUpperCase())}</b> <span class="muted">(${p.mor.toFixed(1).replace('.',',')}/20)</span> ${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</p>${p.morC&&p.morC.length?`<ul class="morc">${p.morC.slice(0,4).map(c=>`<li><span class="${c.d>0?'up':'dn'}">${c.d>0?'▲':'▼'}</span> ${esc(c.t)} <span class="muted">· G${c.md}</span></li>`).join('')}</ul>`:'<p class="muted">Nessuna novità recente.</p>'}`:''}
-   <p class="eyebrow">Visto da te in campo</p><p>${s.a?`<span class="gold strong">${s.f}</span> giocate di classe su ${s.a} azioni viste, in ${s.m||0} partite.`:'<span class="muted">Non l\'hai ancora visto giocare.</span>'}</p>
-   ${statsHTML(p)}
+   <section class="sh-sec"><h3>Caratteristiche</h3><p class="muted small">Scala 1–20${mine?'':'; la banda si stringe con le relazioni dell\'osservatore'}.</p><div class="sh-attrs">${at}</div></section>
+   <section class="sh-sec"><h3>Profilo</h3><div class="phys">${row('Altezza',(p.h||'–')+' cm')}${row('Piede preferito',cap1(footTxt))}${row('Tipo di giocatore',mine||n?esc(p.prof2||'–'):'<span class="muted">lo dirà l\'osservatore</span>')}${row('Carattere',mine||n?esc(character(p).join(' · ')):'<span class="muted">lo dirà l\'osservatore</span>')}</div>
+   ${mine?`<p class="eyebrow">Morale</p><p><b>${cap1(morLevel(p.mor))}</b> <span class="muted">(${p.mor.toFixed(1).replace('.',',')}/20)</span> ${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</p>${p.morC&&p.morC.length?`<ul class="morc">${p.morC.slice(0,4).map(c=>`<li><span class="${c.d>0?'up':'dn'}">${c.d>0?'▲':'▼'}</span> ${esc(c.t)} <span class="muted">· G${c.md}</span></li>`).join('')}</ul>`:'<p class="muted">Nessuna novità recente.</p>'}`:''}
+   <p class="eyebrow">Visto da te in campo</p><p>${s.a?`<span class="gold strong">${s.f}</span> giocate di classe su ${s.a} azioni viste, in ${s.m||0} partite.`:'<span class="muted">Non l\'hai ancora visto giocare.</span>'}</p></section>
+   <section class="sh-sec"><h3>${mine?'Contratto e carriera':'Carriera'}</h3>${mine?row('Stipendio per giornata',fmt(p.wg)+' cr')+row('Durata residua',p.ct+(p.ct===1?' anno':' anni')):''}
+   ${statsHTML(p)}</section>
    ${mine&&p.peg?'<p class="badge-s peg">In pegno alla banca: si vende solo con il suo ok, a un prezzo vicino al valore, e il ricavato rimborsa il finanziamento.</p>':''}<div class="sh-act">${action}</div></div>`;
 }
 
@@ -452,14 +479,81 @@ function statsHTML(p){ const S=seaStat(p), C=carStat(p), H=(p.sh||[]).slice().re
    <p class="muted small">Ultimi voti: ${vt.length?vt.map(x=>String(x).replace('.',',')).join(' · '):'–'}</p>
    ${H.length?`<div class="tw"><table class="tab sht"><thead><tr><th>Stagione</th><th>Club</th><th class="num">Pres.</th><th class="num">Gol</th><th class="num">Media</th></tr></thead><tbody>${H.map(h=>`<tr class="nohov"><td>${h[0]}</td><td>${club(h[1])}</td><td class="num">${h[2]}</td><td class="num">${h[3]}</td><td class="num">${v10(h[4])}</td></tr>`).join('')}</tbody></table></div>`:''}`; }
 
-/* icone semplici delle cinque aree (tratto, colore del testo) */
-const AREA_ICON={
-  scrivania:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M9 7V5h6v2M3 12h18"/></svg>',
-  lega:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0z M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8"/></svg>',
-  squadra:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l-5 3 2 4 2-1v10h10V10l2 1 2-4-5-3a4 4 0 0 1-8 0z"/></svg>',
-  mercato:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>',
-  societa:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18"/></svg>'
+/* icone (0.4.2.4, G1a): disegnate come nella Scrivania 013 di Evivora-scambio (tratto, colore del testo) */
+const ICO_P={
+  scrivania:'<path d="m3 11 9-8 9 8v10h-7v-7h-4v7H3z"/>',
+  lega:'<path d="M7 3h10v6c0 8-10 8-10 0V3ZM7 5H3v3c0 3 2 5 6 5M17 5h4v3c0 3-2 5-6 5M12 15v5m-6 1h12"/>',
+  squadra:'<circle cx="9" cy="7" r="3"/><circle cx="18" cy="8" r="2"/><path d="M2 21v-3a7 7 0 0 1 14 0v3m1-10a5 5 0 0 1 5 5v5h-4"/>',
+  mercato:'<path d="M3 7h18m-4-4 4 4-4 4M21 17H3m4-4-4 4 4 4"/>',
+  societa:'<path d="M2 21h20M5 21V10l7-5 7 5v11M9 21v-8h6v8M4 7h16"/>',
+  chart:'<path d="M3 21h18M5 18v-7h4v7m2 0V5h4v13m2 0V9h4v9"/>',
+  coins:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 4 16 4 16 0V5M4 11v6c0 4 16 4 16 0v-6"/>',
+  wages:'<path d="M8 4v15m-4-5 4 5 4-5M16 20V5m-4 5 4-5 4 5"/>',
+  clipboard:'<rect x="5" y="4" width="16" height="18" rx="2"/><path d="M9 4V2h8v2M8 10l2 2 4-4m-6 9h9"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6m10-6v6M3 11h18M7 15h4"/>',
+  news:'<path d="M5 2h11l4 4v16H5zM16 2v5h4M8 11h9m-9 4h9m-9 4h6"/>',
+  star:'<path d="m12 2 3.2 6.7 7.3.8-5.4 5.2 1.3 7.2L12 18.5 5.6 22l1.3-7.3-5.4-5.2 7.3-.8z"/>',
+  ball:'<circle cx="12" cy="12" r="10"/><path d="m12 6 4 3-1.5 5H9.5L8 9Zm0 0V2M8 9 3 8m6 6-3 6m8-6 4 6m-2-11 5-1"/>',
+  check:'<path d="m3 12 6 6L21 5"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>',
+  aid:'<rect x="2" y="5" width="20" height="16" rx="3"/><path d="M9 5V3h6v2M12 9v8m-4-4h8"/>',
+  mood:'<circle cx="12" cy="12" r="9"/><path d="M8 14q4 4 8 0M9 9h.01M15 9h.01"/>',
+  flag:'<path d="M5 21V4m0 1h11l-2 4 2 4H5"/>',
+  moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  stadio:'<ellipse cx="12" cy="8" rx="9" ry="4"/><path d="M3 8v8c0 2.2 4 4 9 4s9-1.8 9-4V8M7 11.5v8M17 11.5v8M12 12v8"/>',
+  centro:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 12h18"/><circle cx="12" cy="12" r="3"/>',
+  giovani:'<path d="m12 3 3 6 6 .9-4.5 4.3 1 6.3L12 17.6 6.5 20.5l1-6.3L3 9.9 9 9z"/>'
 };
+const ico=(k,c)=>`<svg class="${c||'ev-ico'}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">${ICO_P[k]||''}</svg>`;
+const AREA_ICON={}; ['scrivania','lega','squadra','mercato','societa'].forEach(k=>AREA_ICON[k]=ico(k));
+/* simbolo del marchio (corona della 020 di Evivora-scambio), con i colori del tema */
+const LOGO_SVG='<svg class="logo" viewBox="0 0 80 80" aria-hidden="true"><rect x="1" y="1" width="78" height="78" rx="18" fill="var(--ev-sidebar-end)"/><path d="M11 43 8 21 24 31 40 12 56 31 72 21 69 43Z" fill="var(--ev-brand-gold)" stroke="var(--ev-gold-text)" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 47h54v9H13z" fill="var(--ev-brand-gold)"/><circle cx="40" cy="35" r="4" fill="var(--ev-sidebar-end)"/><path d="M18 63H62" stroke="var(--ev-brand-gold)" stroke-width="5" stroke-linecap="round"/></svg>';
+/* colori grafici di un club: stemma (stemmi.js), maglia (maglie.js) e maglia dei volti (volti.js) partono tutti da qui,
+   così sono sempre uguali tra loro e uguali al visore. Primario = colore del club, secondario chiaro o scuro per il contrasto. */
+function clubInit(n){ const w=String(n).split(/\s+/).filter(Boolean); return (w.length>1?w.map(x=>x[0]).join(''):String(n).slice(0,3)).slice(0,3).toUpperCase(); }
+function clubLum(hex){ const n=parseInt(String(hex).slice(1),16); return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255; }
+function clubArt(id){ const t=G.T[id]; return {primario:t.c, secondario:clubLum(t.c)>0.55?'var(--ev-sidebar-end)':'var(--ev-chalk)', iniziali:clubInit(t.n)}; }
+function crestHTML(id){ const a=clubArt(id);
+  if(typeof window.stemmaSVG!=='function') return `<span class="chip big" style="--c:${a.primario}"></span>`;
+  return window.stemmaSVG(id+1,{colori:{primario:a.primario, secondario:a.secondario}, iniziali:a.iniziali}); }
+/* volto di una persona del gioco (volti.js): seme dall'id, colori del club per la maglia; solo disegno */
+function faceHTML(seed, o){ if(typeof window.faceSVG!=='function') return ''; return window.faceSVG(seed, o); }
+
+/* ---------- schermate (0.4.2.5, G1b): fascia del titolo, riquadri dei numeri, giocatore con il volto ----------
+   solo disegno: leggono i dati di G senza cambiarli. Stile come la 017 e la 022b di Evivora-scambio. */
+function pageHead(over, title, sub, o){ o=o||{}; const id=o.club===undefined?0:o.club;
+  return `<section class="ev-titleband${o.cls?' '+o.cls:''}"><div class="ev-tb-text"><p class="ev-eyebrow">${over}</p><h1>${title}</h1>${sub?`<p class="ev-tb-sub">${sub}</p>`:''}${o.chips&&o.chips.length?`<div class="ev-chips">${o.chips.map(c=>`<span class="ev-chip">${c}</span>`).join('')}</div>`:''}</div>${o.right||''}${id!=null?`<span class="ev-headmark" aria-hidden="true">${crestHTML(id)}</span>`:''}</section>`; }
+/* riquadri dei numeri: [etichetta, valore, nota, classe] */
+function kpiHTML(list, cls){ return `<div class="ev-kpis${cls?' '+cls:''}">${list.filter(Boolean).map(([l,v,n,c])=>`<div class="ev-kpi${c?' '+c:''}"><small>${l}</small><b>${v}</b>${n?`<span>${n}</span>`:''}</div>`).join('')}</div>`; }
+const cap1 = s=>String(s).replace(/^./,c=>c.toUpperCase());
+/* volto del giocatore (stesso seme della Scrivania), maglia con i colori del suo club; tenuto in memoria per non ridisegnarlo */
+const FACE_C={};
+function plFace(p){ const tm=p.team!=null&&G.T[p.team]?p.team:null, a=tm!=null?clubArt(tm):{primario:'#68736b',secondario:'var(--ev-chalk)'}, k=p.id+'|'+p.age+'|'+a.primario;
+  return FACE_C[k]||(FACE_C[k]=faceHTML(p.id*7919+13,{eta:p.age,ruolo:'giocatore',colori:{primario:a.primario,secondario:a.secondario}})); }
+/* club con lo stemma (Classifica, risultati, marcatori) */
+function clubCell(id, sub){ return `<div class="ev-clubcell"><span class="ev-crest-s" aria-hidden="true">${crestHTML(id)}</span><div><b>${clubLink(id)}</b>${sub?`<small>${sub}</small>`:''}</div></div>`; }
+/* disegno astratto del modulo dell'allenatore (es. 4-2-3-1): posizioni solo illustrative, dal campo «modulo preferito» */
+function formSVG(mod, c){ const L=String(mod||'').split('-').map(Number).filter(n=>n>0&&n<7); if(!L.length) return '';
+  const H=150, W=104, rows=L.length, dots=[[W/2,H-12]];
+  L.forEach((n,i)=>{ const y=H-34-i*((H-56)/Math.max(1,rows-1||1)); for(let k=0;k<n;k++) dots.push([W*(k+1)/(n+1),rows===1?H/2:y]); });
+  return `<svg class="ev-formsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Modulo ${esc(mod)}"><rect x="1" y="1" width="${W-2}" height="${H-2}" rx="4" fill="var(--ev-pitch)" stroke="var(--ev-chalk)" stroke-width="1.2"/><path d="M1 ${H/2}H${W-1}M${W/2-18} 1v14h36V1M${W/2-18} ${H-1}v-14h36v14" fill="none" stroke="var(--ev-chalk)" stroke-width="1" opacity=".75"/><circle cx="${W/2}" cy="${H/2}" r="11" fill="none" stroke="var(--ev-chalk)" stroke-width="1" opacity=".75"/>${dots.map(([x,y],i)=>`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${i?c:'var(--ev-brand-gold)'}" stroke="var(--ev-chalk)" stroke-width="1.4"/>`).join('')}</svg>`; }
+function plCell(p, inner, small){ return `<div class="ev-athlete"><span class="ev-face" aria-hidden="true">${plFace(p)}</span><div class="ev-ath-t"><b>${inner||nameBtn(p)}</b><small>${small!=null?small:ROLE_NAME[p.r]+' · '+p.age+' anni'}</small></div></div>`; }
+
+/* ---------- tema (0.4.2.4, G1a): un solo sistema per tutto il gioco ----------
+   di base segue il dispositivo (prefers-color-scheme); il pulsante della testata (e quello del visore) mette data-theme
+   sulla pagina e lo ricorda in localStorage presidente-pref-tema. shell.html lo applica già prima dello stile. */
+const THEME_KEY='presidente-pref-tema';
+function themeNow(){ const d=document.documentElement.dataset.theme; if(d==='light'||d==='dark') return d; try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch(_){ return 'light'; } }
+function themeLbl(){ return themeNow()==='dark' ? 'Tema chiaro' : 'Tema scuro'; }
+function themeBtn(){ return `<button class="tema" data-act="tema" id="theme-btn" aria-label="${themeLbl()}" title="${themeLbl()}">${ico(themeNow()==='dark'?'sun':'moon')}</button>`; }
+function themePaint(){ const b=$('#theme-btn'); if(b) b.outerHTML=themeBtn(); const v=$('#v-tema'); if(v) v.textContent=themeLbl(); if(typeof viewer!=='undefined' && viewer && typeof draw==='function') draw(); }
+function themeToggle(){ const t=themeNow()==='dark'?'light':'dark'; document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(_){} themePaint(); }
+(function(){ try{ const t=localStorage.getItem(THEME_KEY); if(t==='light'||t==='dark') document.documentElement.dataset.theme=t; }catch(_){}
+  try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(!document.documentElement.dataset.theme) themePaint(); }); }catch(_){} })();
+/* pulsante principale (testata e Scrivania): gioca la giornata, oppure prima convalida il preventivo o scegli la nuova società */
+function playBtn(cls){ const t=G.T[0], end=G.md>=G.sched.length, c='btn go'+(cls?' '+cls:'');
+  return G.fired?`<button class="${c}" disabled>Scegli la nuova società</button>`:G.md===0&&needBudget(t)?`<button class="${c}" data-act="go" data-a="societa" data-s="bilancio">Convalida il preventivo</button>`:`<button class="${c}" data-act="advance">${end?'Chiudi la stagione':'Gioca la giornata '+(G.md+1)}</button>`; }
 function render(){
   const on=!!G; $('#top').hidden=!on; $('#tabs').hidden=!on; $('#subtabs').hidden=!on; document.body.classList.toggle('ingame',on);
   if(!G){ $('#view').innerHTML = startScreen(); $('#sheet').hidden=true; ['#negov','#modal'].forEach(s=>{ const x=$(s); if(x) x.remove(); }); return; }
@@ -468,10 +562,10 @@ function render(){
   const t=G.T[0], pos=standings().findIndex(x=>x.id===0)+1;
   const end=G.md>=G.sched.length;
   const ms=activeMissions(t), mu=ms.filter(m=>m.kind==='rinforzo'&&m.due-G.md<=1);
-  $('#top').innerHTML = `<div class="brand"><span class="wm">EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><button class="club link" data-act="club" data-id="0" title="Il profilo pubblico del tuo club"><span class="chip" style="--c:${t.c}"></span>${esc(t.n)}</button></div>
+  $('#top').innerHTML = `<div class="brand"><span class="wm">${LOGO_SVG}EVIVORA</span><span class="ver" title="Versione del gioco">v${VERSION}</span><button class="club link" data-act="club" data-id="0" title="Il profilo pubblico del tuo club"><span class="crest" aria-hidden="true">${crestHTML(0)}</span><span class="cn">${esc(t.n)}</span></button></div>
    <div class="stat"><span>Stagione ${G.season}</span><span>Giornata ${G.md}/14</span><span>${pos}° posto</span><span class="cash">${kcr(t.cash)} cr</span><span class="clima" title="Clima della società: morale medio di giocatori e allenatore">Clima <b>${morLevel(clubClimate(t))}</b> ${bar(clubClimate(t),20,'mor '+(clubClimate(t)<9?'warn':''))}</span></div>
    <div class="acts">${t.ult&&t.ult.st==='on'?`<button class="mchip urg" data-act="go" data-a="societa" data-s="banca" title="Ultimatum della banca">⚠ Ultimatum della banca</button>`:t.own.bank>=25?`<button class="mchip" data-act="go" data-a="societa" data-s="banca" title="Quote della banca">Banca ${fmtV(t.own.bank)}%</button>`:''}${ms.length?`<button class="mchip ${mu.length?'urg':''}" data-act="go" data-a="scrivania" title="Impegni in corso">⚑ ${mu.length?'Impegno in scadenza':ms.length===1?'1 impegno in corso':ms.length+' impegni in corso'}</button>`:''}
-   ${G.fired?'<button class="btn go" disabled>Scegli la nuova società</button>':G.md===0&&needBudget(t)?'<button class="btn go" data-act="go" data-a="societa" data-s="bilancio">Convalida il preventivo</button>':`<button class="btn go" data-act="advance">${end?'Chiudi la stagione':'Gioca la giornata '+(G.md+1)}</button>`}<button class="more" data-act="menu" aria-label="Altre opzioni" title="Altre opzioni">⋯</button></div>`;
+   ${playBtn('')}${themeBtn()}<button class="more" data-act="menu" aria-label="Altre opzioni" title="Altre opzioni">⋯</button></div>`;
   const nb=secBadge();
   $('#tabs').innerHTML = Object.entries(AREAS).map(([k,A])=>`<button class="${area===k?'on':''}" data-act="go" data-a="${k}"${area===k?' aria-current="page"':''}>${AREA_ICON[k]}<span class="tl">${A.n}</span>${k==='scrivania'&&nb?`<span class="tabn" title="Cose bloccanti o urgenti">${nb}</span>`:''}</button>`).join('');
   const subs=AREAS[area].subs, st=$('#subtabs');
@@ -486,11 +580,13 @@ function render(){
   navSync();
 }
 function startScreen(){
-  return `<div class="start"><p class="eyebrow">Bozza giocabile · un solo campionato da 8 squadre</p><h1>EVIVORA</h1><p class="tagline">Sei il presidente</p>
+  /* 0.4.2.5 (G1b): scheda centrata come nella 022b, senza testata e menu del gioco; gli stessi campi di prima (club e segretaria) */
+  return `<div class="start"><div class="start-band"><span class="start-logo" aria-hidden="true">${LOGO_SVG}</span><div class="start-id"><p class="eyebrow">Bozza giocabile · un solo campionato da 8 squadre</p><h1>EVIVORA</h1><p class="tagline">Sei il presidente</p></div>${window.PRES_CONF?'':themeBtn()}</div>
+  <div class="start-body"><h2 class="start-t">Inizia la tua carriera</h2>
   <p>Compri giocatori, scegli l'allenatore, costruisci lo stadio. In campo decidono loro. Il tuo talento è vedere prima degli altri chi diventerà un campione.</p>
   <form id="start-form"><label for="club-name">Nome del tuo club</label><input id="club-name" maxlength="28" value="FC Presidente" autocomplete="off">
    <label for="sec-name">Nome della tua segretaria</label><input id="sec-name" maxlength="20" value="Giulia" autocomplete="off"><button class="btn go" type="submit">Fonda il club</button></form>
-  <p class="muted">I dati restano solo in questo browser. Nomi di squadre e giocatori sono inventati. Versione ${VERSION}.</p></div>`;
+  <p class="muted">I dati restano solo in questo browser. Nomi di squadre e giocatori sono inventati. Versione ${VERSION}.</p></div></div>`;
 }
 
 /* ---------- eventi ---------- */
@@ -532,7 +628,7 @@ document.addEventListener('click', e=>{
     case 'v3d': v3dToggle(); break;
     case 'vfs': vFull(); break;
     case 'vvig': vSetVig(!VPREF.vig); break;
-    case 'vtema': vTheme(); break;
+    case 'vtema': case 'tema': themeToggle(); break;
     case 'vscniv': vScnIv(); break;
     case 'reset1': confirmReset=true; render(); break;
     case 'reset0': confirmReset=false; render(); break;

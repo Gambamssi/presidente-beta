@@ -14,9 +14,12 @@ function ultHTML(t){ const u=t.ult; if(!u||u.st!=='on') return '';
 const ultWhen = u=>u.s>G.season?`alla ${u.due}ª giornata della prossima stagione`:u.due>=14?'a fine stagione':`dopo la ${u.due}ª giornata`;
 /* Conti › patrimonio: valore della società e come si compone, storico a fine stagione */
 function patrimonioHTML(t){
-  const f=finInit(t), nv=netValue(t), fac=facTotal(t), sq=squadValue(t), bd=bankDebt(t), arr=arrears(t);
-  return `<div class="card"><p class="eyebrow">Valore della società</p><p class="big ${nv<0?'bad':''}">${kcr(nv)} <small>cr</small></p>
-   <p class="muted">Strutture ${kcr(fac)} + cartellini ${kcr(sq)} (${t.pl.length} giocatori a valore di mercato) + cassa − debiti ${kcr(clubDebts(t))}${bd+arr>0||t.cash<0?` (banca ${kcr(f.loans.reduce((s,l)=>s+l.pr,0))}${f.ins?` · rate non pagate ${kcr(f.ins)}`:''}${arr?` · stipendi arretrati ${kcr(arr)}`:''}${t.cash<0?` · scoperto ${kcr(-t.cash)}`:''})`:''}.${f.valH&&f.valH[0]?` Un anno fa ${kcr(f.valH[0].v)}.`:''}</p>
+  const f=finInit(t), nv=netValue(t), fac=facTotal(t), sq=squadValue(t), bd=bankDebt(t), arr=arrears(t), dbt=clubDebts(t);
+  const lg=(c,l,v)=>`<li><i style="background:var(${c})"></i><span>${l}</span><b>${kcr(v)}</b></li>`;
+  return `<div class="card ev-panel"><p class="ev-kick">Patrimonio</p><h2 class="ev-ptitle">Valore della società</h2>
+   <div class="ev-asset">${donutHTML([['s',fac,'--ev-brand-gold'],['c',sq,'--ev-brand-green'],['k',Math.max(0,t.cash),'--ev-success']],kcr(nv),'Composizione del patrimonio')}
+    <ul class="ev-legend">${lg('--ev-brand-green',`Cartellini · ${t.pl.length} giocatori`,sq)}${lg('--ev-brand-gold','Strutture',fac)}${lg('--ev-success','Cassa',t.cash)}${lg('--ev-danger','Debiti',-dbt)}<li class="tot"><i></i><span>Valore complessivo</span><b class="${nv<0?'bad':''}">${kcr(nv)} cr</b></li></ul></div>
+   <p class="muted">Strutture ${kcr(fac)} + cartellini ${kcr(sq)} (${t.pl.length} giocatori a valore di mercato) + cassa − debiti ${kcr(dbt)}${bd+arr>0||t.cash<0?` (banca ${kcr(f.loans.reduce((s,l)=>s+l.pr,0))}${f.ins?` · rate non pagate ${kcr(f.ins)}`:''}${arr?` · stipendi arretrati ${kcr(arr)}`:''}${t.cash<0?` · scoperto ${kcr(-t.cash)}`:''})`:''}.${f.valH&&f.valH[0]?` Un anno fa ${kcr(f.valH[0].v)}.`:''}</p>
    ${f.valH&&f.valH.length?`<p class="eyebrow">Valore a fine stagione</p><ul class="chk">${f.valH.map(v=>`<li><span>Stagione ${v.s}</span><span class="muted">banca ${pctTxt(v.bank||0)}</span><b>${kcr(v.v)}</b></li>`).join('')}</ul>`:''}</div>`;
 }
 /* Società › Banca */
@@ -24,23 +27,28 @@ function vBancaPage(){
   const t=G.T[0], b=t.own.bank, rep=G.rep??50;
   const bbPcts=[5,10].filter(p=>p<b-0.05).concat(b>0?[b]:[]);
   const bb=b>0?`<div class="bb"><p class="eyebrow">Riacquisto delle quote</p><p class="muted">Quando i conti sono in ordine puoi ricomprare le quote dalla banca al valore della società più il 5%.</p><div class="row">${bbPcts.map(p=>{ const blk=buyBackBlock(t,p); return `<button class="btn small ${blk?'ghost':''}" data-act="buyback" data-p="${p}" ${blk?'disabled':''} title="${esc(blk||'')}">Ricompra ${pctTxt(p)} · ${kcr(buyBackPrice(t,p))}</button>`; }).join('')}</div>${buyBackBlock(t,Math.min(5,b))?`<p class="muted small">${esc(buyBackBlock(t,Math.min(5,b)))}</p>`:''}</div>`:'';
-  const own=`<section class="card"><p class="eyebrow">Azionisti</p>${ownBar(b)}
+  const own=`<section class="card ev-panel"><p class="ev-kick">Proprietà</p><h2 class="ev-ptitle">Azionisti</h2>${ownBar(b)}
     <p>${b<=0?'La società è tutta tua. Se non paghi le rate per tre giornate di fila, la banca converte il debito in quote, in proporzione al valore della società.':b<25?`La banca è socia di minoranza. Al 25% avrà il diritto di veto.`:b<51?`Con il ${pctTxt(b)} la banca ha il <b>diritto di veto</b>: deve approvare il preventivo e blocca acquisti e lavori che non ci stanno. Al 51% avrà la maggioranza.`:`La banca ha la <b>maggioranza</b>: approva solo preventivi che riducono il debito e, dopo un ultimatum, può licenziarti.`}</p>
     ${ultHTML(t)}${bb}</section>`;
   const repC=(G.repC||[]).slice(0,5);
-  const repH=`<section class="card"><p class="eyebrow">Reputazione del presidente</p><div class="rep"><p class="big">${Math.round(rep)} <small>/ 100</small></p><div><p class="strong">${repLevel(rep).replace(/^./,c=>c.toUpperCase())}</p>${bar(rep,100,'')}</div></div>
+  const repH=`<section class="card ev-panel"><p class="ev-kick">Il presidente</p><h2 class="ev-ptitle">Reputazione</h2><div class="rep"><p class="big">${Math.round(rep)} <small>/ 100</small></p><div><p class="strong">${repLevel(rep).replace(/^./,c=>c.toUpperCase())}</p>${bar(rep,100,'')}</div></div>
     <p class="muted">Conta per la banca (tasso) e, se vieni licenziato, per le società che ti offrono un nuovo incarico. Sale con bilanci in linea con il preventivo, obiettivi raggiunti e debiti saldati.</p>
     ${repC.length?`<ul class="morc">${repC.map(c=>`<li><span class="${c.d>0?'up':'dn'}">${c.d>0?'▲':'▼'}</span> ${esc(c.t)} <span class="muted">· S${c.s} G${c.md}</span></li>`).join('')}</ul>`:''}</section>`;
-  return `<section class="grid2">${own}${repH}</section>`+vBanca(t);
+  const f=finInit(t);
+  return pageHead('Società · finanza','Finanziamenti e proprietà','Azionisti · banca · reputazione del presidente',{chips:socChips()})
+   +kpiHTML([['Quote del presidente',pctTxt(100-b),'','hi'],['Quote della banca',pctTxt(b),b>=51?'maggioranza':b>=25?'diritto di veto':'',b>=25?'bad':''],['Debito con la banca',kcr(bankDebt(t))+' cr',f.loans.length?f.loans.length+(f.loans.length===1?' finanziamento':' finanziamenti'):'nessun finanziamento',f.ins?'bad':''],['Reputazione',Math.round(rep)+'/100',repLevel(rep)]])
+   +`<section class="ev-grid2">${own}${repH}</section>`+vBanca(t);
 }
 /* Società › Strutture: livelli, effetti, valore, pegno e ampliamenti */
 function vStrutture(){
-  const t=G.T[0];
+  const t=G.T[0], FI={st:'stadio',cs:'centro',sg:'giovani'};
   const facs=Object.keys(FACS).map(k=>{ const l=facLevel(t,k), bl=t.build&&t.build.k===k, blk=buildBlock(t,k), peg=t.facPeg&&t.facPeg[k];
-    return `<div class="fac"><div><b>${FACS[k].n}</b> <span class="lvl">liv. ${l}/5</span>${peg?' <span class="badge-s peg" title="In pegno alla banca">pegno</span>':''}<p class="muted">${esc(FACS[k].eff(l))} · valore ${kcr(facValue(t,k))}${bl?` · lavori in corso, ${t.build.left} giornate`:''}</p>${blk&&l<5&&!bl&&!t.build?`<p class="muted small">${esc(blk)}</p>`:''}</div>
+    return `<div class="fac ev-fac"><div class="ev-fac-h">${ico(FI[k],'ev-fico')}<span class="lvl">liv. ${l}/5</span>${peg?' <span class="badge-s peg" title="In pegno alla banca">pegno</span>':''}</div><div><b>${FACS[k].n}</b><p class="ev-fac-v">${kcr(facValue(t,k))} <small>cr</small></p><p class="muted">${esc(FACS[k].eff(l))} · valore ${kcr(facValue(t,k))}${bl?` · lavori in corso, ${t.build.left} giornate`:''}</p><span class="ev-lvbar" role="img" aria-label="Livello ${l} su 5"><span style="width:${l/5*100}%"></span></span>${blk&&l<5&&!bl&&!t.build?`<p class="muted small">${esc(blk)}</p>`:''}</div>
      ${l<5&&!bl?`<button class="btn small ${blk?'ghost':''}" data-act="build" data-k="${k}" ${blk?'disabled':''}>Amplia · ${kcr(FACS[k].cost(l))}</button>`:''}</div>`; }).join('');
   const pg=t.facPeg&&Object.keys(FACS).some(k=>t.facPeg[k]);
-  return `<section class="card"><p class="eyebrow">Strutture · valore ${kcr(facTotal(t))}</p>${facs}<p class="muted small">Un ampliamento costa caro, ma aumenta il valore della società di circa il 90% della spesa. ${pg?'Le strutture in pegno si ampliano solo con l\'ok della banca.':'Se le dai in pegno alla banca per un finanziamento, potrai ampliarle solo con il suo ok.'}</p></section>`;
+  return pageHead('Società · strutture','Strutture del club','Stadio · centro sportivo · settore giovanile',{chips:socChips()})
+   +kpiHTML([['Valore delle strutture',kcr(facTotal(t))+' cr','','hi'],['Stadio','liv. '+facLevel(t,'st')+'/5',esc(FACS.st.eff(facLevel(t,'st')))],['Lavori in corso',t.build?esc(FACS[t.build.k].n):'Nessuno',t.build?t.build.left+' giornate alla fine':'']])
+   +`<section class="card ev-panel"><p class="ev-kick">Strutture · valore ${kcr(facTotal(t))}</p><h2 class="ev-ptitle">Le tre aree d'investimento</h2><div class="ev-facs">${facs}</div><p class="muted small">Un ampliamento costa caro, ma aumenta il valore della società di circa il 90% della spesa. ${pg?'Le strutture in pegno si ampliano solo con l\'ok della banca.':'Se le dai in pegno alla banca per un finanziamento, potrai ampliarle solo con il suo ok.'}</p></section>`;
 }
 function vBanca(t){
   const f=finInit(t), rt=bankRating(t), rk=bankRisk(t,0), L=bankLimits(t,loanForm.n);
@@ -57,9 +65,9 @@ function vBanca(t){
      ${lim>=50000?`<label class="wide">Importo <b id="fin-amt-t">${kcr(amt)} cr</b><input type="range" id="fin-amt" min="50000" max="${lim}" step="10000" value="${amt}"></label>
      ${peg==='car'?`<p class="muted small wide">In pegno: <span id="fin-peg-l">${pv.map(p=>esc(p.fn+' '+p.ln)+' ('+kcr(value(p))+')').join(', ')}</span>. Si possono vendere solo con l'ok della banca e il ricavato riduce il debito; se non paghi, la banca li vende all'80% del valore.</p>`:peg==='str'?'<p class="muted small wide">In pegno stadio, centro sportivo e settore giovanile: non si ampliano senza l\'ok della banca. Tasso più basso.</p>':'<p class="muted small wide">Senza garanzie la banca guarda solo alle entrate: la rata deve restare sostenibile.</p>'}
      <div class="row wide"><button class="btn" data-act="bankopen">Tratta con la banca</button></div>`:'<p class="muted wide">Con questa garanzia la banca oggi non presta nulla.</p>'}</div>`;
-  return `<section class="card"><p class="eyebrow">Banca</p>
+  return `<section class="card ev-panel"><p class="ev-kick">Banca</p><h2 class="ev-ptitle">Finanziamenti</h2>
    <div class="rating"><span class="rt rt-${rt}">${rt}</span><div><p class="strong">Giudizio ${RATING_TXT[rt]}</p><p class="muted">${esc(rk.why.join(' · '))}. Tetto complessivo dei debiti: 65% del valore della società.</p></div></div>
-   ${ins}${loans}<p class="eyebrow" style="margin-top:6px">Chiedi un finanziamento</p>${form}</section>`;
+   ${ins}${loans}<h3 class="ev-h3">Chiedi un finanziamento</h3>${form}</section>`;
 }
 function vBankNeg(){
   const n=G.bneg; if(!n) return ''; const t=G.T[0], open=n.st==='open', st=n.st==='stalled', pb=Math.round(n.pat/n.pat0*100);
@@ -67,7 +75,7 @@ function vBankNeg(){
   const hist=n.hist.map(h=>h.by==='pres'?`<li class="me"><span>Tu</span><p>${h.acc?`Accettiamo il ${fmtV(h.v)}%.`:`Proponiamo il ${fmtV(h.v)}% (rata ${rata(h.v)}).`}</p></li>`:`<li class="them"><span>Banca</span><p>${esc(h.txt)}${h.v!=null?` ${fmtV(h.v)}% (rata ${rata(h.v)}).`:''}</p></li>`).join('');
   const lo=Math.max(2.5,Math.floor((n.ask-4)*4)/4), def=Math.round(((lo+n.c)/2)*4)/4;
   return `<div class="neg" role="dialog" aria-label="Trattativa con la banca"><div class="neg-in">
-   <div class="neg-h"><div><p class="eyebrow">Banca · finanziamento</p><h2>${kcr(n.amt)} cr in ${n.n} rate</h2></div><button class="x" data-act="bankclose" aria-label="Chiudi">×</button></div>
+   <div class="neg-h ev-nhead"><span class="ev-nface" aria-hidden="true">${crestHTML(0)}</span><div class="ev-ntext"><p class="ev-eyebrow">Banca · finanziamento</p><h2>${kcr(n.amt)} cr in ${n.n} rate</h2><p class="ev-nsub">${esc(t.n)} · giudizio ${RATING_TXT[bankRating(t)]}</p></div><div class="ev-nval"><small>Richiesta della banca</small><b>${fmtV(n.c)}%</b></div><button class="x" data-act="bankclose" aria-label="Chiudi">×</button></div>
    <p class="muted">${PEG_TXT[n.peg].replace(/^./,c=>c.toUpperCase())}${n.pids.length?': '+n.pids.map(id=>esc(G.P[id].ln)).join(', '):''}. Si tratta il tasso a stagione; la rata è costante.</p>
    <div class="neg-sides">
      <div class="side"><p class="eyebrow">Il presidente</p><p class="strong">${esc(t.n)}</p><p class="muted">Cassa ${kcr(t.cash)} · entrate ${kcr(roundIncome(t))} a giornata · rate in corso ${kcr(finInit(t).loans.reduce((s,l)=>s+l.rate,0))}</p><p class="muted">Reputazione ${repLevel(G.rep??50)}</p></div>
@@ -101,7 +109,9 @@ function vBudEditor(t){ const f=finInit(t), wb=wageBill(t)+staffCost(t), L=bankL
   const acqMax=Math.max(300000,Math.round(Math.max(0,t.cash)*1.5/10000)*10000+best), cesMax=Math.round(squadValue(t)*0.4/10000)*10000;
   const lv=(id,lbl,max,v,help)=>`<label class="lev"><span>${lbl} <b id="bud-${id}-t">${kcr(v)} cr</b></span><input type="range" id="bud-${id}" min="0" max="${Math.max(max,v)}" step="10000" value="${v}"><small class="muted">${help}</small></label>`;
   const last=f.budH&&f.budH[0];
-  return `<section class="card"><p class="eyebrow">${rev?'Revisione di metà stagione':'Preventivo della stagione '+G.season}</p>
+  return pageHead('Società · bilancio',rev?'Revisione di metà stagione':'Programmazione finanziaria',rev?'Si aggiorna una sola volta: diventa il riferimento del consuntivo':'Prepara il preventivo prima della prima giornata',{chips:socChips()})
+   +kpiHTML([['Cassa',kcr(t.cash)+' cr','','hi'],['Stipendi e staff',kcr(wb)+' a giornata'],['Entrate medie',kcr(roundIncome(t))+' a giornata'],['Tolleranza',Math.round(BUD_TOL*100)+'% delle uscite','scostamento ammesso a fine stagione']])
+   +`<section class="card ev-panel"><p class="ev-kick">${rev?'Revisione di metà stagione':'Preventivo della stagione '+G.season}</p><h2 class="ev-ptitle">${rev?'Aggiorna il preventivo':'Prepara il preventivo'}</h2>
    <p>${rev?'Puoi aggiornare il preventivo una sola volta. Il nuovo preventivo diventa il riferimento del consuntivo.':`Prima della prima giornata il presidente convalida il preventivo: entrate e uscite previste, obiettivo e coperture. A fine stagione il consuntivo deve restare entro il ${Math.round(BUD_TOL*100)}% del saldo previsto (misurato sulle uscite), con una revisione dopo la 7ª giornata.`}</p>
    ${last&&!rev?`<p class="muted">Stagione ${last.s}: saldo previsto ${kcr(last.prev.saldo)}, effettivo ${kcr(last.act.saldo)} — ${last.ok?'in tolleranza':'fuori tolleranza'}.</p>`:''}
    <p class="muted">Stipendi e staff ${kcr(wb)} a giornata · entrate medie ${kcr(roundIncome(t))} · la banca oggi presterebbe fino a ${kcr(best)}${t.own.bank>=25?` · la banca ha il ${pctTxt(t.own.bank)} e deve approvare`:''}.</p>
@@ -132,13 +142,15 @@ function vBilancio(){
     <tr class="tot"><td>Cassa a fine stagione</td><td class="num">${kcr(b.cashEnd)}</td><td class="num">${kcr(t.cash)}</td><td class="num">${kcr(P.cashEnd)}</td><td class="num">${signK(P.cashEnd-b.cashEnd)}</td></tr></tbody></table></div>`;
   const revBox = b.rev ? `<div class="${b.rev.ok?'okbox':'ult'}"><p class="eyebrow">Revisione dopo la ${b.rev.md}ª giornata</p><p>Saldo previsto allora ${kcr(b.rev.saldo)}: ${b.rev.ok?'in linea':'fuori tolleranza'} (scostamento ${Math.round(b.rev.scost*100)}%, massimo ${Math.round(REV_TOL*100)}%).${b.revUsed?' Preventivo già aggiornato.':''}</p>${canRevise(t)?'<button class="btn small" data-act="budrev">Aggiorna il preventivo</button>':''}</div>`
     : `<p class="muted">La revisione di metà stagione arriva dopo la 7ª giornata: se i conti si sono allontanati dal preventivo, potrai aggiornarlo una volta.</p>`;
-  return `<section class="card"><div class="bud-head"><div><p class="eyebrow">Preventivo della stagione ${G.season} · ${b.by==='ufficio'?'redatto d\'ufficio':'convalidato'}${b.revUsed?' e rivisto':''}</p>
+  return pageHead('Società · bilancio','Bilancio della stagione','Preventivo · andamento · revisione · consuntivo',{chips:socChips()})
+   +kpiHTML([['Saldo previsto',signK(b.saldo),'dal preventivo','hi'],['Saldo a fine stagione',`<span class="${P.saldo<b.saldo?'bad':''}">${signK(P.saldo)}</span>`,'proiezione di oggi'],['Cassa a fine stagione',kcr(P.cashEnd)+' cr','proiezione di oggi'],['Obiettivo',b.lev.pos+'° posto','oggi '+pos+'°']])
+   +`<section class="card ev-panel"><div class="bud-head"><div><p class="eyebrow">Preventivo della stagione ${G.season} · ${b.by==='ufficio'?'redatto d\'ufficio':'convalidato'}${b.revUsed?' e rivisto':''}</p>
      <p class="big ${ok?'':'bad'}">${ok?'In linea':'Fuori tolleranza'}</p><p class="muted">A fine stagione il saldo sarà ${kcr(P.saldo)} contro ${kcr(b.saldo)} previsti: ${sc>0?'peggio':'meglio'} del ${Math.abs(Math.round(sc*100))}% rispetto alle uscite (tolleranza ${Math.round(BUD_TOL*100)}%).</p></div>
      <div class="obj"><p class="eyebrow">Obiettivo</p><p class="big">${b.lev.pos}°</p><p class="muted">oggi ${pos}° · budget acquisti ${kcr(b.lev.acq)} (spesi ${kcr(A.exp.acquisti)})</p></div></div>
     ${revBox}${tab}<p class="muted small">«Fine stagione» somma quello che è già successo e la stima del resto: stipendi e staff attuali, rate, partite in casa, premio per la posizione obiettivo, quanto resta del budget per acquisti, cessioni e lavori.</p></section>`+budHist(f);
 }
 function budHist(f){ if(!f.budH||!f.budH.length) return '';
-  return `<section class="card"><p class="eyebrow">Consuntivi</p><div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th class="num">Saldo previsto</th><th class="num">Saldo effettivo</th><th class="num">Scostamento</th><th>Esito</th><th>Obiettivo</th></tr></thead><tbody>
+  return `<section class="card ev-panel"><p class="ev-kick">Stagioni chiuse</p><h2 class="ev-ptitle">Consuntivi</h2><div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th class="num">Saldo previsto</th><th class="num">Saldo effettivo</th><th class="num">Scostamento</th><th>Esito</th><th>Obiettivo</th></tr></thead><tbody>
    ${f.budH.map(h=>`<tr class="nohov"><td>${h.s}${h.rev?' <span class="muted">(rivisto)</span>':''}</td><td class="num">${signK(h.prev.saldo)}</td><td class="num">${signK(h.act.saldo)}</td><td class="num">${h.scost>0?'−':'+'}${Math.abs(Math.round(h.scost*100))}%</td><td class="${h.ok?'good':'bad'} strong">${h.ok?'in tolleranza':'fuori'}</td><td>${h.pos}° ${h.objOk?'✓':'✗'} <span class="muted">(obiettivo ${h.objPos}°)</span></td></tr>`).join('')}</tbody></table></div></section>`; }
 
 /* ---------- licenziamento: scelta della nuova società ---------- */

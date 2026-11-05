@@ -1,0 +1,257 @@
+/* EVIVORA — base.css, standard grafico unico (G1, 3/11).
+   Fonte: proposta di Dani (riferimento Scrivania V5), corretta dalla regia:
+   tema scuro automatico, contrasto ≥ 4,5 per i testi, variabili del gioco, collegamenti ai nomi esistenti, componenti di base.
+   Regola: nelle pagine solo var(--ev-…); mai colori o caratteri scritti a mano.
+   L'oro --ev-brand-gold su fondo chiaro è solo per linee, icone e decorazioni: per i testi usare --ev-gold-text. */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ev-font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --ev-brand-green: #07452f;
+  --ev-brand-green-hover: #0b6542;
+  --ev-brand-gold: #bb944f;
+  --ev-brand-gold-light: #d4bb80;
+  --ev-on-green: #ffffff;
+  --ev-on-gold: #241e12;
+
+  --ev-bg: #edf1e9;
+  --ev-surface: #fffefa;
+  --ev-surface-raised: #ffffff;
+  --ev-surface-subtle: #f5f8f3;
+  --ev-surface-selected: #eef6ec;
+  --ev-input-bg: #ffffff;
+  --ev-heading: #193e30;
+  --ev-text: #243e34;
+  --ev-text-soft: #5f7064;
+  --ev-muted: #5b6b60;
+  --ev-muted-faint: #677569;
+  --ev-border: #dfe5dd;
+  --ev-border-strong: #d2e0d4;
+  --ev-border-subtle: #e9eee8;
+  --ev-outline: #e6c77e;
+  --ev-shadow: 0 7px 27px #1b392713;
+  --ev-shadow-color: #1b392713;
+
+  --ev-success: #187a50;
+  --ev-success-bg: #e9f6eb;
+  --ev-danger: #b64840;
+  --ev-danger-hover: #9e382f;
+  --ev-danger-bg: #fdf0ef;
+  --ev-info: #456e94;
+  --ev-info-bg: #edf5fb;
+  --ev-warning: #8e6220;
+  --ev-warning-bg: #fff4e3;
+  --ev-gold-text: #886a32;
+  --ev-gold-soft: #fff9ec;
+  --ev-gold-line: #ead8b0;
+
+  --ev-sidebar-top: #073e2e;
+  --ev-sidebar-mid: #0d4636;
+  --ev-sidebar-end: #092f26;
+  --ev-sidebar-text: #d8e6dd;
+  --ev-sidebar-muted: #bcd4c6;
+  --ev-sidebar-faint: #9dbbb0;
+  --ev-sidebar-strong: #ffffff;
+  --ev-sidebar-rule: #ffffff25;
+  --ev-sidebar-active: #ffffff17;
+  --ev-sidebar-hover: #ffffff13;
+  --ev-sidebar-pill: #ffffff1a;
+  --ev-sidebar-active-line: #d5c18a54;
+  --ev-sidebar-gold: #e6c37a;
+  --ev-sidebar-footer: #ffdda0;
+  --ev-modal-overlay: #0a291ed4;
+  --ev-modal-shadow: 0 28px 90px #001d135e;
+  /* colori del gioco non ancora coperti (valori attuali di style.css) */
+  --ev-draw: #8a8f86;
+  --ev-role-p: #a8701a; --ev-role-d: #2d5f9e; --ev-role-c: #2b7a4b; --ev-role-a: #a8402c;
+  --ev-pitch: #2f6c46; --ev-pitch2: #2b6541; --ev-chalk: #f3f6ee;
+  --ev-gold-hi: #ffd36b;
+
+  /* misure comuni */
+  --ev-radius: 10px; --ev-radius-sm: 6px;
+  --col: 1120px; --gut: 16px;
+  --pad-l: max(var(--gut), env(safe-area-inset-left, 0px)); --pad-r: max(var(--gut), env(safe-area-inset-right, 0px));
+  --edge-l: max(var(--pad-l), calc((100% - var(--col)) / 2 + var(--pad-l))); --edge-r: max(var(--pad-r), calc((100% - var(--col)) / 2 + var(--pad-r)));
+}
+
+/* tema scuro: segue il dispositivo, oppure forzato con data-theme="dark" (stesso sistema di style.css) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --ev-brand-green: #6fbf93;
+  --ev-brand-green-hover: #91d5ad;
+  --ev-brand-gold: #d9b56a;
+  --ev-brand-gold-light: #eccf93;
+  --ev-on-green: #10291d;
+  --ev-on-gold: #221a0d;
+
+  --ev-bg: #101a16;
+  --ev-surface: #192720;
+  --ev-surface-raised: #22332a;
+  --ev-surface-subtle: #203128;
+  --ev-surface-selected: #294433;
+  --ev-input-bg: #172820;
+  --ev-heading: #ecf6ee;
+  --ev-text: #e2eee5;
+  --ev-text-soft: #c1d4c5;
+  --ev-muted: #aec4b5;
+  --ev-muted-faint: #98ae9e;
+  --ev-border: #395244;
+  --ev-border-strong: #4b6654;
+  --ev-border-subtle: #2d4337;
+  --ev-outline: #d9b56a;
+  --ev-shadow: 0 7px 27px #00000055;
+  --ev-shadow-color: #00000055;
+
+  --ev-success: #89d4a5;
+  --ev-success-bg: #1e4231;
+  --ev-danger: #f1a39c;
+  --ev-danger-hover: #ffd0c8;
+  --ev-danger-bg: #4e2a2a;
+  --ev-info: #a5caec;
+  --ev-info-bg: #243e52;
+  --ev-warning: #edc47e;
+  --ev-warning-bg: #3e3420;
+  --ev-gold-text: #edcb8b;
+  --ev-gold-soft: #38301f;
+  --ev-gold-line: #6c5931;
+
+  --ev-sidebar-top: #0a2117;
+  --ev-sidebar-mid: #123025;
+  --ev-sidebar-end: #0b1e16;
+  --ev-sidebar-text: #e4f1e8;
+  --ev-sidebar-muted: #bfd5c5;
+  --ev-sidebar-faint: #aec5b6;
+  --ev-sidebar-strong: #ffffff;
+  --ev-sidebar-rule: #ffffff27;
+  --ev-sidebar-active: #ffffff22;
+  --ev-sidebar-hover: #ffffff16;
+  --ev-sidebar-pill: #ffffff1f;
+  --ev-sidebar-active-line: #d9b56a70;
+  --ev-sidebar-gold: #d9b56a;
+  --ev-sidebar-footer: #f1d697;
+  --ev-modal-overlay: #000000c7;
+  --ev-modal-shadow: 0 28px 90px #00000088;
+  --ev-draw: #7d867f;
+  --ev-role-p: #e0a64a; --ev-role-d: #7aa7e2; --ev-role-c: #6fc28f; --ev-role-a: #e2846c;
+  --ev-pitch: #22533a; --ev-pitch2: #1f4d35; --ev-chalk: #dfe8da;
+  --ev-gold-hi: #ffd77a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ev-brand-green: #6fbf93;
+  --ev-brand-green-hover: #91d5ad;
+  --ev-brand-gold: #d9b56a;
+  --ev-brand-gold-light: #eccf93;
+  --ev-on-green: #10291d;
+  --ev-on-gold: #221a0d;
+
+  --ev-bg: #101a16;
+  --ev-surface: #192720;
+  --ev-surface-raised: #22332a;
+  --ev-surface-subtle: #203128;
+  --ev-surface-selected: #294433;
+  --ev-input-bg: #172820;
+  --ev-heading: #ecf6ee;
+  --ev-text: #e2eee5;
+  --ev-text-soft: #c1d4c5;
+  --ev-muted: #aec4b5;
+  --ev-muted-faint: #98ae9e;
+  --ev-border: #395244;
+  --ev-border-strong: #4b6654;
+  --ev-border-subtle: #2d4337;
+  --ev-outline: #d9b56a;
+  --ev-shadow: 0 7px 27px #00000055;
+  --ev-shadow-color: #00000055;
+
+  --ev-success: #89d4a5;
+  --ev-success-bg: #1e4231;
+  --ev-danger: #f1a39c;
+  --ev-danger-hover: #ffd0c8;
+  --ev-danger-bg: #4e2a2a;
+  --ev-info: #a5caec;
+  --ev-info-bg: #243e52;
+  --ev-warning: #edc47e;
+  --ev-warning-bg: #3e3420;
+  --ev-gold-text: #edcb8b;
+  --ev-gold-soft: #38301f;
+  --ev-gold-line: #6c5931;
+
+  --ev-sidebar-top: #0a2117;
+  --ev-sidebar-mid: #123025;
+  --ev-sidebar-end: #0b1e16;
+  --ev-sidebar-text: #e4f1e8;
+  --ev-sidebar-muted: #bfd5c5;
+  --ev-sidebar-faint: #aec5b6;
+  --ev-sidebar-strong: #ffffff;
+  --ev-sidebar-rule: #ffffff27;
+  --ev-sidebar-active: #ffffff22;
+  --ev-sidebar-hover: #ffffff16;
+  --ev-sidebar-pill: #ffffff1f;
+  --ev-sidebar-active-line: #d9b56a70;
+  --ev-sidebar-gold: #d9b56a;
+  --ev-sidebar-footer: #f1d697;
+  --ev-modal-overlay: #000000c7;
+  --ev-modal-shadow: 0 28px 90px #00000088;
+  --ev-draw: #7d867f;
+  --ev-role-p: #e0a64a; --ev-role-d: #7aa7e2; --ev-role-c: #6fc28f; --ev-role-a: #e2846c;
+  --ev-pitch: #22533a; --ev-pitch2: #1f4d35; --ev-chalk: #dfe8da;
+  --ev-gold-hi: #ffd77a;
+}
+
+/* collegamenti ai nomi già usati dal gioco (style.css e pagine): non usarli nelle pagine nuove */
+:root {
+  --bg: var(--ev-bg); --surface: var(--ev-surface); --ink: var(--ev-text); --muted: var(--ev-muted); --line: var(--ev-border);
+  --accent: var(--ev-brand-green); --accent-ink: var(--ev-on-green); --gold: var(--ev-brand-gold); --gold-hi: var(--ev-gold-hi);
+  --good: var(--ev-success); --bad: var(--ev-danger); --draw: var(--ev-draw);
+  --rP: var(--ev-role-p); --rD: var(--ev-role-d); --rC: var(--ev-role-c); --rA: var(--ev-role-a);
+  --pitch: var(--ev-pitch); --pitch2: var(--ev-pitch2); --chalk: var(--ev-chalk);
+  --f-display: var(--ev-font-family); --f-body: var(--ev-font-family); --f-mono: ui-monospace, Menlo, Consolas, monospace;
+  --r: var(--ev-radius);
+}
+
+/* base */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-family: var(--ev-font-family); }
+body { margin: 0; background: var(--ev-bg); color: var(--ev-text); font: 15px/1.5 var(--ev-font-family); }
+body, button, input, select, textarea { font-family: var(--ev-font-family); }
+h1, h2, h3 { color: var(--ev-heading); line-height: 1.2; }
+:focus-visible { outline: 3px solid var(--ev-outline); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* componenti */
+.ev-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 16px;
+  border: 1px solid var(--ev-border-strong); border-radius: var(--ev-radius-sm); background: var(--ev-surface-raised);
+  color: var(--ev-brand-green); font-weight: 700; cursor: pointer; }
+.ev-btn:hover { background: var(--ev-surface-subtle); }
+.ev-btn--primary { background: var(--ev-brand-green); border-color: var(--ev-brand-green); color: var(--ev-on-green); }
+.ev-btn--primary:hover { background: var(--ev-brand-green-hover); }
+.ev-btn--danger { background: var(--ev-danger); border-color: var(--ev-danger); color: var(--ev-on-green); }
+.ev-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.ev-card { background: var(--ev-surface); border: 1px solid var(--ev-border); border-radius: var(--ev-radius);
+  box-shadow: var(--ev-shadow); padding: 18px; }
+.ev-card--accent { border-top: 3px solid var(--ev-brand-gold); }
+
+.ev-badge { display: inline-block; padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: .3px; }
+.ev-badge--danger { background: var(--ev-danger-bg); color: var(--ev-danger); }
+.ev-badge--warning { background: var(--ev-warning-bg); color: var(--ev-warning); }
+.ev-badge--info { background: var(--ev-info-bg); color: var(--ev-info); }
+.ev-badge--success { background: var(--ev-success-bg); color: var(--ev-success); }
+.ev-badge--gold { background: var(--ev-gold-soft); color: var(--ev-gold-text); border: 1px solid var(--ev-gold-line); }
+
+.ev-input, .ev-select { width: 100%; min-height: 40px; padding: 8px 12px; background: var(--ev-input-bg); color: var(--ev-text);
+  border: 1px solid var(--ev-border-strong); border-radius: var(--ev-radius-sm); }
+
+.ev-table-wrap { overflow-x: auto; }
+.ev-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ev-table th { text-align: left; font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: var(--ev-muted);
+  border-bottom: 1px solid var(--ev-border-strong); padding: 8px; }
+.ev-table td { border-bottom: 1px solid var(--ev-border-subtle); padding: 8px; }
+.ev-table tr:hover td { background: var(--ev-surface-subtle); }
+.ev-num { font-variant-numeric: tabular-nums; text-align: right; }
+
+.ev-col { max-width: var(--col); margin: 0 auto; padding: 0 var(--pad-r) 0 var(--pad-l); }
+.ev-muted { color: var(--ev-muted); }

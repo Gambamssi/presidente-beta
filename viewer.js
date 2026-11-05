@@ -52,7 +52,7 @@ function vViewerHTML(){
   const side=ti=>{ const n=`<span class="vtn">${esc(vTeamName(v,ti))}</span>`, c=`<span class="vcrest" aria-hidden="true">${vCrest(v,ti)}</span>`; return `<div class="vside${ti?' away':''}">${ti?n+c:c+n}</div>`; };
   const ab=ti=>esc(vInit(vTeamName(v,ti)));
   return `<section class="card viewer"><div class="vmb">${side(0)}<div class="vscore"><strong class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</strong><small><span id="v-clk2">0'</span> · <span id="v-half">1° tempo</span></small></div>${side(1)}</div>
-   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button><span class="vgrp" role="group" aria-label="Velocità">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${s}×</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">⛶ Schermo intero</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">Vignette: ${VPREF.vig?'sì':'no'}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button><span class="vgrp" role="group" aria-label="Velocità">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${s}×</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d" aria-pressed="${!!V3.pref}">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">⛶ Schermo intero</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">Vignette: ${VPREF.vig?'sì':'no'}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
    <div class="vfs" id="v-fs"><div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
     <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span></div>
     <div class="vbug" id="v-bug"><span class="clock" id="v-clock">0'</span><span class="vbsc"><i style="background:${teamColor(v,0)}"></i>${ab(0)} <b id="v-bugsc">${v.sc[0]}–${v.sc[1]}</b> ${ab(1)}<i style="background:${teamColor(v,1)}"></i></span></div>
@@ -296,16 +296,13 @@ function vFixFrame(v,t,P,o){
 }
 
 /* ---------- 0.4.2.3 (R6a): impostazioni del visore nel browser (come la velocità, mai in G) ---------- */
-const VIG_KEY='presidente-pref-vign', THEME_KEY='presidente-pref-tema';
+const VIG_KEY='presidente-pref-vign';
 const VPREF={vig:(()=>{ try{ return localStorage.getItem(VIG_KEY)!=='0'; }catch(_){ return true; } })()};
 function vSetVig(on){ VPREF.vig=!!on; try{ localStorage.setItem(VIG_KEY,on?'1':'0'); }catch(_){} if(!on) vVigHide();
   const b=$('#v-vigb'); if(b){ b.textContent='Vignette: '+(on?'sì':'no'); b.setAttribute('aria-pressed',String(!!on)); } }
-/* tema: lo stesso sistema del gioco (prefers-color-scheme + data-theme sulla pagina); il pulsante sceglie chiaro o scuro e lo ricorda */
-function vThemeNow(){ const d=document.documentElement.dataset.theme; if(d==='light'||d==='dark') return d; try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch(_){ return 'light'; } }
-function vThemeLbl(){ return vThemeNow()==='dark' ? 'Tema chiaro' : 'Tema scuro'; }
-function vTheme(){ const t=vThemeNow()==='dark'?'light':'dark'; document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(_){}
-  const b=$('#v-tema'); if(b) b.textContent=vThemeLbl(); if(viewer) draw(); }
-(function(){ try{ const t=localStorage.getItem(THEME_KEY); if(t==='light'||t==='dark') document.documentElement.dataset.theme=t; }catch(_){} })();
+/* tema (dalla 0.4.2.4, G1a): il pulsante del visore usa lo stesso stato e la stessa chiave del pulsante della testata (ui.js: themeNow, themeToggle) */
+const vThemeNow=()=>themeNow(), vThemeLbl=()=>themeLbl();
+function vTheme(){ themeToggle(); }
 /* tutto schermo: il riquadro intero (campo 2D o 3D, sempre 1,75:1, contenuto senza deformarlo); dove il browser non lo permette, a tutta finestra */
 function vFull(){ const el=$('#v-fs'); if(!el) return;
   if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); return; }
@@ -335,10 +332,8 @@ function vPrepKits(v){
   v.kit=k; v.gkc=[g0,g1];
 }
 /* stemma dai colori del club (stemmi.js della 012); senza stemmi.js resta il quadratino col colore */
-function vInit(n){ const w=String(n).split(/\s+/).filter(Boolean); return (w.length>1?w.map(x=>x[0]).join(''):String(n).slice(0,3)).slice(0,3).toUpperCase(); }
-function vCrest(v,ti){ const id=ti===0?v.m.h:v.m.a, t=G.T[id];
-  if(typeof window.stemmaSVG!=='function') return `<span class="chip big" style="--c:${t.c}"></span>`;
-  return window.stemmaSVG(id+1,{colori:{primario:t.c, secondario:lum(t.c)>0.55?'var(--ev-sidebar-end)':'var(--ev-chalk)'}, iniziali:vInit(t.n)}); }
+function vInit(n){ return clubInit(n); }
+function vCrest(v,ti){ return crestHTML(ti===0?v.m.h:v.m.a); }
 
 /* ---------- 0.4.2.3 (R6a): vignette del mister ----------
    Nelle pause importanti (gol, falli, cartellini, infortuni, cambi; mai nelle rimesse) una vignetta dalla panchina di una squadra

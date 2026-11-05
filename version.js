@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.2.3';
+const VERSION = '0.4.2.5';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,18 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.2.5','5 novembre 2026',[
+    'Schermate ridisegnate con lo standard grafico: ogni pagina ha la sua fascia verde e oro con il titolo, i numeri principali in riquadri e i giocatori con il loro volto.',
+    'Squadra e Mercato: rosa, ricerca dei giocatori, taccuino e trattative con volti e stemmi; la scheda del giocatore è più ampia, con le caratteristiche su due colonne; le finestre delle trattative hanno una testata con il volto e il valore di mercato.',
+    'Società: conti con la composizione del valore della società e il saldo della stagione a colpo d\'occhio; bilancio, banca e strutture con i loro riquadri.',
+    'Lega: classifica con gli stemmi dei club e, al telefono, colonne G/V/N/P allineate senza scorrere; risultato della tua partita in evidenza nella pagina della giornata; profilo dei club con il modulo dell\'allenatore disegnato.',
+    'Schermata iniziale, accesso alla beta e finestre del menu con il nuovo aspetto. Nessuna regola del gioco è cambiata: le partite e i conti sono identici.']],
+  ['0.4.2.4','5 novembre 2026',[
+    'Nuovo aspetto del gioco, uguale in tutte le schermate: colori, caratteri e pulsanti dello standard grafico di Evivora, con il tema chiaro e il tema scuro scelti con un solo pulsante nella testata (lo stesso del visore) o dal dispositivo.',
+    'Testata con il nuovo logo, lo stemma del tuo club e il menu delle cinque aree in alto, con le icone nuove; anche al telefono il menu resta in alto. Icona del gioco per il browser e per la schermata Home del telefono.',
+    'Nuova Scrivania: la segretaria nella fascia verde, poi cose da fare, situazione del club, andamento della stagione, prossimo impegno con gli stemmi, notizie del club e i migliori tre della squadra con i loro volti. Richieste e impegni restano sotto, come prima.',
+    'Visore al telefono: i comandi stanno in due righe (in orizzontale in una), con le icone; non manca nessun comando.'
+  ]],
   ['0.4.2.3','4 novembre 2026',[
     'Visore: si vede tutta la preparazione delle riprese; si accorcia solo l\'attesa con la palla ferma sul punto di battuta (1 secondo a 1×, in proporzione a 2× e 4×). Chi batte aspetta un passo dietro la palla e poi prende la rincorsa. Dopo un gol la palla resta dentro la porta. Il cronometro resta quello della partita; «Avanti» salta come prima.',
     'Vignette del mister: nelle pause importanti l\'allenatore dà un\'indicazione dalla panchina, secondo risultato, minuto, modulo, cartellini, morale e carattere. Restano visibili lo stesso tempo a ogni velocità; si spengono con «Vignette: sì/no» e la scelta resta nel browser.',

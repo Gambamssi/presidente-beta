@@ -5,20 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Informativa privacy · Evivora</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try{var t=localStorage.getItem('presidente-pref-tema');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <!-- Bozza da far rivedere prima del lancio pubblico -->
 <style>
-:root{--bg:#e8ebe3;--surface:#f6f7f2;--ink:#18211b;--muted:#59665d;--line:#cdd5c9;--accent:#1e5a38;--col:820px;--gut:16px}
-@media (prefers-color-scheme: dark){:root{--bg:#0d1310;--surface:#141c17;--ink:#e4ebe2;--muted:#93a196;--line:#25322a;--accent:#74c495;color-scheme:dark}}
+:root{color-scheme:light;--bg:#edf1e9;--surface:#fffefa;--ink:#243e34;--muted:#5b6b60;--line:#dfe5dd;--accent:#07452f;--col:820px;--gut:16px}
+/* colori di base.css (0.4.2.4, G1a): segue il dispositivo o il tema scelto nel gioco (presidente-pref-tema) */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#101a16;--surface:#192720;--ink:#e2eee5;--muted:#aec4b5;--line:#395244;--accent:#6fbf93;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101a16;--surface:#192720;--ink:#e2eee5;--muted:#aec4b5;--line:#395244;--accent:#6fbf93;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
 header{background:var(--surface);border-bottom:1px solid var(--line)}
 header div,main{max-width:var(--col);margin:0 auto;padding-left:max(var(--gut),env(safe-area-inset-left,0px));padding-right:max(var(--gut),env(safe-area-inset-right,0px))}
 header div{display:flex;align-items:baseline;gap:12px;padding-block:12px}
-.wm{font:700 22px/1 "Saira Condensed","Arial Narrow",system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);text-decoration:none}
+.wm{font:900 22px/1 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;letter-spacing:-.03em;color:var(--accent);text-decoration:none}
 .tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 main{padding-block:24px 56px}
 article{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px 24px}
-h1{margin:0 0 4px;font:700 34px/1.1 "Saira Condensed","Arial Narrow",system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}
+h1{margin:0 0 4px;font:800 32px/1.15 Georgia,"Times New Roman",serif}
 h2{margin:22px 0 6px;font-size:17px}
 p,ul{margin:0 0 10px}ul{padding-left:22px}
 .muted{color:var(--muted)}
