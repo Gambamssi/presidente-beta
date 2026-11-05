@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.2.1';
+const VERSION = '0.4.2.3';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,15 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.2.3','4 novembre 2026',[
+    'Visore: si vede tutta la preparazione delle riprese; si accorcia solo l\'attesa con la palla ferma sul punto di battuta (1 secondo a 1×, in proporzione a 2× e 4×). Chi batte aspetta un passo dietro la palla e poi prende la rincorsa. Dopo un gol la palla resta dentro la porta. Il cronometro resta quello della partita; «Avanti» salta come prima.',
+    'Vignette del mister: nelle pause importanti l\'allenatore dà un\'indicazione dalla panchina, secondo risultato, minuto, modulo, cartellini, morale e carattere. Restano visibili lo stesso tempo a ogni velocità; si spengono con «Vignette: sì/no» e la scelta resta nel browser.',
+    'Nuova grafica del visore: punteggio con gli stemmi dei club, comandi, cronaca e statistiche, scene di ingresso, intervallo e fine; campo 2D e 3D nello stesso riquadro, senza salti, anche a tutto schermo; al telefono in orizzontale il punteggio resta visibile.',
+    'Campo 2D: giocatori con le maglie vere dei club (seconda maglia se il colore si confonde con il prato), portieri con un colore loro, fascia del capitano, ombre e freccia della direzione sul bordo; nel 2D e nel 3D si vede se un giocatore corre in avanti, all\'indietro o di lato. Pulsante per il tema chiaro o scuro.'
+  ]],
+  ['0.4.2.2','4 novembre 2026',[
+    'Divisione di match.js, nessun cambio al gioco: il simulatore della partita è ora in cinque file (fisica, allenatore, giocatori, arbitro e ciclo della partita), base per i prossimi lavori sulla partita. Le partite restano identiche.'
+  ]],
   ['0.4.2.1','4 novembre 2026',[
     'Ogni schermata ha il suo indirizzo (per esempio #/squadra/rosa o #/mercato/cerca, e #/giocatore/… e #/club/… per schede e profili): si può salvare nei preferiti o mandare un link.',
     'Il tasto «Indietro» del browser e del telefono riporta alla schermata di prima e chiude finestre, schede dei giocatori e trattative; «Avanti» le riapre. Ricaricando la pagina si resta sulla stessa schermata.',

@@ -530,6 +530,10 @@ document.addEventListener('click', e=>{
     case 'ivagain': againIV(); break;
     case 'vcam': vCam(el); break;
     case 'v3d': v3dToggle(); break;
+    case 'vfs': vFull(); break;
+    case 'vvig': vSetVig(!VPREF.vig); break;
+    case 'vtema': vTheme(); break;
+    case 'vscniv': vScnIv(); break;
     case 'reset1': confirmReset=true; render(); break;
     case 'reset0': confirmReset=false; render(); break;
     case 'reset2': stopViewer(); viewer=null; try{ localStorage.removeItem(KEY); }catch(_){} G=null; confirmReset=false; modal=null; clubView=null; area='scrivania'; sub='home'; render(); break;

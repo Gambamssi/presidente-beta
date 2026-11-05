@@ -3,8 +3,10 @@ const mkey = m=>G.season+'-'+G.md+'-'+m.h;
 const REPLAY_RATE=1.4;   // il replay va al rallentatore
 // x1 = tempo reale (90' in 90'), x2 = la partita dura 15', x4 = la partita dura 5'
 /* 0.4.2.0: con l'orologio vero 1x mostra la partita a metà del tempo reale (circa 48 minuti); 2x e 4x durano come prima */
-const SPEED_TXT={1:'Partita in circa 48 minuti',2:'Partita in 15 minuti',4:'Partita in 5 minuti'};
-function tickRate(v){ return v.speed===1 ? 2/DT : v.speed===2 ? v.nT/900 : v.nT/300; }
+/* 0.4.2.3 (R6a): con le pause accorciate la durata vera dipende dalla partita (vDurMin, calcolata in vPrep) */
+function tickRateS(v,s){ return s===1 ? 2/DT : s===2 ? v.nT/900 : v.nT/300; }
+function tickRate(v){ return tickRateS(v,v.speed); }
+function vSpeedTxt(v,s){ return 'Velocità '+s+'×'; }   /* 0.4.2.3: niente più «Partita in circa N minuti» (Max) */
 /* 0.4.2.0: i frame della simulazione sono a 16 bit (centimetri): vFr li riporta in metri (con orientamento e tuffo), con una piccola memoria */
 function vFr(v,k){ const c=v.fc||(v.fc=new Map()); let f=c.get(k); if(f) return f; const s=v.sim.frames[k]; if(!s) return null;
   f=frDecode(s, v.sim.cols.length); c.set(k,f); if(c.size>64) c.delete(c.keys().next().value); return f; }
@@ -35,7 +37,7 @@ function openViewer(i){
   vPrep(viewer);
   G.wm=G.wm||{}; if(G.wm[viewer.key]==null){ G.wm[viewer.key]=-1; save(); }
   area='lega'; sub='giornata'; lastSub.lega='giornata'; clubView=null; clubBack=null; sheetPid=null; setupMatch3D(); render();
-  requestAnimationFrame(()=>{ const c=$('.viewer'); if(c) c.scrollIntoView({behavior:reduced()?'auto':'smooth', block:'start'}); });
+  requestAnimationFrame(()=>{ const land=innerWidth>innerHeight && innerHeight<=520, c=$(land?'#stage':'.viewer'); if(c) c.scrollIntoView({behavior:reduced()?'auto':'smooth', block:land?'center':'start'}); });   /* telefono in orizzontale: il riquadro intero nello schermo */
 }
 function stopViewer(){ if(viewer) cancelAnimationFrame(viewer.raf); }
 function vTeamName(v,ti){ return G.T[ti===0?v.m.h:v.m.a].n; }
@@ -46,41 +48,69 @@ function vViewerHTML(){
   const planCol=ti=>{ const p=sim.plans[ti], c=m.inp.t[ti].coach;
     return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?`All. ${esc(c.n)} è squalificato: in panchina va il vice`:`All. ${esc(c.n)} · tattica ${c.tat}`}</p>
       <p class="pl-form">${p.form}</p><p class="pl-meta">Mentalità ${MENT[p.ment+1]} · ${p.press===2?'pressing alto':'pressing basso'}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
-  return `<section class="card viewer"><div class="sb"><span class="tm"><span class="chip" style="--c:${teamColor(v,0)}"></span>${esc(vTeamName(v,0))}</span><span class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</span><span class="tm r">${esc(vTeamName(v,1))}<span class="chip" style="--c:${teamColor(v,1)}"></span></span></div>
-   <div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
+  /* 0.4.2.3 (R6a): grafica della 019 — barra del punteggio con gli stemmi, comandi, riquadro 1050×600 (1,75:1) uguale in 2D e 3D */
+  const side=ti=>{ const n=`<span class="vtn">${esc(vTeamName(v,ti))}</span>`, c=`<span class="vcrest" aria-hidden="true">${vCrest(v,ti)}</span>`; return `<div class="vside${ti?' away':''}">${ti?n+c:c+n}</div>`; };
+  const ab=ti=>esc(vInit(vTeamName(v,ti)));
+  return `<section class="card viewer"><div class="vmb">${side(0)}<div class="vscore"><strong class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</strong><small><span id="v-clk2">0'</span> · <span id="v-half">1° tempo</span></small></div>${side(1)}</div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button><span class="vgrp" role="group" aria-label="Velocità">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${s}×</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">⛶ Schermo intero</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">Vignette: ${VPREF.vig?'sì':'no'}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
+   <div class="vfs" id="v-fs"><div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
     <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span></div>
-    <span class="clock" id="v-clock">0'</span><span class="ff" id="v-ff">${SPEED_TXT[v.speed]}</span>
+    <div class="vbug" id="v-bug"><span class="clock" id="v-clock">0'</span><span class="vbsc"><i style="background:${teamColor(v,0)}"></i>${ab(0)} <b id="v-bugsc">${v.sc[0]}–${v.sc[1]}</b> ${ab(1)}<i style="background:${teamColor(v,1)}"></i></span></div>
     <div class="forms" id="v-forms"></div>
-    <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div>
-    ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">Le scelte degli allenatori</p>${m.inp.ref?`<p class="pl-ref">Arbitro ${esc(m.inp.ref.full||m.inp.ref.n)}${G.refs&&G.refs[m.inp.ref.id]?` · assistenti ${esc(G.refs[m.inp.ref.id].a1)} e ${esc(G.refs[m.inp.ref.id].a2)}`:''}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">Calcio d'inizio</button></div>`:''}
+    <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div><div class="vig" id="v-vig" hidden></div><div class="vscn" id="v-scn" hidden></div>
+    <button class="btn small vfsx" data-act="vfs">Esci da tutto schermo</button>
    </div>
-   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button>${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${SPEED_TXT[s]}" aria-pressed="${v.speed===s}">${s}x</button>`).join('')}${V3.ok!==false?`<button class="btn ghost small" data-act="v3d">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
-   <div class="vstats" id="v-stats"></div>
+   ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">Le scelte degli allenatori</p>${m.inp.ref?`<p class="pl-ref">Arbitro ${esc(m.inp.ref.full||m.inp.ref.n)}${G.refs&&G.refs[m.inp.ref.id]?` · assistenti ${esc(G.refs[m.inp.ref.id].a1)} e ${esc(G.refs[m.inp.ref.id].a2)}`:''}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">Calcio d'inizio</button></div>`:''}
+   </div>
    <div class="intv" id="v-int" hidden></div>
-   <ol class="log" id="v-log"></ol></section>`;
+   <div class="vlive"><section class="vcard"><h3>Cronaca</h3><ol class="log" id="v-log"></ol></section><section class="vcard"><h3>Statistiche</h3><div class="vstats" id="v-stats"></div></section></div></section>`;
 }
+/* 0.4.2.3 (R6a): scene della 019 (ingresso, intervallo, fine) con i dati veri della partita; in 3D una fascia sopra la scena 3D */
+function vIngresso(v){ const m=v.m, f=frameAt(0), cols=v.sim.cols, out=[], ri=m.inp.ref, RT=ri&&G.refs&&G.refs[ri.id];
+  const cap=s=>{ const k=(f.cap||[]).find(k=>k>=0 && cols[k]!=null && v.team[k]===s); return k!=null?{k, i:v.info[cols[k]]}:null; }, c0=cap(0), c1=cap(1);
+  if(c0) out.push(`Capitano ${c0.i.ln} · ${vTeamName(v,0)}`); if(ri) out.push('Arbitro '+(ri.full||ri.n)); if(RT){ out.push('Assistente '+RT.a1); out.push('Assistente '+RT.a2); }
+  if(c1) out.push(`Capitano ${c1.i.ln} · ${vTeamName(v,1)}`);
+  const gk=[0,1].map(s=>cols.findIndex((id,k)=>v.info[id].gk && v.team[k]===s && f.P[k] && !((s?c1:c0)&&(s?c1:c0).k===k))).filter(k=>k>=0).map(k=>v.info[cols[k]].ln);
+  if(gk.length) out.push((gk.length>1?'Portieri ':'Portiere ')+gk.join(' e ')); out.push('Poi gli altri giocatori'); return out; }
+function vScnHTML(v,kind){
+  const m=v.m, sim=v.sim, A=esc(vTeamName(v,0)), B=esc(vTeamName(v,1));
+  if(kind==='start') return `<h2>Le squadre entrano in campo</h2><div class="vproc">${vIngresso(v).map(x=>`<span>${esc(x)}</span>`).join('')}</div>`;
+  if(kind==='ht'){ const k=Math.min(v.nT,Math.floor(v.t)+1), tot=v.pt[k], ph=tot?Math.round(v.p0[k]/tot*100):50, a=v.st[0], b=v.st[1];
+    return `<h2>Intervallo</h2><p class="vres">${A} <b>${v.sc[0]} – ${v.sc[1]}</b> ${B}</p><div class="vproc"><span>Possesso ${ph}% – ${100-ph}%</span><span>Tiri ${a.sh} (${a.sot}) – ${b.sh} (${b.sot})</span><span>Angoli ${a.cor} – ${b.cor}</span><span>Falli ${a.fou} – ${b.fou}</span></div><div class="vscn-act"><button class="btn go" data-act="vnext">Secondo tempo</button></div>`; }
+  const gl=s=>sim.ev.filter(e=>e.type==='goal'&&e.side===s).map(e=>`${esc((v.info[e.p[0]]||{}).ln||'')} ${e.min}${e.og?' (aut.)':''}`).join(', ');
+  return `<h2>Fine partita</h2><p class="vres">${A} <b>${m.gh} – ${m.ga}</b> ${B}</p>${m.gh+m.ga?`<p class="vgl">${gl(0)||'–'} · ${gl(1)||'–'}</p>`:''}<div class="vscn-act"><button class="btn go" data-act="vnext">Pagelle</button><button class="btn ghost" data-act="vscniv">Intervista</button></div>`; }
+/* 0.4.2.3: in 2D l'ingresso compare DOPO il pannello delle scelte degli allenatori, come fascia per 3,5 s dal calcio d'inizio */
+function vIngOn(v){ return !!(v && v.phase==='live' && v.ingUntil && performance.now()<v.ingUntil); }
+function vScnShow(v){ const el=$('#v-scn'); if(!el) return; const sc=v&&v.phase==='scene'?v.scene:vIngOn(v)?{kind:'start',d2:false}:null;
+  const key=sc?sc.kind+(sc.d2?'2':'3'):''; if(el.dataset.k===key && (sc||el.hidden)) return; el.dataset.k=key;
+  if(!sc){ el.hidden=true; el.innerHTML=''; return; } el.className='vscn'+(sc.d2?'':' mini')+' k-'+sc.kind; el.innerHTML=vScnHTML(v,sc.kind); el.hidden=false; }
+function vScnIv(){ const v=viewer; if(!v) return; if(v.phase==='scene') endScene(); if(v.phase==='done'){ v.post='iv'; Object.assign(v.iv,{k:0,phase:'q',t:0,closed:false}); renderIV(); updNext(); } }
 function attachViewer(){
   const v=viewer; const log=$('#v-log'); if(log) log.innerHTML=v.log.join('');
   updHud(); if(v.cap) showCap(v.cap);
   if(v.phase==='done') finishViewer(true);
   if(v.phase==='replay'){ const rb=$('#v-rpl'); if(rb) rb.hidden=false; }
+  if(v.phase==='scene') vScnShow(v); if(v.vigOn) vVigPaint(v); vFsLbl();
   cancelAnimationFrame(v.raf); v.last=performance.now(); v.raf=requestAnimationFrame(loop);
 }
-function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; v.playing=true; if(use3D()){ v.playing=false; startScene('start'); } const p=$('#v-pre'); if(p) p.remove(); const b=$('#v-play'); if(b) b.textContent='Pausa'; }
+function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; v.playing=true; const p=$('#v-pre'); if(p) p.remove();
+  if(use3D()){ v.playing=false; startScene('start'); } else { v.ingUntil=performance.now()+3500; vScnShow(v); } const b=$('#v-play'); if(b) b.textContent='Pausa'; }
 
 function loop(now){
   const v=viewer; if(!v || !onMatchPage()) return;
   const dt=Math.max(0,Math.min(100,now-v.last))/1000; v.last=now;   /* il tempo del fotogramma può precedere v.last: mai passi indietro */
   if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
   else if(v.phase==='live' && v.playing){
-    const sp1 = use3D() && !!activeWin(v);
-    v.t=Math.min(v.nT-1, v.t+(sp1?2/DT:tickRate(v))*dt);
-    processEvents(true);
+    /* 0.4.2.3 (R6a): nelle pause il tempo scorre più in fretta (vRate), senza superare i momenti da vedere */
+    const R=vRate(v); let nt=v.t+R.r*dt; if(R.fast && nt>R.lim) nt=R.lim; v.fast=R.fast;
+    v.t=Math.min(v.nT-1, nt);
+    processEvents(true); vVigTick(v);
     if(v.pq.length && v.t>=v.pq[0].at){ const p=v.pq.shift(); if(use3D() && v.t<p.t1+40) startReplay(p); }
-    if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; if(use3D()){ v.t=v.sim.htTick; startScene('ht'); } }
-    if(v.t>=v.nT-1 && v.phase==='live'){ if(use3D() && !v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(); }
-  } else if(v.phase==='replay'){ const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
-  else if(v.phase==='scene'){ v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
+    if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
+    if(v.t>=v.nT-1 && v.phase==='live'){ if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(); }
+  } else if(v.phase==='replay'){ v.fast=false; const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
+  else if(v.phase==='scene'){ v.fast=false; v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
+  if(v.phase!=='live') vVigTick(v);
   else if(v.phase==='done'){ if(v.post==='whistle' && performance.now()-v.postT>3500){ v.post='pag'; renderIV(); } else if(v.post==='iv' && v.iv) tickIV(dt*1000); }
   draw();
   v.raf=requestAnimationFrame(loop);
@@ -137,6 +167,8 @@ function showCap(e){
 function updHud(){
   const v=viewer; if(!v) return; const T=Math.floor(v.phase==='replay'?v.rep.t:v.t);
   const clk=$('#v-clock'); if(clk) clk.textContent=minuteOf(T);
+  const c2=$('#v-clk2'); if(c2) c2.textContent=minuteOf(T); const bs=$('#v-bugsc'); if(bs) bs.textContent=v.sc[0]+'–'+v.sc[1];
+  const hf=$('#v-half'); if(hf) hf.textContent=v.phase==='done'||(v.phase==='scene'&&v.scene.kind==='end')?'Finale':v.phase==='scene'&&v.scene.kind==='ht'?'Intervallo':v.phase==='pre'?'Prima del calcio d\'inizio':T<v.sim.htTick?'1° tempo':'2° tempo';
   const f=$('#v-forms'); if(f) f.innerHTML=`<span style="--c:${teamColor(v,0)}">${esc(v.forms[0])}</span><span style="--c:${teamColor(v,1)}">${esc(v.forms[1])}</span>`;
   const s=$('#v-stats'); if(s){ const k=Math.min(v.nT,Math.floor(v.t)+1), tot=v.pt[k], ph=tot?Math.round(v.p0[k]/tot*100):50;
     const row=(l,a,b)=>`<div class="sr"><span class="num">${a}</span><span>${l}</span><span class="num">${b}</span></div>`;
@@ -159,7 +191,7 @@ function finishViewer(reattach, post){
   renderIV(); updHud();
 }
 function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); if(v.phase==='done') return openViewer(G.last.indexOf(v.m)); v.playing=!v.playing; el.textContent=v.playing?'Pausa':'Riprendi'; }
-function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); const ff=$('#v-ff'); if(ff) ff.textContent=SPEED_TXT[s]; }
+function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
 function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent='Telecamera replay: '+(V3.camMode==='tv'?'TV':'dietro la porta'); }
 function v3dToggle(){ if(viewer.phase==='replay') endReplay(); V3.pref=!V3.pref; try{ localStorage.setItem('presidente-vista',V3.pref?'3d':'2d'); }catch(_){} if(V3.pref) setupMatch3D(); render(); }
 function startReplay(p){ const v=viewer; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
@@ -197,6 +229,7 @@ function vPrep(v){
     let tc=null; for(let k=e.t;k<Math.min(nT,e.t+80);k++){ const c=fr[k][nc]; if(coach? c===4 : (c>0&&c!==4)){ tc=k; break; } }
     if(tc==null) return; let t1=tc; while(t1+1<nT && fr[t1+1][nc]>0) t1++;
     v.cards.push({t0:e.t, tc, t1, coach:coach?e.side:null, k:coach?-1:sim.cols.indexOf(e.p&&e.p[0])}); });
+  vPrepPause(v); vPrepKits(v); vPrepVig(v);   /* 0.4.2.3 (R6a) */
 }
 function stopIdx(v,t){ let lo=0, hi=v.stops.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(v.stops[m]<=t){ r=m; lo=m+1; } else hi=m-1; } return r; }
 function ballDead(v,t){ const i=stopIdx(v,t); return i>=0 && t<=v.rest[i]+0.999; }
@@ -208,6 +241,233 @@ function diveAt(t){ const v=viewer; if(!v||!v.dives) return null;
 function cardTarget(f,t){ const c=cardAt(t); if(!c) return null; if(c.coach!=null) return {x:52.5+(c.coach===0?-9:9), y:-2.4};
   let p=c.k>=0?f.P[c.k]:null; if(!p && c.k>=0){ const fr=viewer.sim.frames[Math.max(0,Math.min(viewer.nT-1,c.tc))]; if(fr && !isNaN(frV(fr,c.k*2))) p={x:frV(fr,c.k*2), y:frV(fr,c.k*2+1)}; } return p&&!p.hidden?{x:p.x,y:p.y}:null; }
 function cardAt(t){ const v=viewer; if(!v||!v.cards) return null; let c=null; for(const x of v.cards) if(t>=x.t0-1 && t<=x.t1+1) c=x; return c; }
+
+/* ---------- 0.4.2.3 (R6a): pause e attesa della battuta ----------
+   Le pause della simulazione (rimesse, falli, gol, cambi, infortuni) si vedono intere: giocatori che si sistemano, palla portata
+   sul punto (correzione di Max del 5/11). Si accorcia SOLO l'attesa da quando la palla è ferma sul punto di battuta a quando torna
+   in movimento (punizioni, angoli, rimesse laterali e dal fondo, calcio d'inizio dopo un gol, rigori): dura 1 s a 1× (0,5 s a 2×,
+   0,25 s a 4×); gli ultimi 2 tick (la rincorsa e la battuta) scorrono alla velocità scelta. Durante l'attesa chi batte è disegnato
+   1,5 m dietro la palla, dalla parte opposta alla direzione della battuta, poi prende la rincorsa (solo disegno, dai frame).
+   Il cronometro resta quello della partita; «Avanti» salta come prima. Nessun numero casuale. */
+const PZ_MIN=4, WT_RUN=2, WT_BACK=1.5;   /* pausa più corta considerata; tick della rincorsa; metri dietro la palla */
+const PZ_RANK={goal:3, fo:2, yc:2, rc:2, coachoff:2, inj:2, sub:2, subcall:2};
+function vPrepPause(v){
+  const sim=v.sim, ht=sim.htTick, fr=sim.frames, n=sim.cols.length, nb=n*2, sp=[];
+  const B=k=>{ const f=vFr(v,k); return [f[nb],f[nb+1],f[nb+2]]; };
+  v.stops.forEach((s,i)=>{ const r=v.rest[i]; if(s===0||r-s<PZ_MIN||(s<=ht&&ht<=r+1)) return;
+    const L=sp[sp.length-1]; if(L && s<=L.r+1) L.r=Math.max(L.r,r); else sp.push({s, r}); });
+  const sp2=[], wt=[];
+  for(const p of sp){ if(p.s<=ht && ht<=p.r+1) continue; sp2.push(p);
+    p.evs=sim.ev.filter(e=>e.t>=p.s && e.t<=p.r); let rank=1; for(const e of p.evs) rank=Math.max(rank,PZ_RANK[e.type]||1);
+    p.kind=rank===3?'goal':rank===2?'imp':'out';
+    /* attesa: palla ferma sul punto fino alla battuta (K = primo tick in cui si muove) */
+    const K=p.r+1; if(K>=v.nT-3) continue; const bk=B(K-1); let s0=K-1;
+    while(s0-1>=p.s){ const q=B(s0-1); if(Math.hypot(q[0]-bk[0],q[1]-bk[1])>0.04 || Math.abs(q[2]-bk[2])>0.05) break; s0--; }
+    if(K-s0<=WT_RUN+1) continue;
+    const thr=bk[2]>1.0, b2=B(Math.min(v.nT-1,K+2)); let dx=b2[0]-bk[0], dy=b2[1]-bk[1], dl=Math.hypot(dx,dy);
+    let kk=-1, kd=1e9; const fk=vFr(v,K); for(let k=0;k<n;k++){ const x=fk[k*2]; if(isNaN(x)) continue; const d=Math.hypot(x-bk[0],fk[k*2+1]-bk[1]); if(d<kd){ kd=d; kk=k; } }
+    if(dl<0.05 && kk>=0){ dx=bk[0]-fk[kk*2]; dy=bk[1]-fk[kk*2+1]; dl=Math.hypot(dx,dy); }
+    wt.push({s0, K, bx:bk[0], by:bk[1], k:kd<3.5?kk:-1, thr, ux:dl>0.01?dx/dl:0, uy:dl>0.01?dy/dl:0, L:K-WT_RUN-s0}); }
+  v.pz=sp2; v.wt=wt;
+  /* gol: la palla resta dentro la porta (fermata dalla rete) finché un giocatore non va a prenderla o si riparte */
+  v.gnet=[]; for(const e of sim.ev){ if(e.type!=='goal') continue; const g=e.t; if(g>=v.nT-1) continue; const gx=B(Math.min(v.nT-1,g+1))[0]>52.5?105:0;
+    const ko=sim.ev.find(x=>x.type==='ko' && x.t>g); let H=ko?ko.t:v.nT-1;
+    for(let t=g+3;t<H;t++){ const b=B(t), f=vFr(v,t); let near=false; for(let k=0;k<n;k++){ const x=f[k*2]; if(!isNaN(x) && Math.hypot(x-b[0],f[k*2+1]-b[1])<1.2){ near=true; break; } } if(near){ H=t; break; } }
+    v.gnet.push({g, H, gx, sg:gx?1:-1}); }
+}
+function vWaitAt(v,t){ const a=v.wt; if(!a) return null; let lo=0, hi=a.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(a[m].s0<=t){ r=m; lo=m+1; } else hi=m-1; }
+  const w=r>=0?a[r]:null; return w && t<w.K ? w : null; }
+function vPauseAt(v,t){ const a=v.pz; if(!a) return null; let lo=0, hi=a.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(a[m].s<=t){ r=m; lo=m+1; } else hi=m-1; }
+  const p=r>=0?a[r]:null; return p && t<p.r+1 ? p : null; }
+/* tick al secondo in questo istante: nell'attesa della battuta più in fretta, perché duri 1 s a 1× (in proporzione a 2× e 4×) */
+function vRate(v){
+  const base=(use3D() && activeWin(v)) ? 2/DT : tickRate(v), w=vWaitAt(v,v.t);
+  if(!w || v.t>=w.K-WT_RUN) return {r:base, fast:false};
+  const n=tickRate(v), f=w.L/Math.max(0.1, 1/v.speed-WT_RUN/n); return f>base ? {r:f, fast:true, lim:w.K-WT_RUN} : {r:base, fast:false};
+}
+/* posizione disegnata di chi batte durante l'attesa e della palla dopo il gol (frameAt; i frame non cambiano) */
+function vFixFrame(v,t,P,o){
+  const w=vWaitAt(v,t); if(w && w.k>=0 && !w.thr && P[w.k]){ const p=P[w.k], qx=w.bx-w.ux*WT_BACK, qy=w.by-w.uy*WT_BACK, ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+    const a=clamp((t-w.s0)/2,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1), u=ez(a)*(1-ez(b));
+    P[w.k]={x:p.x+(qx-p.x)*u, y:p.y+(qy-p.y)*u}; }
+  for(const g of v.gnet){ if(t<g.g || t>=g.H+2) continue;
+    const cx=g.gx+g.sg*clamp(g.sg*(o.bx-g.gx),0.12,1.75), cy=clamp(o.by,34-3.5,34+3.5), cz=clamp(o.bz,0,2.3), u=t<g.H?1:1-(t-g.H)/2;
+    o.bx+=(cx-o.bx)*u; o.by+=(cy-o.by)*u; o.bz+=(cz-o.bz)*u; break; }
+}
+
+/* ---------- 0.4.2.3 (R6a): impostazioni del visore nel browser (come la velocità, mai in G) ---------- */
+const VIG_KEY='presidente-pref-vign', THEME_KEY='presidente-pref-tema';
+const VPREF={vig:(()=>{ try{ return localStorage.getItem(VIG_KEY)!=='0'; }catch(_){ return true; } })()};
+function vSetVig(on){ VPREF.vig=!!on; try{ localStorage.setItem(VIG_KEY,on?'1':'0'); }catch(_){} if(!on) vVigHide();
+  const b=$('#v-vigb'); if(b){ b.textContent='Vignette: '+(on?'sì':'no'); b.setAttribute('aria-pressed',String(!!on)); } }
+/* tema: lo stesso sistema del gioco (prefers-color-scheme + data-theme sulla pagina); il pulsante sceglie chiaro o scuro e lo ricorda */
+function vThemeNow(){ const d=document.documentElement.dataset.theme; if(d==='light'||d==='dark') return d; try{ return matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }catch(_){ return 'light'; } }
+function vThemeLbl(){ return vThemeNow()==='dark' ? 'Tema chiaro' : 'Tema scuro'; }
+function vTheme(){ const t=vThemeNow()==='dark'?'light':'dark'; document.documentElement.dataset.theme=t; try{ localStorage.setItem(THEME_KEY,t); }catch(_){}
+  const b=$('#v-tema'); if(b) b.textContent=vThemeLbl(); if(viewer) draw(); }
+(function(){ try{ const t=localStorage.getItem(THEME_KEY); if(t==='light'||t==='dark') document.documentElement.dataset.theme=t; }catch(_){} })();
+/* tutto schermo: il riquadro intero (campo 2D o 3D, sempre 1,75:1, contenuto senza deformarlo); dove il browser non lo permette, a tutta finestra */
+function vFull(){ const el=$('#v-fs'); if(!el) return;
+  if(document.fullscreenElement){ document.exitFullscreen().catch(()=>{}); return; }
+  if(el.classList.contains('fsx')){ el.classList.remove('fsx'); document.body.classList.remove('vfsx'); vFsLbl(); return; }
+  const fake=()=>{ el.classList.add('fsx'); document.body.classList.add('vfsx'); vFsLbl(); };
+  if(el.requestFullscreen) el.requestFullscreen().then(vFsLbl).catch(fake); else fake(); }
+function vFsOn(){ const el=$('#v-fs'); return !!(el && (document.fullscreenElement===el || el.classList.contains('fsx'))); }
+function vFsLbl(){ const b=$('#v-fsb'); if(b) b.textContent=vFsOn()?'⛶ Esci da tutto schermo':'⛶ Schermo intero'; }
+document.addEventListener('fullscreenchange',()=>{ vFsLbl(); if(viewer) draw(); });
+
+/* ---------- 0.4.2.3 (R6a): maglie vere dei club sul campo, con il controllo del contrasto ----------
+   Colore del club (G.T[].c). Se sul verde del campo (chiaro e scuro) si vede poco → seconda maglia (chiara o scura) con il
+   colore del club sul bordo; se è appena sufficiente → bordo più spesso. Se le due squadre si somigliano, la seconda cambia
+   maglia. I portieri hanno colori diversi da tutte e due le squadre e tra loro. */
+const KIT2={l:'#f3f1e8', d:'#1d2633'}, GKC=['#f2c230','#2b2b30','#e8e3d3','#e05a9a','#3fc1c9'], PITCH_C=['#2f6c46','#22533a'];
+function rgbOf(h){ const n=parseInt(String(h).slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
+function relLum(h){ const c=rgbOf(h).map(x=>{ x/=255; return x<=0.04045?x/12.92:Math.pow((x+0.055)/1.055,2.4); }); return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
+function ctrRatio(a,b){ const x=relLum(a), y=relLum(b); return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05); }
+function rgbDist(a,b){ const p=rgbOf(a), q=rgbOf(b); return Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]); }
+function kitNear(c){ return Math.min(...PITCH_C.map(p=>ctrRatio(c,p)))<1.6 && Math.min(...PITCH_C.map(p=>rgbDist(c,p)))<115; }
+function vPrepKits(v){
+  const k=[0,1].map(ti=>{ const c=teamColor(v,ti); if(kitNear(c)) return {fill:relLum(c)>0.18?KIT2.d:KIT2.l, edge:c, alt:true, thick:false};
+    return {fill:c, edge:null, alt:false, thick:Math.min(...PITCH_C.map(p=>ctrRatio(c,p)))<1.6}; });
+  if(rgbDist(k[0].fill,k[1].fill)<110){ const o=k[1].fill, alt=rgbDist(k[0].fill,KIT2.l)>rgbDist(k[0].fill,KIT2.d)?KIT2.l:KIT2.d; k[1]={fill:alt, edge:k[1].edge||o, alt:true, thick:false}; }
+  const ok=(c,av)=>av.every(a=>rgbDist(c,a)>=110);
+  const g0=GKC.find(c=>ok(c,[k[0].fill,k[1].fill,...PITCH_C]))||GKC[0], g1=GKC.find(c=>c!==g0 && ok(c,[k[0].fill,k[1].fill,g0,...PITCH_C]))||GKC.find(c=>c!==g0);
+  v.kit=k; v.gkc=[g0,g1];
+}
+/* stemma dai colori del club (stemmi.js della 012); senza stemmi.js resta il quadratino col colore */
+function vInit(n){ const w=String(n).split(/\s+/).filter(Boolean); return (w.length>1?w.map(x=>x[0]).join(''):String(n).slice(0,3)).slice(0,3).toUpperCase(); }
+function vCrest(v,ti){ const id=ti===0?v.m.h:v.m.a, t=G.T[id];
+  if(typeof window.stemmaSVG!=='function') return `<span class="chip big" style="--c:${t.c}"></span>`;
+  return window.stemmaSVG(id+1,{colori:{primario:t.c, secondario:lum(t.c)>0.55?'var(--ev-sidebar-end)':'var(--ev-chalk)'}, iniziali:vInit(t.n)}); }
+
+/* ---------- 0.4.2.3 (R6a): vignette del mister ----------
+   Nelle pause importanti (gol, falli, cartellini, infortuni, cambi; mai nelle rimesse) una vignetta dalla panchina di una squadra
+   con un'indicazione dell'allenatore, 2–3 s; al massimo una per pausa e non più di una ogni ~5 minuti di partita per squadra.
+   La frase dipende da risultato, minuto, modulo, cartellini, morale e carattere dell'allenatore (coachTemper), scelta con un
+   hash del momento (partita, tick, squadra): mai R() né rnd(). Calcolate tutte in vPrep: saltare con «Avanti» non cambia nulla.
+   Aggancio per R3 (vVigPiano): se la simulazione registra un cambio di piano vero (oggi l'evento 'form' di coachThink; da R3
+   l'evento 'plan' con il campo vig), la vignetta dice quello. Frasi in VIG_FRASI, elenco separato pronto per L1. */
+const VIG_GAP=300, VIG_MS=3000;   /* VIG_MS: secondi veri di lettura, uguali a 1×, 2× e 4× */   /* secondi di partita tra due vignette della stessa squadra */
+const VIG_FRASI=[
+  {id:'g01',se:'',t:'Stiamo corti, ragazzi!'},
+  {id:'g02',se:'',t:'Concentrati, si riparte!'},
+  {id:'g03',se:'',t:'Parlatevi, chiamate la palla!'},
+  {id:'g04',se:'',t:'Occhio alle marcature!'},
+  {id:'g05',se:'',t:'Palla a terra, giochiamola!'},
+  {id:'g06',se:'',t:'Seguite l\'uomo, non solo la palla!'},
+  {id:'m01',se:'',t:'Teniamo il {form}, ognuno al suo posto!'},
+  {id:'m02',se:'',t:'Larghi sugli esterni: il {form} vuole ampiezza!'},
+  {id:'m03',se:'',t:'Rispettate le distanze del {form}!'},
+  {id:'v01',se:'vince',t:'Adesso gestiamo, niente frenesia!'},
+  {id:'v02',se:'vince',t:'Non abbassatevi troppo, teniamo noi il pallone!'},
+  {id:'v03',se:'vince',t:'Bravi! Ma la partita non è finita.'},
+  {id:'v04',se:'vince tardi',t:'Ultimi minuti: palla lontano dalla nostra area!'},
+  {id:'v05',se:'vince tardi',t:'Teniamola là davanti, facciamo passare il tempo!'},
+  {id:'p01',se:'perde',t:'Su, c\'è tempo! Un passo in più!'},
+  {id:'p02',se:'perde',t:'Più coraggio, attacchiamo la profondità!'},
+  {id:'p03',se:'perde',t:'Non mollate, la rimettiamo in piedi!'},
+  {id:'p04',se:'perde tardi',t:'Tutti avanti, ci serve un gol!'},
+  {id:'p05',se:'perde tardi',t:'Rischiamo, non abbiamo niente da perdere!'},
+  {id:'x01',se:'pari',t:'Pazienza, lo spazio arriva!'},
+  {id:'x02',se:'pari',t:'Equilibrio! Non scopriamoci.'},
+  {id:'x03',se:'pari tardi',t:'Un punto non basta, proviamoci!'},
+  {id:'x04',se:'pari tardi calmo',t:'Teniamo il punto, niente follie.'},
+  {id:'t01',se:'presto',t:'Prendiamo le misure, niente fretta!'},
+  {id:'t02',se:'presto',t:'Primi minuti: linee strette e corte!'},
+  {id:'t03',se:'fine1',t:'Ancora pochi minuti, poi ne parliamo negli spogliatoi.'},
+  {id:'t04',se:'fine1',t:'Chiudiamo il tempo senza rischi!'},
+  {id:'f01',se:'gol_fatto',t:'Così! Adesso restate concentrati!'},
+  {id:'f02',se:'gol_fatto',t:'Bravissimi! Subito in posizione!'},
+  {id:'f03',se:'gol_fatto',t:'Grande gol! Ora non regaliamo niente.'},
+  {id:'f04',se:'gol_fatto pari',t:'Rimessa in piedi! Adesso andiamo a vincerla!'},
+  {id:'f05',se:'gol_fatto caldo',t:'Siiì! Ma non è finita, testa!'},
+  {id:'s01',se:'gol_subito',t:'Testa alta, si ricomincia!'},
+  {id:'s02',se:'gol_subito',t:'Non è successo niente, reagiamo!'},
+  {id:'s03',se:'gol_subito caldo',t:'Così non va! Più cattiveria!'},
+  {id:'s04',se:'gol_subito caldo',t:'Chi doveva seguirlo? Svegliatevi!'},
+  {id:'s05',se:'gol_subito calmo',t:'Calma, continuiamo a giocare come sappiamo.'},
+  {id:'c01',se:'cart_nostro',t:'Attenti adesso, non prendiamone un altro!'},
+  {id:'c02',se:'cart_nostro ammoniti',t:'Entrate pulite, abbiamo già troppi ammoniti!'},
+  {id:'c03',se:'cart_nostro caldo',t:'Arbitro, ma era fallo quello?!'},
+  {id:'c04',se:'cart_nostro caldo',t:'Ma dai! Sempre a noi i cartellini!'},
+  {id:'c05',se:'cart_loro',t:'È ammonito: puntatelo in dribbling!'},
+  {id:'c06',se:'cart_loro',t:'Visto? Sono in difficoltà, insistiamo!'},
+  {id:'r01',se:'dieci',t:'In dieci: stringiamoci, tutti dietro la palla!'},
+  {id:'r02',se:'dieci',t:'Uno in meno: raddoppiamo la corsa!'},
+  {id:'r03',se:'loro10',t:'Sono in dieci! Allarghiamo il gioco!'},
+  {id:'r04',se:'loro10',t:'Uomo in più: facciamo girare la palla!'},
+  {id:'i01',se:'inf',t:'Forza, stringete i denti finché entra il cambio!'},
+  {id:'i02',se:'inf',t:'Ricompattiamoci, nessuno si distragga!'},
+  {id:'b01',se:'cambio',t:'Entra con la testa giusta, fai quello che abbiamo detto!'},
+  {id:'b02',se:'cambio',t:'Cambio: stessa disposizione, si riparte!'},
+  {id:'b03',se:'cambio',t:'Energie fresche: adesso alziamo il ritmo!'},
+  {id:'o01',se:'fallo_nostro',t:'Niente falli inutili vicino all\'area!'},
+  {id:'o02',se:'fallo_nostro',t:'Ordinati! Tutti in posizione sulla punizione!'},
+  {id:'o03',se:'fallo_loro',t:'Sfruttiamo la punizione, attenti allo schema!'},
+  {id:'o04',se:'fallo_loro',t:'Battiamola veloce, sono scoperti!'},
+  {id:'k01',se:'caldo',t:'Svegliaaa! Più ritmo!'},
+  {id:'k02',se:'caldo',t:'Ma che fate? Pressione, pressione!'},
+  {id:'k03',se:'calmo',t:'Tranquilli, giocate semplice.'},
+  {id:'k04',se:'calmo',t:'Bene così, continuiamo con ordine.'},
+  {id:'u01',se:'morale_giu',t:'Crediamoci! Siamo più forti di così!'},
+  {id:'u02',se:'morale_giu',t:'Testa sgombra, una giocata alla volta!'},
+  {id:'u03',se:'morale_su',t:'Si vede che ci credete, avanti così!'},
+  {id:'u04',se:'morale_su',t:'Siete in fiducia: osate la giocata!'}
+];
+const VIG_EV=new Set(['goal','fo','yc','rc','coachoff','inj','sub','subcall']);
+function vHash(v,t,side,k){ return hashU(v.key+'|'+t+'|'+side,k); }
+function vMinute(v,t){ const ht=v.sim.htTick; return t<ht ? t*DT/TIME_F/60 : 45+(t-ht)*DT/TIME_F/60; }
+function vVigTags(v,side,p,main){
+  const sim=v.sim, m=v.m, T=new Set(); let sc=[0,0], sct=-1, form=sim.plans[side].form, yc=0, rc=0, rcO=0;
+  for(const e of sim.ev){ if(e.t>p.r) continue;
+    if(e.type==='goal' && e.t>=sct){ sc=e.score; sct=e.t; }
+    if(e.type==='form' && e.side===side && e.form && e.t<=p.r) form=e.form;
+    if(e.type==='yc' && e.side===side) yc++;
+    if(e.type==='rc'){ if(e.side===side) rc++; else rcO++; } }
+  const my=sc[side], th=sc[1-side], mn=vMinute(v,p.s), co=m.inp.t[side].coach, car=co.car??10, ps=m.inp.t[side].players;
+  const mor=ps.reduce((a,x)=>a+(x.mor??12),0)/Math.max(1,ps.length), mine=main.side===side, ty=main.type;
+  T.add(my>th?'vince':my<th?'perde':'pari'); if(mn<20) T.add('presto'); if(mn>=75) T.add('tardi'); if(mn>=38 && p.s<sim.htTick) T.add('fine1');
+  if(car>=14) T.add('caldo'); if(car<=7) T.add('calmo'); if(mor>=14) T.add('morale_su'); if(mor<=9) T.add('morale_giu');
+  if(ty==='goal') T.add(mine?'gol_fatto':'gol_subito');
+  if(ty==='yc'||ty==='rc'||ty==='coachoff') T.add(mine?'cart_nostro':'cart_loro');
+  if(yc>=2) T.add('ammoniti'); if(rc>0) T.add('dieci'); if(rcO>0) T.add('loro10');
+  if(ty==='inj' && mine) T.add('inf'); if((ty==='sub'||ty==='subcall') && mine) T.add('cambio');
+  if(ty==='fo') T.add(mine?'fallo_nostro':'fallo_loro');
+  return {T, form};
+}
+/* aggancio per R3: cambio di piano vero registrato dalla simulazione durante la pausa */
+function vVigPiano(v,side,p){
+  const e=v.sim.ev.find(x=>(x.type==='plan'||x.type==='form') && x.side===side && x.t>=p.s-4 && x.t<=p.r); if(!e) return null;
+  if(e.type==='plan') return e.vig||e.text||null;
+  return /attacco/.test(e.form) ? 'Tutti all\'attacco, ci serve un gol!' : `Cambiamo: ${e.form}!`; }
+function vVigFrase(v,side,p,main){
+  const {T, form}=vVigTags(v,side,p,main);
+  const ok=VIG_FRASI.filter(f=>f.se.split(' ').filter(Boolean).every(x=>T.has(x)));
+  const w=ok.map(f=>1+2*f.se.split(' ').filter(Boolean).length), tot=w.reduce((a,b)=>a+b,0);
+  let x=vHash(v,p.s,side,5)*tot, i=0; while(i<ok.length-1 && x>=w[i]){ x-=w[i]; i++; }
+  const f=ok[i]; return f ? {id:f.id, t:f.t.replace('{form}',form)} : null; }
+function vPrepVig(v){
+  v.vig=[]; v.vigI=0; v.vigOn=null; const last=[-1e9,-1e9], gap=VIG_GAP*TIME_F/DT;
+  const pick=(p,ty)=>p.evs.find(e=>ty.includes(e.type));
+  for(const p of v.pz){ if(p.kind==='out') continue;
+    const main=pick(p,['goal'])||pick(p,['rc','coachoff'])||pick(p,['yc'])||pick(p,['inj'])||pick(p,['sub','subcall'])||pick(p,['fo']);
+    if(!main || !VIG_EV.has(main.type)) continue;
+    if(main.type==='fo' && vHash(v,p.s,9,3)>=0.45) continue;   /* non a ogni fallo */
+    const first=vHash(v,p.s,9,1)<0.5?0:1;
+    for(const side of [first,1-first]){ if(p.s-last[side]<gap) continue;
+      const pr=vVigPiano(v,side,p), fr=pr?{id:'piano',t:pr}:vVigFrase(v,side,p,main); if(!fr) continue;
+      const co=v.m.inp.t[side].coach, who=co.absent?'Il vice':'All. '+co.n.split(' ').slice(-1)[0];
+      v.vig.push({t:p.s+1, s:p.s, r:p.r, side, who, id:fr.id, text:fr.t, ev:main.type}); last[side]=p.s; break; } }
+}
+function vVigHide(){ const v=viewer; if(v) v.vigOn=null; const el=$('#v-vig'); if(el) el.hidden=true; }
+function vVigShow(v,g){ v.vigOn={g, until:performance.now()+VIG_MS}; (v.vigShown=v.vigShown||[]).push(g.t); vVigPaint(v); }
+function vVigPaint(v){ const el=$('#v-vig'); if(!el) return; const o=v.vigOn; if(!o){ el.hidden=true; return; }
+  el.className='vig '+(o.g.side===0?'l':'r'); el.innerHTML=`<span class="who">${esc(o.g.who)} · ${esc(vTeamName(v,o.g.side))}</span><p>«${esc(o.g.text)}»</p>`; el.hidden=false; }
+/* nel ciclo: le vignette arrivate al loro tick (solo dal vivo; con «Avanti» quelle saltate non si mostrano) */
+function vVigTick(v){
+  while(v.vigI<v.vig.length && v.vig[v.vigI].t<=v.t){ const g=v.vig[v.vigI++]; if(VPREF.vig && v.phase==='live' && v.t<=g.r+1) vVigShow(v,g);   /* finché dura la sua pausa */ }
+  if(v.vigOn && (performance.now()>v.vigOn.until || v.phase!=='live' || !VPREF.vig)) vVigHide();
+}
 
 /* ---------- 0.4.1.1: un solo tasto «Avanti» ----------
    replay → fine del replay; azione → prossima palla ferma; palla ferma → fine del tempo; scene → scena dopo;
@@ -227,6 +487,7 @@ function updNext(){ const v=viewer; const b=$('#v-next'); if(!b||!v) return; con
 function vJump(T){ const v=viewer, ev=v.sim.ev;
   while(v.evI<ev.length && ev[v.evI].t<T){ handleEvent(ev[v.evI], false, v.evI); v.evI++; }
   v.t=Math.max(v.t,T); v.pq=v.pq.filter(p=>p.at>=T && p.e.t>=T); v.wins=v.wins.filter(w=>w.t0>=T); v.goalShow=0;
+  while(v.vigI<v.vig.length && v.vig[v.vigI].s<T) v.vigI++; vVigHide();   /* vignette saltate: non si mostrano */
   processEvents(true); }
 /* a fine partita: nel registro anche gli eventi dopo l'ultimo frame (fischio finale, voto alla terna), prima della scena finale */
 function vFlush(){ const v=viewer, ev=v.sim.ev; while(v.evI<ev.length){ handleEvent(ev[v.evI], false, v.evI); v.evI++; } updHud(); }
@@ -242,8 +503,8 @@ function vNext(){ const v=viewer; if(!v) return;
   else if(v.phase==='live'){
     if(!v.playing){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
     if(l==='Avanti: fine azione'){ const first=v.t<v.sim.htTick && !v.htDone; vJump(nextStop(v,v.t,first?v.sim.htTick:v.nT-1)); }
-    else if(l==='Avanti: fine primo tempo'){ vJump(v.sim.htTick); v.htDone=true; if(use3D()){ v.t=v.sim.htTick; startScene('ht'); } }
-    else { vJump(v.nT-1); if(use3D() && !v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(false,'whistle'); }
+    else if(l==='Avanti: fine primo tempo'){ vJump(v.sim.htTick); v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
+    else { vJump(v.nT-1); if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(false,'whistle'); }
   }
   else if(v.phase==='done'){
     if(v.post==='whistle'){ v.post='pag'; renderIV(); }
@@ -255,7 +516,9 @@ function vNext(){ const v=viewer; if(!v) return;
 /* ---------- scene 3D: ingresso in campo, intervallo, fine partita ---------- */
 const TUN=[52.5,-6.4];
 function startScene(kind){
-  const v=viewer; if(!use3D()) return false;
+  const v=viewer; vVigHide();
+  if(!use3D()){ if(kind==='start') return false;   /* 0.4.2.3: in 2D l'ingresso è nel pannello prima del calcio d'inizio */
+    v.scene={kind, t:0, acts:[], dur:kind==='ht'?6:5, T1:0, fresh:true, d2:true}; v.phase='scene'; v.pq=[]; v.wins=[]; vScnShow(v); return true; }
   const nT=v.nT, ht=v.sim.htTick;
   const fA = kind==='start'? frameAt(0) : kind==='ht'? frameAt(Math.max(0,ht-1)) : frameAt(nT-1);
   const fB = kind==='start'? frameAt(0) : kind==='ht'? frameAt(Math.min(nT-1,ht)) : null;
@@ -284,10 +547,10 @@ function startScene(kind){
   v.phase='scene'; v.pq=[]; v.wins=[];
   const rb=$('#v-rpl'); if(rb){ rb.hidden=false; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent=kind==='start'?'Ingresso in campo':kind==='ht'?'Intervallo':'Fine partita'; }
   const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${kind==='start'?'Le squadre entrano in campo con la terna arbitrale.':kind==='ht'?'Fine primo tempo: le squadre rientrano negli spogliatoi.':'Fischio finale: le squadre rientrano negli spogliatoi.'}</span>`; }
-  return true;
+  vScnShow(v); return true;
 }
 function endScene(){
-  const v=viewer; if(!v||v.phase!=='scene') return; const k=v.scene.kind; v.scene=null; v.phase='live';
+  const v=viewer; if(!v||v.phase!=='scene') return; const k=v.scene.kind; v.scene=null; v.phase='live'; vScnShow(v);
   const rb=$('#v-rpl'); if(rb){ rb.hidden=true; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent='Replay'; }
   const bd=$('#v-board'); if(bd) bd.hidden=true;
   if(k==='start'){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
@@ -315,7 +578,10 @@ function frameAt(t){
   /* 0.4.2.0: orientamento del corpo e inclinazione del portiere dalla simulazione */
   const O=new Array(n); for(let k=0;k<n;k++){ const a=A[nb+24+k], b=B[nb+24+k]; let d=b-a; if(d>Math.PI) d-=2*Math.PI; else if(d<-Math.PI) d+=2*Math.PI; O[k]=a+d*f; }
   const tilt=[A[nb+22]+(B[nb+22]-A[nb+22])*f, A[nb+23]+(B[nb+23]-A[nb+23])*f];
-  return {P, bx, by, bz, own:v.sim.owners[i], RF, card, flag, cap, O, tilt, dive:null};
+  /* 0.4.2.3 (R6a): velocità di ogni giocatore tra i due frame (m/s), per il tipo di corsa nel 2D e nel 3D */
+  const V=new Float32Array(n*2); if(j>i) for(let k=0;k<n;k++){ const ax=A[k*2], bx_=B[k*2]; if(isNaN(ax)||isNaN(bx_)) continue; V[k*2]=(bx_-ax)/DT; V[k*2+1]=(B[k*2+1]-A[k*2+1])/DT; }
+  const o={bx,by,bz}; if(v.wt) vFixFrame(v,t,P,o);
+  return {P, bx:o.bx, by:o.by, bz:o.bz, own:v.sim.owners[i], RF, card, flag, cap, O, tilt, dive:null, V};
 }
 function activeEvent(t){ const ev=viewer.sim.ev; let best=null; for(let k=Math.max(0,viewer.evI-6);k<ev.length;k++){ const e=ev[k]; if(e.t>t+8) break; if(e.t>=t-4 && e.type!=='fo' && e.p && e.p.length) best=e; } return best; }
 
@@ -333,50 +599,80 @@ function draw(){
   const gfx=$('#v-goal'); if(gfx){ const ge=v.phase==='replay'&&v.rep.e.type==='goal' ? (T>=v.rep.e.t&&T<v.rep.e.t+6) : (v.phase==='live'&&performance.now()<(v.goalShow||0)); gfx.hidden=!ge; }
   const bd=$('#v-board'); if(bd){ const on=v.phase==='scene' && v.scene.kind==='ht' && v.scene.t>v.scene.T1+0.2 && v.scene.t<v.scene.T1+4.0;
     if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">Fine primo tempo</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(vTeamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(vTeamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
+  if(v.ingUntil && v.phase!=='scene') vScnShow(v);
   if(show3) draw3D(T, ivOn, spOn?v.sp3d:null); else draw2D(T, ivOn);
   updHud();
 }
 
 /* ---------- 2D ---------- */
+/* 0.4.2.3 (R6a): riquadro 1050×600 (1,75:1), lo stesso del 3D; il campo 105×68 m in scala UNICA (8 unità per metro) con margini ai lati.
+   Cerchi come nella 019: ombra, portiere con un colore suo, fascia del capitano; freccia della direzione sul BORDO del cerchio
+   (orientamento della simulazione) e scia dietro chi corre (avanti, indietro o di lato: tipo di corsa della simulazione). */
+const VW=1050, VH=600, VS=8, VX0=(VW-105*VS)/2, VY0=(VH-68*VS)/2;
+/* tipo di corsa dalla simulazione: velocità (frame) rispetto all'orientamento del corpo (p.o) */
+function vRunType(vx,vy,o){ const sp=Math.hypot(vx,vy); if(!(sp>=1.2) || !isFinite(o)) return 'fermo';
+  const fw=vx*Math.cos(o)+vy*Math.sin(o), lt=-vx*Math.sin(o)+vy*Math.cos(o); return Math.abs(fw)>=Math.abs(lt) ? (fw>0?'avanti':'indietro') : 'lato'; }
 function draw2D(t, ivOn){
   const v=viewer, cv=$('#pitch'); if(!cv) return;
-  const W=cv.clientWidth, H=Math.round(W*0.66), dpr=window.devicePixelRatio||1; if(W<60) return;   /* campo nascosto (pagelle sul telefono) */
-  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.height=H+'px'; }
-  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
-  const M=Math.max(10,W*0.03), X=x=>M+x/105*(W-2*M), Y=y=>M+y/68*(H-2*M), S=(W-2*M)/105;
-  c.fillStyle=css('--pitch'); c.fillRect(0,0,W,H);
-  for(let i=0;i<14;i++) if(i%2){ c.fillStyle=css('--pitch2'); c.fillRect(X(i*7.5),M,7.5*S,H-2*M); }
-  c.strokeStyle=css('--chalk'); c.globalAlpha=0.8; c.lineWidth=Math.max(1,W/600);
+  const W=cv.clientWidth, H=cv.clientHeight, dpr=window.devicePixelRatio||1; if(W<60||H<30) return;   /* campo nascosto (pagelle sul telefono) */
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+  const k=Math.min(W/VW,H/VH), ox=(W-VW*k)/2, oy=(H-VH*k)/2, px=1/k;   /* px: un pixel dello schermo in unità del riquadro */
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.fillStyle=css('--ev-sidebar-end'); c.fillRect(0,0,W,H);
+  c.setTransform(dpr*k,0,0,dpr*k,dpr*ox,dpr*oy);
+  const X=x=>VX0+x*VS, Y=y=>VY0+y*VS, S=VS, chalk=css('--ev-chalk'), dark=css('--ev-sidebar-end'), goldL=css('--ev-brand-gold-light'), font=css('--ev-font-family')||'system-ui';
+  const gr=c.createLinearGradient(0,0,VW,VH); gr.addColorStop(0,css('--ev-pitch')); gr.addColorStop(1,css('--ev-pitch2')); c.fillStyle=gr; c.fillRect(0,0,VW,VH);
+  c.fillStyle=chalk; for(let i=-1;i<15;i++){ c.globalAlpha=(i+16)%2?0.035:0.012; c.fillRect(X(i*7.5),0,7.5*S,VH); } c.globalAlpha=1;
+  c.strokeStyle=chalk; c.globalAlpha=0.84; c.lineWidth=Math.max(2.2,1.1*px);
   c.strokeRect(X(0),Y(0),105*S,68*S); c.beginPath(); c.moveTo(X(52.5),Y(0)); c.lineTo(X(52.5),Y(68)); c.stroke();
   c.beginPath(); c.arc(X(52.5),Y(34),9.15*S,0,Math.PI*2); c.stroke();
+  c.fillStyle=chalk; c.beginPath(); c.arc(X(52.5),Y(34),3,0,Math.PI*2); c.fill();
   for(const s of [0,1]){ c.strokeRect(s?X(88.5):X(0),Y(13.84),16.5*S,40.32*S); c.strokeRect(s?X(99.5):X(0),Y(24.84),5.5*S,18.32*S);
-    c.fillStyle=css('--chalk'); c.fillRect(s?X(105):X(0)-S*1.8,Y(30.34),S*1.8,7.32*S); }
+    const ps=s?94:11; c.beginPath(); c.arc(X(ps),Y(34),3,0,Math.PI*2); c.fill();
+    const a0=Math.acos(5.5/9.15); c.beginPath(); if(s) c.arc(X(ps),Y(34),9.15*S,Math.PI-a0,Math.PI+a0); else c.arc(X(ps),Y(34),9.15*S,-a0,a0); c.stroke();
+    c.strokeRect(s?X(105):X(-2),Y(30.34),2*S,7.32*S); }
+  for(const [x,y,a] of [[0,0,0],[105,0,Math.PI/2],[105,68,Math.PI],[0,68,-Math.PI/2]]){ c.beginPath(); c.arc(X(x),Y(y),S,a,a+Math.PI/2); c.stroke(); }
   c.globalAlpha=1;
-  const f=frameAt(t), r=Math.max(5,W/88), fs=Math.max(9,r*1.15);
+  const f=frameAt(t), R=Math.max(13,5*px), bR=0.55*Math.max(5*px,VW/88), fs=Math.max(9*px,15);
   /* linea del fuorigioco della squadra che difende */
   if(!ivOn && f.own>=0){ const atk=v.team[f.own], def=1-atk, second=t>=v.sim.htTick, gx=((def===0)!==second)?0:105;
-    if(Math.abs(f.bx-gx)<52.5){ const xs=[]; v.sim.cols.forEach((id,k)=>{ const p=f.P[k]; if(p && v.team[k]===def) xs.push(Math.abs(p.x-gx)); }); xs.sort((a,b)=>a-b);
-      if(xs.length>1){ const lx=gx===0?xs[1]:105-xs[1]; c.save(); c.setLineDash([6,5]); c.strokeStyle=teamColor(v,def); c.globalAlpha=0.75; c.lineWidth=Math.max(1.5,W/500); c.beginPath(); c.moveTo(X(lx),Y(0)); c.lineTo(X(lx),Y(68)); c.stroke(); c.restore(); } } }
+    if(Math.abs(f.bx-gx)<52.5){ const xs=[]; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(p && v.team[kk]===def) xs.push(Math.abs(p.x-gx)); }); xs.sort((a,b)=>a-b);
+      if(xs.length>1){ const lx=gx===0?xs[1]:105-xs[1]; c.save(); c.setLineDash([6,5]); c.strokeStyle=v.kit[def].fill; c.globalAlpha=0.8; c.lineWidth=Math.max(2,1.5*px); c.beginPath(); c.moveTo(X(lx),Y(0)); c.lineTo(X(lx),Y(68)); c.stroke(); c.restore(); } } }
   const ev=ivOn?null:activeEvent(t), named=new Set(ev?ev.p:[]), flashed=new Set(ev&&ev.flash?ev.flash:[]);
-  const ownId = f.own>=0 ? v.sim.cols[f.own] : null;
+  const ownId = f.own>=0 ? v.sim.cols[f.own] : null, dbg=v.d2=[];
   c.textAlign='center'; c.textBaseline='middle';
-  v.sim.cols.forEach((id,k)=>{ const p=f.P[k]; if(!p) return; const inf=v.info[id];
-    const col = inf.gk ? (inf.t===0?'#f2c230':'#2b2b30') : teamColor(v,inf.t);
-    if(flashed.has(id)){ c.beginPath(); c.arc(X(p.x),Y(p.y),r*2.2,0,Math.PI*2); c.fillStyle=css('--gold'); c.globalAlpha=0.35+0.2*Math.sin(performance.now()/160); c.fill(); c.globalAlpha=1; }
-    c.beginPath(); c.arc(X(p.x),Y(p.y),r,0,Math.PI*2); c.fillStyle=col; c.fill();
-    c.lineWidth=id===ownId?2.2:1; c.strokeStyle=id===ownId?'#fff':'rgba(0,0,0,.5)'; c.stroke();
-    if(W>=420){ c.font=`700 ${Math.round(r*1.05)}px "IBM Plex Sans", system-ui, sans-serif`; c.fillStyle=lum(col)>0.55?'#14181a':'#ffffff'; c.fillText(inf.num, X(p.x), Y(p.y)+0.5); }
-    if(f.cap && (k===f.cap[0]||k===f.cap[1])){ const cx=X(p.x)+r*0.78, cy=Y(p.y)-r*0.78, cr=Math.max(4,r*0.46); c.beginPath(); c.arc(cx,cy,cr,0,Math.PI*2); c.fillStyle='#f5d020'; c.fill(); c.lineWidth=1; c.strokeStyle='rgba(0,0,0,.6)'; c.stroke(); c.fillStyle='#111'; c.font=`800 ${Math.round(cr*1.4)}px "IBM Plex Sans", system-ui, sans-serif`; c.fillText('C',cx,cy+0.5); }
+  v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(!p) return; const inf=v.info[id], kit=v.kit[inf.t], cx=X(p.x), cy=Y(p.y);
+    const col = inf.gk ? v.gkc[inf.t] : kit.fill;
+    if(flashed.has(id)){ c.beginPath(); c.arc(cx,cy,R*2.1,0,Math.PI*2); c.fillStyle=css('--ev-brand-gold'); c.globalAlpha=0.35+0.2*Math.sin(performance.now()/160); c.fill(); c.globalAlpha=1; }
+    /* scia di chi corre: dietro rispetto al movimento (con la freccia si legge se corre avanti, indietro o di lato) */
+    const vx=f.V[kk*2], vy=f.V[kk*2+1], spd=Math.hypot(vx,vy), o=f.O?f.O[kk]:NaN, run=vRunType(vx,vy,o);
+    if(spd>2.2){ const ux=-vx/spd, uy=-vy/spd, L=Math.min(R*1.3,spd*2.4); c.strokeStyle=chalk; c.globalAlpha=Math.min(0.55,0.15+spd*0.05); c.lineWidth=Math.max(2,px); c.beginPath();
+      for(const q of [-0.45,0.45]){ const bx=cx+ux*(R+3)-uy*R*q, by=cy+uy*(R+3)+ux*R*q; c.moveTo(bx,by); c.lineTo(bx+ux*L,by+uy*L); } c.stroke(); c.globalAlpha=1; }
+    c.beginPath(); c.ellipse(cx+R*0.12,cy+R*0.55,R*0.95,R*0.34,0,0,Math.PI*2); c.fillStyle=dark; c.globalAlpha=0.4; c.fill(); c.globalAlpha=1;
+    c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.fillStyle=col; c.fill();
+    if(f.cap && (kk===f.cap[0]||kk===f.cap[1])){ c.save(); c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.clip(); c.fillStyle=goldL; c.fillRect(cx-R,cy-R,R*0.4,R*2); c.restore(); }
+    c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.lineWidth=Math.max(kit.thick||kit.alt?3.4:2.6, 1.1*px); c.strokeStyle=inf.gk?dark:(kit.alt?kit.edge:chalk); c.stroke();
+    if(inf.gk){ c.beginPath(); c.arc(cx,cy,R-2.6,0,Math.PI*2); c.lineWidth=1.4; c.strokeStyle=chalk; c.stroke(); }
+    if(id===ownId){ c.beginPath(); c.arc(cx,cy,R+3.2,0,Math.PI*2); c.lineWidth=Math.max(2.4,1.2*px); c.strokeStyle=goldL; c.stroke(); }
+    if(W>=420){ c.font=`900 ${Math.round(R*1.05)}px ${font}`; c.fillStyle=relLum(col)>0.3?dark:chalk; c.fillText(inf.num, cx, cy+0.8); }
+    /* freccia della direzione sul bordo (mai sopra il numero) */
+    if(isFinite(o)){ const ca=Math.cos(o), sa=Math.sin(o), rb=R-0.5, rt=R+R*0.62, h=0.42;
+      c.beginPath(); c.moveTo(cx+ca*rt,cy+sa*rt); c.lineTo(cx+Math.cos(o+h)*rb,cy+Math.sin(o+h)*rb); c.lineTo(cx+Math.cos(o-h)*rb,cy+Math.sin(o-h)*rb); c.closePath();
+      c.fillStyle=chalk; c.fill(); c.lineWidth=1.2; c.strokeStyle=dark; c.stroke();
+      dbg.push({k:kk, cx, cy, R, base:rb*Math.cos(h), tip:rt, run}); }
     if(id===ownId) named.add(id);
   });
-  c.lineJoin='round'; c.font=`600 ${fs}px "IBM Plex Sans", system-ui, sans-serif`;
-  named.forEach(id=>{ const k=v.sim.cols.indexOf(id), p=f.P[k]; if(!p) return; const tx=X(p.x), ty=Y(p.y)-r*2; c.lineWidth=3; c.strokeStyle='rgba(8,16,12,.85)'; c.strokeText(v.info[id].ln,tx,ty); c.fillStyle=flashed.has(id)?css('--gold-hi'):'#fff'; c.fillText(v.info[id].ln,tx,ty); });
-  if(!ivOn && f.RF){ f.RF.forEach((q,k)=>{ const rr=r*(k?0.62:0.72); c.beginPath(); c.arc(X(q.x),Y(q.y),rr,0,Math.PI*2); c.fillStyle='#121212'; c.fill(); c.lineWidth=1.6; c.strokeStyle='#f0d64a'; c.stroke();
-      if(k){ const up=f.flag===k; c.fillStyle=up?'#f0d64a':'#e4572e'; const fx=X(q.x)+rr*0.6, fy=Y(q.y)-(up?rr*2.4:rr*0.2); c.fillRect(fx,fy,rr*1.1,rr*0.8); c.fillStyle='#ddd'; c.fillRect(fx-1,fy,1.4,rr*(up?2.2:1.2)); } });
-    if(f.card>0){ const q=f.RF[0]; c.fillStyle=f.card===1?'#f5d020':'#d8262c'; c.strokeStyle='#000'; c.lineWidth=1; const w=r*1.3, h=r*1.75;
-      const tg=cardTarget(f,t), cx=(tg && tg.x<q.x) ? X(q.x)-r*0.4-w : X(q.x)+r*0.4; c.fillRect(cx,Y(q.y)-r*2.9,w,h); c.strokeRect(cx,Y(q.y)-r*2.9,w,h); } }
-  if(!ivOn){ const bz=Math.max(0,f.bz); c.beginPath(); c.ellipse(X(f.bx)+bz*S*0.25,Y(f.by)+bz*S*0.15,r*0.55,r*0.4,0,0,Math.PI*2); c.fillStyle='rgba(0,0,0,.35)'; c.fill();
-    c.beginPath(); c.arc(X(f.bx),Y(f.by)-bz*S*0.6,r*0.55*(1+bz*0.05),0,Math.PI*2); c.fillStyle='#fff'; c.fill(); c.lineWidth=1; c.strokeStyle='rgba(0,0,0,.4)'; c.stroke(); }
+  c.lineJoin='round'; c.font=`600 ${fs}px ${font}`;
+  named.forEach(id=>{ const kk=v.sim.cols.indexOf(id), p=f.P[kk]; if(!p) return; const tx=X(p.x), ty=Y(p.y)-R*2.1; c.lineWidth=3.5; c.strokeStyle=dark; c.strokeText(v.info[id].ln,tx,ty); c.fillStyle=flashed.has(id)?css('--ev-gold-hi'):chalk; c.fillText(v.info[id].ln,tx,ty); });
+  if(!ivOn && f.RF){ f.RF.forEach((q,i)=>{ const rr=R*(i?0.58:0.72), qx=X(q.x), qy=Y(q.y);
+      c.beginPath(); c.ellipse(qx+rr*0.12,qy+rr*0.55,rr*0.9,rr*0.32,0,0,Math.PI*2); c.fillStyle=dark; c.globalAlpha=0.4; c.fill(); c.globalAlpha=1;
+      if(i){ c.fillStyle=dark; c.fillRect(qx-rr,qy-rr,rr*2,rr*2); c.lineWidth=2; c.strokeStyle=goldL; c.strokeRect(qx-rr,qy-rr,rr*2,rr*2);
+        const up=f.flag===i; c.fillStyle=up?'#f0d64a':'#e4572e'; const fx=qx+rr*0.6, fy=qy-(up?rr*2.4:rr*0.2); c.fillRect(fx,fy,rr*1.1,rr*0.8); c.fillStyle=chalk; c.fillRect(fx-1,fy,1.6,rr*(up?2.2:1.2)); }
+      else { c.beginPath(); c.arc(qx,qy,rr,0,Math.PI*2); c.fillStyle=dark; c.fill(); c.lineWidth=2; c.strokeStyle=goldL; c.stroke();
+        c.beginPath(); c.moveTo(qx-rr*0.5,qy-rr*0.5); c.lineTo(qx+rr*0.5,qy+rr*0.5); c.moveTo(qx+rr*0.5,qy-rr*0.5); c.lineTo(qx-rr*0.5,qy+rr*0.5); c.lineWidth=1.6; c.strokeStyle=chalk; c.stroke(); } });
+    if(f.card>0){ const q=f.RF[0]; c.fillStyle=f.card===1?'#f5d020':'#d8262c'; c.strokeStyle=dark; c.lineWidth=1.2; const w=R*1.2, h=R*1.6;
+      const tg=cardTarget(f,t), cx=(tg && tg.x<q.x) ? X(q.x)-R*0.4-w : X(q.x)+R*0.4; c.fillRect(cx,Y(q.y)-R*2.7,w,h); c.strokeRect(cx,Y(q.y)-R*2.7,w,h); } }
+  if(!ivOn){ const bz=Math.max(0,f.bz); c.beginPath(); c.ellipse(X(f.bx)+bz*S*0.25,Y(f.by)+bz*S*0.15,bR,bR*0.72,0,0,Math.PI*2); c.fillStyle=dark; c.globalAlpha=0.5; c.fill(); c.globalAlpha=1;
+    c.beginPath(); c.arc(X(f.bx),Y(f.by)-bz*S*0.6,bR*(1+bz*0.05),0,Math.PI*2); c.fillStyle=chalk; c.fill(); c.lineWidth=Math.max(1.2,0.8*px); c.strokeStyle=dark; c.stroke(); }
 }
 
 /* ---------- 3D ---------- */
@@ -514,7 +810,7 @@ function setupMatch3D(){
   if(!use3D()||!viewer) return; const v=viewer;
   V3.men.forEach(g=>V3.sc.remove(g)); V3.men.clear();
   const skins=['#f1c7a5','#e2ae86','#c68b62','#8d5a3b','#5e3a26'], hairs=['#1a1310','#3b2615','#5a3a1e','#8a6a3a','#d8c08a','#2a2a2a'];
-  v.sim.cols.forEach((id,k)=>{ const inf=v.info[id]; let kit=teamColor(v,inf.t); if(inf.gk) kit=inf.t===0?'#f2c230':'#2f2f33';
+  v.sim.cols.forEach((id,k)=>{ const inf=v.info[id]; let kit=v.kit[inf.t].fill; if(inf.gk) kit=v.gkc[inf.t];   /* 0.4.2.3: stesse maglie del 2D */
     const g=personMesh(kit, lum(kit)>0.55?'#1d2433':'#f2f2ee', skins[(id*7)%5], hairs[(id*11)%6], inf.h);
     const n=parseInt(kit.slice(1),16), yel=(n>>16&255)>180&&(n>>8&255)>150&&(n&255)<120, band=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.11,14), new THREE.MeshLambertMaterial({color:lin(yel?'#16181c':'#f5d020')}));
     band.position.set(0,-0.13,0); band.visible=false; g.userData.arms[1].add(band); g.userData.band=band;
@@ -547,8 +843,9 @@ function setupMatch3D(){
 function draw3D(t, ivOn, sp){
   const v=viewer, host=$('#stage'); if(!host||!V3.r) return; const T=THREE;
   if(V3.r.domElement.parentNode!==host) host.prepend(V3.r.domElement);
-  const W=host.clientWidth, H=Math.round(W*(W<600?0.66:0.5625));
-  if(V3.w!==W||V3.h!==H){ V3.r.setSize(W,H); V3.cam.aspect=W/H; V3.cam.fov=W<600?52:36; V3.cam.updateProjectionMatrix(); V3.w=W; V3.h=H; }
+  /* 0.4.2.3 (R6a): lo stesso riquadro del 2D (1,75:1): nessun salto passando dall'uno all'altro */
+  const W=host.clientWidth, H=host.clientHeight||Math.round(W/1.75);
+  if(V3.w!==W||V3.h!==H){ V3.r.setSize(W,H); V3.cam.aspect=W/H; V3.cam.fov=36; V3.cam.updateProjectionMatrix(); V3.w=W; V3.h=H; }
   const now=performance.now(), dt=Math.min(0.1,(now-V3.last)/1000)||0.016; V3.last=now;
   const inScene=v.phase==='scene' && v.scene;
   const f=inScene?sceneFrame(v.scene.t):frameAt(t), f2=inScene?sceneFrame(v.scene.t+0.5):frameAt(Math.min(v.nT-1,t+0.5));
@@ -565,12 +862,17 @@ function draw3D(t, ivOn, sp){
       u.legs[0].rotation.x=-Math.PI/2; u.legs[1].rotation.x=-Math.PI/2; u.legs[0].rotation.z=0; u.legs[1].rotation.z=0; u.arms[0].rotation.x=-0.3; u.arms[1].rotation.x=-0.3; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0; return; }
     g.position.y=0; g.visible=true;
     const x=p.x-52.5, z=p.y-34; const vx=((q||p).x-p.x)/0.5, vz=((q||p).y-p.y)/0.5, sp=Math.hypot(vx,vz);
+    const fv=!inScene&&!ivOn&&f.V, run=fv?vRunType(f.V[k*2],f.V[k*2+1],f.O?f.O[k]:NaN):'avanti';   /* 0.4.2.3: tipo di corsa della simulazione */
     if(ivOn && k===starK){ g.position.x+=(x-g.position.x)*Math.min(1,dt*3); g.position.z+=(z-g.position.z)*Math.min(1,dt*3); } else g.position.set(x,0,z);
     const so=f.O&&!inScene&&!ivOn?f.O[k]:null;   /* 0.4.2.0: il corpo guarda dove dice la simulazione */
     const face = k===starK ? Math.atan2(V3.cp.x-g.position.x, V3.cp.z-g.position.z) : so!=null&&isFinite(so) ? Math.atan2(Math.cos(so),Math.sin(so)) : sp>0.6 ? Math.atan2(vx,vz) : inScene ? 0 : Math.atan2(bx-x, bz-z);
     if(so!=null&&isFinite(so)) g.rotation.y=face; else g.rotation.y += angDiff(face,g.rotation.y)*Math.min(1,dt*8);
-    const u=g.userData; u.ph+=sp*dt*1.7*(ivOn?0:1); const amp=ivOn?0:Math.min(0.85,sp*0.09), s=Math.sin(u.ph)*amp;
-    u.legs[0].rotation.x=s; u.legs[1].rotation.x=-s; u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0;
+    const u=g.userData; u.run=run; u.ph+=sp*dt*1.7*(run==='indietro'?1.25:run==='lato'?1.4:1)*(ivOn?0:1); const amp=ivOn?0:Math.min(run==='avanti'||run==='fermo'?0.85:0.5,sp*0.09), s=Math.sin(u.ph)*amp;
+    if(run==='lato'){ const a=Math.abs(s)*0.9; u.legs[0].rotation.x=s*0.2; u.legs[1].rotation.x=-s*0.2; u.legs[0].rotation.z=-a; u.legs[1].rotation.z=a;   /* passo laterale: gambe che si aprono */
+      u.arms[0].rotation.x=-0.15; u.arms[1].rotation.x=-0.15; u.arms[0].rotation.z=-0.25-a*0.3; u.arms[1].rotation.z=0.25+a*0.3; }
+    else if(run==='indietro'){ u.legs[0].rotation.x=-s*0.8; u.legs[1].rotation.x=s*0.8; u.legs[0].rotation.z=0; u.legs[1].rotation.z=0;   /* all'indietro: passi corti, braccia avanti */
+      u.arms[0].rotation.x=-0.45+s*0.3; u.arms[1].rotation.x=-0.45-s*0.3; u.arms[0].rotation.z=-0.1; u.arms[1].rotation.z=0.1; }
+    else { u.legs[0].rotation.x=s; u.legs[1].rotation.x=-s; u.legs[0].rotation.z=0; u.legs[1].rotation.z=0; u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0; }
     g.rotation.z=0;
     const inf_=v.info[v.sim.cols[k]], tl=f.tilt&&inf_&&inf_.gk&&!ivOn&&!inScene?f.tilt[v.team[k]]:0;
     if(tl && Math.abs(tl)>0.05){ const fc=g.rotation.y, lean=Math.min(1.25,Math.abs(tl)), sf=Math.sin(fc)||1; g.rotation.z=Math.sign(tl)*Math.sign(sf)*lean; g.position.y=0.35*lean/1.25;   /* tuffo (0.4.2.0: dalla simulazione) */
