@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.2.7';
+const VERSION = '0.4.3.1';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,18 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.3.1','6 novembre 2026',[
+    'La pagina iniziale si chiama Ufficio: stesso posto, stesse cose, nel menu e in tutti i testi. L\'indirizzo è #/ufficio; i preferiti salvati con il vecchio indirizzo funzionano ancora.',
+    'Dopo il fischio finale le pagelle compaiono da sole dopo qualche secondo e l\'intervista va avanti da sola: domanda, risposta scritta lettera per lettera, domanda dopo. I tasti «Risposta» e «Domanda dopo» restano per andare più veloce.',
+    '«Apri la richiesta» porta davvero alla richiesta: la pagina scorre fin lì e la evidenzia.',
+  ]],
+  ['0.4.3.0','6 novembre 2026',[
+    'Giocatori a 57 caratteristiche: fisiche, anagrafiche, tecniche, tattiche, mentali, calcistiche e del portiere, su una scala da 0 a 100.',
+    'Sei caratteristiche sono quelle che si allenano (resistenza anaerobica, controllo palla, disciplina tattica, lettura del gioco, concentrazione, parata); le altre si calcolano da queste, dall\'altezza, dal peso, dalla massa grassa e dall\'età.',
+    'Ogni giocatore ha la sua impronta: anche due giocatori dello stesso tipo hanno punti forti e deboli diversi.',
+    'Scheda del giocatore nuova: le 57 caratteristiche in sette gruppi, peso, massa grassa, compleanno e il ruolo in cui rende meglio.',
+    'Le partite salvate si aprono come prima: i giocatori vengono convertiti una volta sola, con la stessa valutazione e lo stesso valore di mercato (in media). I salvataggi sono più leggeri.',
+  ]],
   ['0.4.2.7','6 novembre 2026',[
     'Partita: la rete della porta adesso è vera anche nella simulazione. Dopo un gol la palla resta ferma dentro la porta finché un giocatore non va a prenderla, senza più uscire dai lati o dal fondo.',
     'Il portiere para la palla nel punto in cui la incontra: niente più parate con la palla già alle sue spalle.',

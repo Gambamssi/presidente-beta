@@ -46,7 +46,9 @@ const ri = (a,b,R=rnd)=>a+Math.floor(R()*(b-a+1));
 const pick = (arr,R=rnd)=>arr[Math.floor(R()*arr.length)];
 const gauss = (R=rnd)=>(R()+R()+R()+R()-2)*1.7;
 
-function ovr(p){ const w=ROLE_W[p.r]; let s=0,t=0; for(const k in w){ s+=(p.a[k]??10)*w[k]; t+=w[k]; } return s/t; }
+/* valutazione 1–20: media pesata per ruolo dei 22 attributi; dalla 0.4.3.0 (S1) i 22 vengono dalle 57 (skOf, skill.js) più la correzione per ruolo SK_OVR */
+function ovrA(a,r){ const w=ROLE_W[r]; let s=0,t=0; for(const k in w){ s+=(a[k]??10)*w[k]; t+=w[k]; } return s/t; }
+function ovr(p){ return p.s ? ovrA(skOf(p).a,p.r)+SK_OVR[p.r] : ovrA(p.a,p.r); }
 
 function mkPlayer(role, L, age, potBoost){
   const p = {id:G.nid++, fn:pick(FIRST), ln:pick(LAST), r:role, age, a:{}, mor:12, fat:0, min:0.5,
@@ -54,6 +56,7 @@ function mkPlayer(role, L, age, potBoost){
     e:{}, apps:0, gl:0, rts:[], team:null};
   genAttrs(p, L, rnd);
   p.e.pot = rnd()-0.5;
+  s1FromA(p);   /* v0.4.3.0 (S1): dai 22 generati come prima alle 6 allenabili + peso e massa grassa (adattamento, nessun rnd) */
   const cur = ovr(p);
   let boost;
   if(potBoost!=null) boost = potBoost;
@@ -83,7 +86,7 @@ function genAttrs(p, L, R){
 }
 /* converte i giocatori creati con le versioni precedenti (10 attributi) */
 function migratePlayer(p){
-  if(p.a.ctr!=null && p.h) return;
+  if(p.s || (p.a.ctr!=null && p.h)) return;
   const R=makeRng(p.id*7919+13), old={...p.a};
   const prof=PROFILES[p.r][Math.floor(R()*PROFILES[p.r].length)]; p.prof2=prof[0];
   const near=(base,d)=>Math.round(clamp(base+d+(R()-0.5)*2.4,1,19.5)*10)/10;
@@ -188,13 +191,13 @@ function grow(p, t){
   const c = p.age<=19?0.17: p.age<=21?0.13: p.age<=24?0.07: p.age<=28?0.03: p.age<=30?0: -0.04;
   const gap = clamp((p.pot-o)/4,0,1.5);
   const q = t ? 0.85+0.08*(t.fac.cs-1)+(t.coach.all-10)*0.015 : 0.7;
-  const pr = 0.7+p.prof/40, m = 0.6+0.6*p.min, w=ROLE_W[p.r];
-  for(const k of ATTR){
-    if(GK_ATTR.includes(k) && p.r!=='P') continue;
-    const phys=k==='vel'||k==='res'||k==='ele';
-    let d = c>=0 ? c*gap*q*pr*m*(w[k]? 0.6+0.8*rnd() : 0.25*rnd()) : c*(phys?1.6:k==='dec'||k==='vis'||k==='pos'?-0.4:0.6)*(0.5+rnd());
+  const pr = 0.7+p.prof/40, m = 0.6+0.6*p.min, S=p.s, key=SK_GROW.key[p.r];
+  /* v0.4.3.0 (S1): crescono solo le 6 allenabili (PA solo i portieri); le derivate seguono dalle formule, che aggiungono anche il calo per età */
+  for(const k of SK_ALL){
+    if(k==='PA' && p.r!=='P') continue;
+    let d = c>=0 ? c*gap*q*pr*m*(key.includes(k)? 0.6+0.8*rnd() : 0.25*rnd()) : c*SK_GROW.eta[k]*(0.5+rnd());
     d += (rnd()-0.5)*0.05;
-    p.a[k] = Math.round(clamp(p.a[k]+d,1,20)*100)/100;
+    S[k] = Math.round(clamp(S[k]+d*(c>=0?SK_GROW.k:SK_GROW.kd),0,100)*100)/100;
   }
 }
 
@@ -748,7 +751,7 @@ function endSeason(){
   closePresidents(st); closeLeague(st, excl);
   for(const t of G.T){
     const pl=teamPlayers(t);
-    for(const p of pl){ p.age++; p.ct--; p.fat=0; if(p.age>=34 && rnd()<0.5 || p.age>=36){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(t_("eng.si_ritira_dal_calcio",{fn:p.fn,ln:p.ln,age:p.age}),'player',false,t.id); } }
+    for(const p of pl){ p.age++; s1Invecchia(p); p.ct--; p.fat=0; if(p.age>=34 && rnd()<0.5 || p.age>=36){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(t_("eng.si_ritira_dal_calcio",{fn:p.fn,ln:p.ln,age:p.age}),'player',false,t.id); } }
     teamPlayers(t).forEach(p=>{ if(p.ct<=0){ if(p.renewNo===G.season && t.pl.length>16){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.ct=0; G.FA.push(p.id); news(t_("eng.lascia_a_parametro_zero",{fn:p.fn,ln:p.ln,n:t.n}), t.id===0?'market':'match',true,t.id); } else { p.ct=ri(1,3); p.wg=Math.max(p.wg,wage(p)); } } });
     ensureCaptains(t,t.id!==0);
     const sgL=facLevel(t,'sg')-1, ny = 2+(rnd()<0.4+0.15*sgL?1:0);

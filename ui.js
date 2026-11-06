@@ -23,7 +23,8 @@ function go(a, s){
   const was=onMatchPage();
   area=a; sub=s; lastSub[a]=s; clubView=null; clubBack=null; modal=null;
   if(was && !onMatchPage()) stopViewer();
-  render(); window.scrollTo(0,0);
+  /* 0.4.3.1 (V0, problema n. 17): in cima PRIMA del disegno, così render() può ancora scorrere alla richiesta da aprire (focusReq) */
+  window.scrollTo(0,0); render();
 }
 /* ---------- indirizzi delle pagine (0.4.2.1, N2) ----------
    #/<area>/<sotto-scheda> (es. #/squadra/rosa), #/club/<id>, #/giocatore/<id>. Le finestre sopra la pagina (menu, trattative,
@@ -36,12 +37,14 @@ function navParse(h){
   const m=/^#\/(.*)$/.exec(h||''); if(!m) return null;
   let p; try{ p=m[1].split('/').filter(Boolean).map(decodeURIComponent); }catch(e){ return {bad:true}; }
   if(!p.length) return {a:'scrivania'};
+  if(p[0]==='ufficio') p[0]='scrivania';   /* 0.4.3.1 (V0): l'area si chiama Ufficio, indirizzo #/ufficio; #/scrivania (preferiti e link vecchi) resta valido e diventa #/ufficio */
   if(p[0]==='giocatore'||p[0]==='club'){ const id=p[1]; if(p.length!==2||!/^\d+$/.test(id)) return {bad:true}; return p[0]==='club'?{club:+id}:{pl:+id}; }
   if(!AREAS[p[0]]||p.length>2) return {bad:true};
   if(p[1]!=null && !AREAS[p[0]].subs.some(x=>x[0]===p[1])) return {bad:true};
   return {a:p[0], s:p[1]||null};
 }
-function navPage(){ return clubView!=null ? '#/club/'+clubView : '#/'+area+(AREAS[area].subs.length>1?'/'+sub:''); }
+const NAV_SLUG={scrivania:'ufficio'};   /* nome nell'indirizzo, se diverso dal nome interno dell'area */
+function navPage(){ return clubView!=null ? '#/club/'+clubView : '#/'+(NAV_SLUG[area]||area)+(AREAS[area].subs.length>1?'/'+sub:''); }
 function navNow(){
   const ov = modal ? 'm:'+modal : negId!=null ? 'n:'+negId : (bnegOn&&G.bneg) ? 'b' : sheetPid!=null ? 'g' : null;
   const h = sheetPid!=null&&!modal&&negId==null&&!(bnegOn&&G.bneg) ? '#/giocatore/'+sheetPid : navPage();
@@ -106,21 +109,30 @@ let filt={r:'',age:'40',src:'all',sort:'val'};
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(G)); }catch(e){} }
 function load(){ try{ return loadFrom(localStorage.getItem(KEY)); }catch(e){} return false; }
 /* (v0.037) carica una partita da un testo JSON con le migrazioni dei vecchi salvataggi; la usano load() e gli account della beta (account.js) */
-function loadFrom(s){ try{ if(s){ G=JSON.parse(s); if(G && G.P) Object.values(G.P).forEach(migratePlayer); if(G && G.T){ m1Migrate(); ensureRefs(); if(G.rep==null) G.rep=50; if(!G.sec||!G.sec.n) G.sec={n:t_("ui.giulia")}; G.T.forEach(t=>{ finInit(t); ensureBudget(t); }); G.T.forEach(t=>{ if(t.promise && !(t.miss||[]).some(m=>m.kind==='rinforzo'&&m.st==='on')) addMission(t,{kind:'rinforzo',role:t.promise.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[t.promise.role],thr:t.promise.thr,due:t.promise.due,title:t_("ui.rinforzo_per",{n:t.coach.n})}); if(t.obj && t.obj.s===G.season && !(t.miss||[]).some(m=>m.kind==='obiettivo'&&m.st==='on')) addMission(t,{kind:'obiettivo',amt:t.obj.amt,lim:t.obj.lim,goal:t.obj.goal,due:14,title:t_("ui.obiettivo",{goal:t.obj.goal})}); }); } return !!(G && G.T); } }catch(e){} return false; }
+function loadFrom(s){ try{ if(s){ G=JSON.parse(s); if(G && G.P) Object.values(G.P).forEach(p=>{ migratePlayer(p); s1Migrate(p); });   /* v0.4.3.0 (S1): 22 → 57 */ if(G && G.T){ m1Migrate(); ensureRefs(); if(G.rep==null) G.rep=50; if(!G.sec||!G.sec.n) G.sec={n:t_("ui.giulia")}; G.T.forEach(t=>{ finInit(t); ensureBudget(t); }); G.T.forEach(t=>{ if(t.promise && !(t.miss||[]).some(m=>m.kind==='rinforzo'&&m.st==='on')) addMission(t,{kind:'rinforzo',role:t.promise.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[t.promise.role],thr:t.promise.thr,due:t.promise.due,title:t_("ui.rinforzo_per",{n:t.coach.n})}); if(t.obj && t.obj.s===G.season && !(t.miss||[]).some(m=>m.kind==='obiettivo'&&m.st==='on')) addMission(t,{kind:'obiettivo',amt:t.obj.amt,lim:t.obj.lim,goal:t.obj.goal,due:14,title:t_("ui.obiettivo",{goal:t.obj.goal})}); }); } return !!(G && G.T); } }catch(e){} return false; }
 function toast(t){ const el=$('#toast'); el.textContent=t; el.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>el.hidden=true,3200); }
 
 /* ---------- scouting: cosa vede il presidente ---------- */
 const isMine = p=>p.team===0;
 const obsN = p=>G.obs[p.id]||0;
 function rangeOf(v, e, w){ if(w<=0.5) return [Math.round(v),Math.round(v)]; const lo=clamp(Math.round(v-w*(0.5+e)),1,20); return [lo, clamp(lo+Math.round(w),1,20)]; }
-function attrView(p,k){
-  if(isMine(p)) return [Math.round(p.a[k]),Math.round(p.a[k])];
-  const n=obsN(p); if(!n) return null;
-  return rangeOf(p.a[k], p.e[k], Math.max(0, 6-2*n));
-}
 function ovrView(p){
   const o=ovr(p); if(isMine(p)) return [o,o];
-  const n=obsN(p); return rangeOf(o, p.e.pos||0, n? Math.max(0,5-2*n) : 6);
+  const n=obsN(p); return rangeOf(o, p.s?skScarto(p,'ovr'):(p.e.pos||0), n? Math.max(0,5-2*n) : 6);
+}
+/* v0.4.3.0 (S1): forchetta su una skill 0–100 (scarto da hash, non salvato); null se nessuna relazione dell'osservatore */
+function skView(p,k){ const v=skOf(p).v[k]; if(isMine(p)) return [Math.round(v),Math.round(v)];
+  const n=obsN(p); if(!n) return null; const w=Math.max(0,6-2*n)*5; if(w<=0.5) return [Math.round(v),Math.round(v)];
+  const lo=clamp(Math.round(v-w*(0.5+skScarto(p,k))),0,100); return [lo, clamp(lo+Math.round(w),0,100)]; }
+function skSheetHTML(p){
+  const S=skOf(p).v, gr=SK_GRUPPI.slice(); if(p.r==='P') gr.unshift(gr.pop());
+  const dato=k=>k==='H'?t_("sk.cm",{v:p.h}):k==='W'?t_("sk.kg",{v:fDec(p.w.toFixed(1))}):k==='GR'?t_("sk.grasso",{v:fDec(p.g.toFixed(1))}):k==='PF'?cap1(t_("sk.piede."+(p.foot||'D'))):
+    t_("sk.compleanno",{age:p.age,d:fData(new Date(2001,0,p.nd||1),{day:'numeric',month:'long'})});
+  const riga=k=>{ const tip=esc(t_("sk.h."+k)+(SK_ALLEN[k]?' · '+t_("sk.allenabile",{v:t_("sk.all."+SK_ALLEN[k])}):'')), nm=(SK_ALLEN[k]?'● ':'')+t_("sk."+k);
+    if(SK_DATI.includes(k)) return `<div class="arow sk-dato"><span title="${tip}">${nm}</span><span class="num">${dato(k)}</span></div>`;
+    const v=skView(p,k); return `<div class="arow${SK_ALLEN[k]?' sk-all':''}"><span title="${tip}">${nm}</span>${v?`<span class="rng"><span class="r" style="left:${v[0]}%;width:${Math.max(2,v[1]-v[0])}%"></span></span><span class="num">${v[0]===v[1]?v[0]:v[0]+'–'+v[1]}</span>`:'<span class="rng"></span><span class="num muted">?</span>'}</div>`; };
+  return gr.map(g=>{ const ks=SK57.filter(x=>x[1]===g).map(x=>x[0]), body=ks.map(riga).join('');
+    return g==='por'&&p.r!=='P' ? `<details class="sh-grp sk-por"><summary class="eyebrow">${t_("sk.portiere_altri")}</summary>${body}</details>` : `<div class="sh-grp"><p class="eyebrow">${t_("sk.g."+g)}</p>${body}</div>`; }).join('');
 }
 function ovrTxt(p){ const [a,b]=ovrView(p); return isMine(p)? a.toFixed(1) : a===b? String(a) : a+'–'+b; }
 const stars = pot=>clamp((pot-6)/2.6,0.5,5);
@@ -441,10 +453,8 @@ Object.assign(VIEWS,{'squadra/rosa':vRosa,'squadra/allenatore':vAllenatore,'squa
 function vSheet(){
   const p=G.P[sheetPid]; if(!p) return '';
   const mine=isMine(p), n=obsN(p), s=G.seen[p.id]||{f:0,a:0,m:0};
-  const grp=ATTR_GROUPS.filter(([g])=>g!==t_("ui.portiere")||p.r==='P'); if(p.r==='P') grp.unshift(grp.pop());
-  const footTxt={D:'destro',S:'sinistro',A:'ambidestro'}[p.foot]||'destro';
-  const at=grp.map(([g,ks])=>`<div class="sh-grp"><p class="eyebrow">${g}</p>`+ks.map(k=>{ const v=attrView(p,k);
-    return `<div class="arow"><span title="${esc(ATTR_HELP[k]||'')}">${ATTR_LABEL[k]}</span>${v?`<span class="rng"><span class="r" style="left:${(v[0]-1)/19*100}%;width:${Math.max(2,(v[1]-v[0])/19*100)}%"></span></span><span class="num">${v[0]===v[1]?v[0]:v[0]+'–'+v[1]}</span>`:'<span class="rng"></span><span class="num muted">?</span>'}</div>`; }).join('')+'</div>').join('');
+  /* v0.4.3.0 (S1): le 57 caratteristiche nei 7 gruppi della specifica, scala 0–100; i dati fisici sempre visibili, le skill con la forchetta dell'osservatore */
+  const at=skSheetHTML(p);
   const pv=potView(p);
   const action = mine
     ? `<button class="btn ghost" data-act="sell" data-pid="${p.id}">${t_("ui.cerca_un_acquirente")}</button>`
@@ -458,8 +468,8 @@ function vSheet(){
    ${p.inj>0?`<p class="badge-s inj">${t_("ui.infortunato_fuori_ancora",{inj:p.inj,v:p.inj>1?'giornate':'giornata'})}</p>`:''}${p.sq>0?`<p class="badge-s sq">${t_("ui.squalificato_per_la_prossima_2")}</p>`:''}
    <div class="sh-top"><div><p class="eyebrow">${t_("ui.valutazione_2")}</p><p class="big">${ovrTxt(p)}</p></div><div><p class="eyebrow">${t_("ui.potenziale")}</p>${starsHTML(p)}<p class="muted">${pv?t_("ui.affidabilita",{v:pv[2]}):t_("ui.non_valutato")}</p></div><div><p class="eyebrow">${t_("ui.valore")}</p><p class="big">${kcr(value(p))}</p></div></div>
    <div class="sh-btns"><button class="btn ghost" data-act="obs" data-pid="${p.id}" ${n>=3?'disabled':''}>${n>=3?t_("ui.relazione_completa"):t_("ui.manda_l_osservatore_rimaste",{scoutLeft:G.scoutLeft})}</button><button class="btn ghost" data-act="note" data-pid="${p.id}">${G.note[p.id]?t_("ui.togli_dal_taccuino"):t_("ui.metti_nel_taccuino")}</button></div>
-   <section class="sh-sec"><h3>${t_("ui.caratteristiche")}</h3><p class="muted small">${t_("ui.scala_1_20",{v:mine?'':t_("ui.la_banda_si_stringe")})}</p><div class="sh-attrs">${at}</div></section>
-   <section class="sh-sec"><h3>${t_("ui.profilo")}</h3><div class="phys">${row(t_("ui.altezza"),(p.h||'–')+' cm')}${row(t_("ui.piede_preferito"),cap1(footTxt))}${row(t_("ui.tipo_di_giocatore"),mine||n?esc(p.prof2||'–'):`<span class="muted">${t_("ui.lo_dira_l_osservatore")}</span>`)}${row(t_("ui.carattere"),mine||n?esc(character(p).join(' · ')):`<span class="muted">${t_("ui.lo_dira_l_osservatore")}</span>`)}</div>
+   <section class="sh-sec"><h3>${t_("ui.caratteristiche")}</h3><p class="muted small">${t_("sk.scala",{v:mine?'':t_("ui.la_banda_si_stringe")})}</p>${mine||n?`<p class="sk-ruolo"><span class="ev-pill">${t_("sk.ruolo_migliore",{v:t_("sk.r."+skRuoloMigliore(p))})}</span></p>`:''}<div class="sh-attrs">${at}</div></section>
+   <section class="sh-sec"><h3>${t_("ui.profilo")}</h3><div class="phys">${row(t_("ui.tipo_di_giocatore"),mine||n?esc(skProfName(p)):`<span class="muted">${t_("ui.lo_dira_l_osservatore")}</span>`)}${row(t_("ui.carattere"),mine||n?esc(character(p).join(' · ')):`<span class="muted">${t_("ui.lo_dira_l_osservatore")}</span>`)}</div>
    ${mine?`<p class="eyebrow">${t_("ui.morale_2")}</p><p><b>${cap1(morLevel(p.mor))}</b> <span class="muted">(${fDec(p.mor.toFixed(1))}/20)</span> ${bar(p.mor,20,'mor '+(p.mor<9?'warn':''))}</p>${p.morC&&p.morC.length?`<ul class="morc">${p.morC.slice(0,4).map(c=>`<li><span class="${c.d>0?'up':'dn'}">${c.d>0?'▲':'▼'}</span> ${esc(c.t)} <span class="muted">${t_("ui.g_3",{md:c.md})}</span></li>`).join('')}</ul>`:`<p class="muted">${t_("ui.nessuna_novita_recente")}</p>`}`:''}
    <p class="eyebrow">${t_("ui.visto_da_te_in")}</p><p>${s.a?`<span class="gold strong">${s.f}</span> ${t_("ui.giocate_di_classe_su",{a:s.a,m:s.m||0})}`:`<span class="muted">${t_("ui.non_l_hai_ancora")}</span>`}</p></section>
    <section class="sh-sec"><h3>${mine?t_("ui.contratto_e_carriera"):t_("ui.carriera")}</h3>${mine?row(t_("ui.stipendio_per_giornata"),fmt(p.wg)+' cr')+row(t_("ui.durata_residua"),p.ct+(p.ct===1?' anno':' anni')):''}

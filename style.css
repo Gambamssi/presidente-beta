@@ -715,6 +715,9 @@ table.ev-ptab tbody tr:hover td{background:color-mix(in srgb,var(--ev-brand-gree
 .sh-sec h3{margin:0;color:var(--ev-heading);font:800 19px/1.2 Georgia,serif}
 .sh-attrs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 22px}
 .sh-grp{display:grid;gap:5px;align-content:start}.sh-grp .eyebrow{margin-top:6px}
+/* v0.4.3.0 (S1): 57 caratteristiche; allenabili in grassetto, dati fisici senza barra, portiere chiuso per i giocatori di movimento */
+.arow.sk-all>span:first-child{font-weight:600}.arow.sk-dato{grid-template-columns:120px 1fr}.arow.sk-dato .num{text-align:right}
+.sk-por summary{cursor:pointer}.sk-ruolo{margin:4px 0 8px}
 .sh-in .phys{display:block;border:0;padding:0}
 .sh-top{border:0;background:var(--ev-surface-subtle);border-radius:12px;padding:10px 14px}
 /* testata delle trattative */

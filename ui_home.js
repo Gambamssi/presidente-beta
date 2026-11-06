@@ -26,7 +26,7 @@ const pubNewsText = n=>String(n.t||'').replace(/\s*Il tuo club chiude \d+°\.?/,
 /* ---------- letture pubbliche ---------- */
 function publicNews(){ return G.news.filter(isPublicNews); }
 /* valutazione come la vedono gli altri: lo scouting di chi guarda, mai il valore vero (anche per i tuoi giocatori) */
-function pubOvrTxt(p){ const n=obsN(p), [a,b]=rangeOf(ovr(p), p.e.pos||0, n? Math.max(0,5-2*n) : 6); return a===b? String(a) : a+'–'+b; }
+function pubOvrTxt(p){ const n=obsN(p), [a,b]=rangeOf(ovr(p), p.s?skScarto(p,'ovr'):(p.e.pos||0), n? Math.max(0,5-2*n) : 6); return a===b? String(a) : a+'–'+b; }
 function publicSquad(id){ const t=G.T[id];
   return teamPlayers(t).filter(p=>!p.retired).sort((a,b)=>'PDCA'.indexOf(a.r)-'PDCA'.indexOf(b.r) || value(b)-value(a))
     .map(p=>({id:p.id, fn:p.fn, ln:p.ln, r:p.r, age:p.age, ovr:pubOvrTxt(p), stars:starsHTML(p), val:value(p), cap:t.cap===p.id, vcap:t.vcap===p.id})); }

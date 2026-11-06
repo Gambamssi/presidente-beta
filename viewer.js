@@ -98,7 +98,7 @@ function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; 
 
 function loop(now){
   const v=viewer; if(!v || !onMatchPage()) return;
-  const dt=Math.max(0,Math.min(100,now-v.last))/1000; v.last=now;   /* il tempo del fotogramma può precedere v.last: mai passi indietro */
+  const raw=Math.max(0,now-v.last), dt=Math.min(100,raw)/1000; v.last=now;   /* il tempo del fotogramma può precedere v.last: mai passi indietro */
   if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
   else if(v.phase==='live' && v.playing){
     /* 0.4.2.3 (R6a): nelle pause il tempo scorre più in fretta (vRate), senza superare i momenti da vedere */
@@ -111,7 +111,8 @@ function loop(now){
   } else if(v.phase==='replay'){ v.fast=false; const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
   else if(v.phase==='scene'){ v.fast=false; v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
   if(v.phase!=='live') vVigTick(v);
-  else if(v.phase==='done'){ if(v.post==='whistle' && performance.now()-v.postT>3500){ v.post='pag'; renderIV(); } else if(v.post==='iv' && v.iv) tickIV(dt*1000); }
+  /* 0.4.3.1 (V0, problema n. 14): catena separata dalla riga sopra, che dalla 0.4.2.3 la interrompeva → pagelle dopo 3,5 s e intervista che avanza da sola */
+  if(v.phase==='done'){ if(v.post==='whistle' && performance.now()-v.postT>3500){ v.post='pag'; renderIV(); } else if(v.post==='iv' && v.iv) tickIV(Math.min(1000,raw)); }   /* intervista a tempo vero: con il 3D lento i fotogrammi superano i 100 ms */
   draw();
   v.raf=requestAnimationFrame(loop);
 }
@@ -1027,5 +1028,5 @@ function renderIV(){
 }
 function updIV(){ const v=viewer, el=$('#iv-at'); if(!el||!v.iv) return; const a=v.iv.x.qa[v.iv.k][1]; const n=(v.iv.phase==='a'&&!reduced())?Math.min(a.length,Math.floor(v.iv.t/32)):a.length; el.textContent='«'+a.slice(0,n)+(n<a.length?'':'»'); }
 function tickIV(dt){ const iv=viewer.iv; iv.t+=dt; const a=iv.x.qa[iv.k][1]; if(iv.phase==='q'&&iv.t>2200){ iv.phase='a'; iv.t=0; renderIV(); return; } if(iv.phase==='a'){ updIV(); if(iv.t>a.length*32+3800) nextIV(); } }
-function nextIV(){ const iv=viewer.iv; if(iv.phase==='q'){ iv.phase='a'; iv.t=0; } else if(iv.phase==='a'&&iv.t<iv.x.qa[iv.k][1].length*32){ iv.t=1e6; updIV(); return; } else if(iv.k<iv.x.qa.length-1){ iv.k++; iv.phase='q'; iv.t=0; } else { iv.phase='done'; iv.t=0; } renderIV(); }
+function nextIV(){ const iv=viewer.iv; if(iv.phase==='q'){ iv.phase='a'; iv.t=0; } else if(iv.phase==='a'&&iv.t<iv.x.qa[iv.k][1].length*32){ iv.t=iv.x.qa[iv.k][1].length*32; updIV(); return; }   /* 0.4.3.1: risposta intera, poi la solita attesa prima della domanda dopo (con 1e6 la domanda dopo partiva subito) */ else if(iv.k<iv.x.qa.length-1){ iv.k++; iv.phase='q'; iv.t=0; } else { iv.phase='done'; iv.t=0; } renderIV(); }
 function againIV(){ Object.assign(viewer.iv,{k:0,phase:'q',t:0,closed:false}); renderIV(); }

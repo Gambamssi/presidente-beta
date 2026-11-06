@@ -431,5 +431,5 @@ function simMatch(inp, seed, rec){
 function matchInput(t){
   const avail=teamPlayers(t).filter(p=>!(p.inj>0)&&!(p.sq>0));
   return {id:t.id, n:t.n, c:t.c, coach:{n:t.coach.n, tat:t.coach.tat, all:t.coach.all, gio:t.coach.gio, ges:t.coach.ges, mod:t.coach.mod, car:t.coach.car??10, mor:Math.round((t.coach.mor??12)*10)/10, absent:(t.coach.squal||0)>0}, capOrder:[t.cap,t.vcap,...capOrder(t).filter(id=>id!==t.cap&&id!==t.vcap)].filter(id=>id!=null).slice(0,6),
-    players:avail.map(p=>({id:p.id, ln:p.ln, r:p.r, age:p.age, a:Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}))};
+    players:avail.map(p=>({id:p.id, ln:p.ln, r:p.r, age:p.age, a:p.s?skMatchA(p):Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}))};
 }
