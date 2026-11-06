@@ -269,11 +269,6 @@ function vPrepPause(v){
     if(dl<0.05 && kk>=0){ dx=bk[0]-fk[kk*2]; dy=bk[1]-fk[kk*2+1]; dl=Math.hypot(dx,dy); }
     wt.push({s0, K, bx:bk[0], by:bk[1], k:kd<3.5?kk:-1, thr, ux:dl>0.01?dx/dl:0, uy:dl>0.01?dy/dl:0, L:K-WT_RUN-s0}); }
   v.pz=sp2; v.wt=wt;
-  /* gol: la palla resta dentro la porta (fermata dalla rete) finché un giocatore non va a prenderla o si riparte */
-  v.gnet=[]; for(const e of sim.ev){ if(e.type!=='goal') continue; const g=e.t; if(g>=v.nT-1) continue; const gx=B(Math.min(v.nT-1,g+1))[0]>52.5?105:0;
-    const ko=sim.ev.find(x=>x.type==='ko' && x.t>g); let H=ko?ko.t:v.nT-1;
-    for(let t=g+3;t<H;t++){ const b=B(t), f=vFr(v,t); let near=false; for(let k=0;k<n;k++){ const x=f[k*2]; if(!isNaN(x) && Math.hypot(x-b[0],f[k*2+1]-b[1])<1.2){ near=true; break; } } if(near){ H=t; break; } }
-    v.gnet.push({g, H, gx, sg:gx?1:-1}); }
 }
 function vWaitAt(v,t){ const a=v.wt; if(!a) return null; let lo=0, hi=a.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(a[m].s0<=t){ r=m; lo=m+1; } else hi=m-1; }
   const w=r>=0?a[r]:null; return w && t<w.K ? w : null; }
@@ -285,14 +280,11 @@ function vRate(v){
   if(!w || v.t>=w.K-WT_RUN) return {r:base, fast:false};
   const n=tickRate(v), f=w.L/Math.max(0.1, 1/v.speed-WT_RUN/n); return f>base ? {r:f, fast:true, lim:w.K-WT_RUN} : {r:base, fast:false};
 }
-/* posizione disegnata di chi batte durante l'attesa e della palla dopo il gol (frameAt; i frame non cambiano) */
+/* posizione disegnata di chi batte durante l'attesa (frameAt; i frame non cambiano). Dalla 0.4.2.7 la palla dopo il gol la trattiene la rete della simulazione */
 function vFixFrame(v,t,P,o){
   const w=vWaitAt(v,t); if(w && w.k>=0 && !w.thr && P[w.k]){ const p=P[w.k], qx=w.bx-w.ux*WT_BACK, qy=w.by-w.uy*WT_BACK, ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
     const a=clamp((t-w.s0)/2,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1), u=ez(a)*(1-ez(b));
     P[w.k]={x:p.x+(qx-p.x)*u, y:p.y+(qy-p.y)*u}; }
-  for(const g of v.gnet){ if(t<g.g || t>=g.H+2) continue;
-    const cx=g.gx+g.sg*clamp(g.sg*(o.bx-g.gx),0.12,1.75), cy=clamp(o.by,34-3.5,34+3.5), cz=clamp(o.bz,0,2.3), u=t<g.H?1:1-(t-g.H)/2;
-    o.bx+=(cx-o.bx)*u; o.by+=(cy-o.by)*u; o.bz+=(cz-o.bz)*u; break; }
 }
 
 /* ---------- 0.4.2.3 (R6a): impostazioni del visore nel browser (come la velocità, mai in G) ---------- */

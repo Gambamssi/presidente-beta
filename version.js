@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.2.6';
+const VERSION = '0.4.2.7';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,12 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.2.7','6 novembre 2026',[
+    'Partita: la rete della porta adesso è vera anche nella simulazione. Dopo un gol la palla resta ferma dentro la porta finché un giocatore non va a prenderla, senza più uscire dai lati o dal fondo.',
+    'Il portiere para la palla nel punto in cui la incontra: niente più parate con la palla già alle sue spalle.',
+    'Fattore campo più forte: in casa si vince un po\' più spesso, come nei campionati veri.',
+    'I giocatori corricchiano un po\' più piano quando non c\'è fretta: la velocità media in partita è quella dei dati reali.',
+  ]],
   ['0.4.2.6','6 novembre 2026',[
     'Barra in alto e menu delle cinque aree più sottili, sul computer e sul telefono, con tutte le voci di prima: sul telefono il nome del club e «Gioca» stanno sulla stessa riga.',
     'Dietro le quinte: tutti i testi del gioco sono raccolti in un elenco unico, pronto per la traduzione in altre lingue; numeri, cifre, date e ore passano da un solo punto. Il gioco resta identico.'

@@ -114,7 +114,7 @@ const ROLE_RUN={GK:0.3,CB:0.85,LB:1.12,RB:1.12,LWB:1.15,RWB:1.15,DM:1.05,CM:1.12
 /* morale: effetto moderato sul rendimento (in punti di abilità compressa; il fattore campo vale 0,22) */
 const MOR_K=0.3, CMOR_K=0.08;
 function moraleBoost(mor,cmor){ return clamp((mor-12)/8,-1,1)*MOR_K + clamp(((cmor??12)-12)/8,-1,1)*CMOR_K; }
-const FIN=0.45, SKILL_K=0.33, HOME_B=0.4, DAY_F=0.7;
+const FIN=0.45, SKILL_K=0.33, HOME_B=1.5, DAY_F=0.7;   /* v0.4.2.7 (R2b): HOME_B 0,4 → 1,5. Il vantaggio di casa tocca solo le caratteristiche compresse a (decisioni); dalla 0.4.2.0 corpo, tiri, portiere e controllo usano a0 e la velocità vera, quindi serve un valore più alto per lo stesso effetto (vedi docs/PROGRESSI_R2b.md) */
 /* v0.4.2.0: tarature della fisica dei tiri e del ritmo (vedi STATO.md, «Fisica della palla e dei corpi») */
 /* v0.4.2.0: con l'orologio vero i tempi delle decisioni (scritti in secondi della vecchia simulazione) scorrono a TDEC per secondo
    e le pause delle riprese (in tick) durano RS_K volte di più: così ritmo delle giocate e tempo effettivo restano quelli di prima */

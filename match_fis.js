@@ -12,7 +12,7 @@ function matchFis(M){
   /* --- corpi (v0.4.2.0): velocità desiderata e sguardo decisi qui, la fisica in fisCorpo ---
      camminata e corsa leggera quando non c'è urgenza, scatto (fino a 8,5–9,7 m/s secondo la Velocità) quando c'è;
      i compagni troppo vicini si scansano (separazione morbida), tranne nei duelli per la palla */
-  const JOG=3.0, SEP_R=1.7;
+  const JOG=2.8, SEP_R=1.7;   /* v0.4.2.7 (R2b): corsa leggera 3,0 → 2,8 m/s (10 km/h): velocità media dei giocatori 7,1 → 7,0 km/h */
   function duelPair(a,b){ if(a.t===b.t) return false; const bo=ball.owner; if(a===bo||b===bo) return true;
     return ball.z<2 && Math.abs(a.x-ball.x)<2.2 && Math.abs(b.x-ball.x)<2.2 && hyp(a.x-ball.x,a.y-ball.y)<2 && hyp(b.x-ball.x,b.y-ball.y)<2; }
   function move(p){
@@ -76,9 +76,9 @@ function matchFis(M){
     if(ball.sh && !ball.sh.done && p.t!==ball.sh.p.t){ const gl=T[ball.sh.p.t].dir>0?PL:0, behind=Math.abs(ball.x-gl)<Math.abs(p.x-gl)-0.5;
       shotEnd(p.role==='GK'?(behind?'short':'save'):'block', p); }   /* v0.4.2.0: palla ferma dietro al portiere: non è una parata */
     if(ball.sh && (p!==ball.sh.p)) ball.sh=null;
-    ball.owner=p; ball.fl=null; ball.lastT=p.t; ball.lastP=p; stopBall(); p.hold=false; p.hx=null; p.dt=delay??(1.0+R()*0.9); p.cx=undefined; p.cy=undefined; p.ft=delay==null; if(delay==null && firstTime(p)) return;
+    ball.owner=p; ball.fl=null; ball.lastT=p.t; ball.lastP=p; stopBall(); ball.ct=M.tick;   /* v0.4.2.7: il controllo è un contatto (come i rimbalzi) */ p.hold=false; p.hx=null; p.dt=delay??(1.0+R()*0.9); p.cx=undefined; p.cy=undefined; p.ft=delay==null; if(delay==null && firstTime(p)) return;
     if(delay==null && p.role!=='GK'){ const [q,d]=nearestOpp(p); if(q && d<5){ const n=Math.max(0.5,d); p.cx=clamp(p.x+(p.x-q.x)/n*1.5,1,PL-1); p.cy=clamp(p.y+(p.y-q.y)/n*1.5,1,PW-1); } else { const t=tm(p); p.dt=0.7+R()*0.6; const xr=rx(t,p.x); if(xr<78){ p.cx=clamp(p.x+t.dir*4.5,1,PL-1); p.cy=p.y+(34-p.y)*0.08; } } } }
-  function loose(x,y,vx,vy,vz,z){ ball.owner=null; ball.fl=null; ball.x=x; ball.y=y; ball.z=z||0; ball.vx=vx; ball.vy=vy; ball.vz=vz||0; ball.wx=0; ball.wy=0; ball.wz=0; }
+  function loose(x,y,vx,vy,vz,z){ ball.owner=null; ball.fl=null; ball.ct=M.tick; ball.x=x; ball.y=y; ball.z=z||0; ball.vx=vx; ball.vy=vy; ball.vz=vz||0; ball.wx=0; ball.wy=0; ball.wz=0; }
   /* volo (v0.4.2.0): la palla parte con la velocità giusta per arrivare nel punto scelto e poi segue la fisica.
      h < 0,6 = rasoterra (arriva con velocità 0,55·speed), altrimenti palla alzata con un arco di altezza ~h */
   function fly(type, from, x1, y1, speed, h, extra){
@@ -116,6 +116,10 @@ function matchFis(M){
     const v=Math.hypot(ball.vx,ball.vy,ball.vz), fw=RP()<0.38, a=Math.atan2(ball.vy,ball.vx)+(fw?(RP()-0.5)*1.4:Math.PI+(RP()-0.5)*2.6), k=v*(fw?0.35+RP()*0.3:0.25+RP()*0.35);
     ball.vx=Math.cos(a)*k*0.8+ball.vx*0.15; ball.vy=Math.sin(a)*k*0.8+ball.vy*0.15; ball.vz=Math.abs(ball.vz)*0.3+RP()*4; ball.wx=0; ball.wy=0; ball.wz=0;
     ball.lastT=q.t; ball.lastP=q; shotEnd('block',q); }
+  /* v0.4.2.7 (R2b): la parata avviene dove la palla incontra il portiere. In un sotto-passo la palla fa fino a 2 m: se ha già
+     superato il piano del portiere, si riporta sul punto in cui lo ha attraversato (stessa velocità; nessun numero casuale) */
+  function saveAt(f,px,py,pz){ const gk=f.gk, sg=T[f.t].dir; if(!gk.on) return; const a=(px-gk.x)*sg, b=(ball.x-gk.x)*sg;
+    if(b>0 && a<0){ const w=a/(a-b); ball.x=px+(ball.x-px)*w; ball.y=py+(ball.y-py)*w; ball.z=Math.max(0,pz+(ball.z-pz)*w); } }
   function moveTo(o,tx,ty,vmax){ const dx=tx-o.x, dy=ty-o.y, d=hyp(dx,dy); if(d<0.05) return; const s=Math.min(d,vmax); o.x+=dx/d*s; o.y+=dy/d*s; }
 
   /* gol (v0.4.2.0): deciso dalla geometria in lineCheck. fx: og = autogol (scorer è il difensore), ns/nt = il tiro (in porta) era già contato */
@@ -168,10 +172,20 @@ function matchFis(M){
       if(hit){ const n=Math.hypot(nx,ny,nz)||1; nx/=n; ny/=n; nz/=n; const vn=ball.vx*nx+ball.vy*ny+ball.vz*nz;
         if(vn<0){ ball.vx-=1.75*vn*nx; ball.vy-=1.75*vn*ny; ball.vz-=1.75*vn*nz; ball.vx*=0.92; ball.vy*=0.92; ball.vz*=0.92; ball.wx=0; ball.wy=0; ball.wz=0;
           ball.x=gx+side*0.02; ball.y=yc; ball.z=Math.max(0,zc); ball.post=M.tick; ball.ct=M.tick; if(ball.sh && !ball.sh.done) shotEnd('post'); } } }
-    /* dentro la rete */
-    const inG=(ball.x<0||ball.x>PL) && Math.abs(ball.y-34)<FIS.GW && ball.z<FIS.GH;
-    if(inG){ const dep=ball.x<0?-ball.x:ball.x-PL; ball.vx*=0.9; ball.vy*=0.9; ball.vz*=0.9;
-      if(dep>FIS.NET){ ball.x=ball.x<0?-FIS.NET:PL+FIS.NET; ball.vx*=-0.15; } if(Math.abs(ball.y-34)>FIS.GW-r){ ball.y=34+Math.sign(ball.y-34)*(FIS.GW-r); ball.vy*=-0.15; } if(ball.z>FIS.GH-2*r){ ball.z=FIS.GH-2*r; ball.vz=-Math.abs(ball.vz)*0.15; } }
+    /* rete (v0.4.2.7, R2b): scatola dietro la linea (tra i pali, sotto la traversa, profonda FIS.NET). Si guarda da dove arriva la palla:
+       se era dentro (o è entrata dalla bocca della porta) non esce da lati, fondo e tetto e la rete la frena; se arriva da fuori, rimbalza fuori */
+    if(ball.x<0||ball.x>PL){ const sg=ball.x<0?-1:1, gx=ball.x<0?0:PL, dep=sg*(ball.x-gx), pdep=sg*(px-gx), ay=Math.abs(ball.y-34), sy=Math.sign(ball.y-34)||1;
+      let pin;
+      if(pdep>=0) pin= pdep<FIS.NET+0.01 && Math.abs(py-34)<FIS.GW && pz<FIS.GH;
+      else { const w=pdep/(pdep-dep); pin= Math.abs(py+(ball.y-py)*w-34)<FIS.GW && pz+(ball.z-pz)*w<FIS.GH; }
+      if(pin){ ball.vx*=0.9; ball.vy*=0.9; ball.vz*=0.9;
+        if(dep>FIS.NET-r){ ball.x=gx+sg*(FIS.NET-r); ball.vx=-sg*Math.abs(ball.vx)*0.1; ball.vy*=0.6; }
+        if(ay>FIS.GW-r){ ball.y=34+sy*(FIS.GW-r); ball.vy=-sy*Math.abs(ball.vy)*0.15; ball.vx*=0.6; }
+        if(ball.z>FIS.GH-2*r){ ball.z=FIS.GH-2*r; ball.vz=-Math.abs(ball.vz)*0.15; } }
+      else if(dep<FIS.NET && ay<FIS.GW && ball.z<FIS.GH){   /* da fuori contro la rete: lato, tetto o fondo */
+        if(Math.abs(py-34)>=FIS.GW){ ball.y=34+sy*(FIS.GW+r); ball.vy=sy*Math.abs(ball.vy)*0.2; ball.vx*=0.6; }
+        else if(pz>=FIS.GH){ ball.z=FIS.GH; ball.vz=Math.abs(ball.vz)*0.2; }
+        else { ball.x=gx+sg*(FIS.NET+r); ball.vx=sg*Math.abs(ball.vx)*0.2; } } }
     /* bandierine (asta alta 1,5 m) */
     if((ball.x<1||ball.x>PL-1) && (ball.y<1||ball.y>PW-1) && ball.z<1.5){ const cx=ball.x<1?0:PL, cy=ball.y<1?0:PW, dx=ball.x-cx, dy=ball.y-cy, d=hyp(dx,dy);
       if(d<r+0.02 && d>1e-6){ const vn=(ball.vx*dx+ball.vy*dy)/d; if(vn<0){ ball.vx-=1.5*vn*dx/d; ball.vy-=1.5*vn*dy/d; } } }
@@ -193,7 +207,7 @@ function matchFis(M){
         if(f){ f.el+=h;
           if(f.chase){ const r=f.recv; if(r.on && ball.z<1.2 && hyp(r.x-ball.x,r.y-ball.y)<1.3){ const t=tm(f.from); t.st.pc++; f.from.s.pc++; ball.pass={from:f.from,t:M.tick}; giveBall(r); }
             else { let qb=null; if(ball.z<1.2) for(const q of T[1-f.t].on){ if(q.dv) continue; if(hyp(q.x-ball.x,q.y-ball.y)<1.0){ qb=q; break; } } if(qb){ qb.s.int++; giveBall(qb,0.5); } else if(f.el>f.tA+1.6) ball.fl=null; } }
-          else if(f.type==='shot'){ if(f.blk && f.el>=f.blk.t) doBlock(f); else if(f.gkp && !f.gkDone && (f.el>=f.gkp.t || (f.gk.on && (ball.x-f.gk.x)*T[f.t].dir>=-0.15))) doSave(f); else if(f.el>f.tA+2.5) ball.fl=null; }
+          else if(f.type==='shot'){ if(f.blk && f.el>=f.blk.t) doBlock(f); else if(f.gkp && !f.gkDone && (f.el>=f.gkp.t || (f.gk.on && (ball.x-f.gk.x)*T[f.t].dir>=-0.15))){ saveAt(f,px,py,pz); doSave(f); } else if(f.el>f.tA+2.5) ball.fl=null; }
           else {
             if(f.el>0.12*f.tA && f.el<0.97*f.tA && ball.z<2.2){ const o=T[1-f.t], rr=f.first?1.9:1.1;
               for(const qq of o.on){ if(qq.k<0 || (f.tried&(1<<qq.k))) continue; if(segPt(qq.x,qq.y,px,py,ball.x,ball.y)>=rr) continue; f.tried|=(1<<qq.k);
