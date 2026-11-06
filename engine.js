@@ -4,19 +4,19 @@ let G = null;
 
 /* 22 attributi da 1 a 20: tecnici, mentali, fisici e del portiere. Altezza e piede sono a parte. */
 const ATTR_GROUPS = [
-  ['Tecnici',  ['pas','ctr','dri','crs','tir','lun','tes','con','cpz']],
-  ['Mentali',  ['vis','dec','pos','fre','agg']],
-  ['Fisici',   ['vel','res','for','ele']],
-  ['Portiere', ['par','pre','usc','rin']]
+  [t_("eng.tecnici"),  ['pas','ctr','dri','crs','tir','lun','tes','con','cpz']],
+  [t_("eng.mentali"),  ['vis','dec','pos','fre','agg']],
+  [t_("eng.fisici"),   ['vel','res','for','ele']],
+  [t_("eng.portiere"), ['par','pre','usc','rin']]
 ];
 const ATTR = ATTR_GROUPS.flatMap(g=>g[1]);
 const GK_ATTR = ['par','pre','usc','rin'];
-const ATTR_LABEL = {pas:'Passaggio',ctr:'Primo controllo',dri:'Dribbling',crs:'Cross',tir:'Finalizzazione',lun:'Tiro da fuori',tes:'Colpo di testa',con:'Contrasto',cpz:'Calci piazzati',
-  vis:'Visione',dec:'Decisioni',pos:'Posizionamento',fre:'Freddezza',agg:'Aggressività',vel:'Velocità',res:'Resistenza',for:'Forza',ele:'Elevazione',
-  par:'Riflessi',pre:'Presa',usc:'Uscite',rin:'Rinvio'};
-const ATTR_HELP = {ctr:'Controllo della palla appena ricevuta',crs:'Precisione dei cross',tir:'Precisione e potenza sotto porta',lun:'Tiri dalla distanza',cpz:'Punizioni, angoli e rigori',
-  dec:'Scegliere la giocata giusta',fre:'Lucidità sotto porta e sotto pressione',agg:'Voglia di contrastare (e rischio di fallo)',for:'Duelli fisici e protezione palla',ele:'Salto nei duelli aerei',
-  par:'Parate sui tiri',pre:'Bloccare la palla senza respingerla',usc:'Uscite su cross e attaccanti',rin:'Precisione dei rinvii'};
+const ATTR_LABEL = {pas:t_("eng.passaggio"),ctr:t_("eng.primo_controllo"),dri:t_("eng.dribbling"),crs:t_("eng.cross"),tir:t_("eng.finalizzazione"),lun:t_("eng.tiro_da_fuori"),tes:t_("eng.colpo_di_testa"),con:t_("eng.contrasto"),cpz:t_("eng.calci_piazzati"),
+  vis:t_("eng.visione"),dec:t_("eng.decisioni"),pos:t_("eng.posizionamento"),fre:t_("eng.freddezza"),agg:t_("eng.aggressivita"),vel:t_("eng.velocita"),res:t_("eng.resistenza"),for:t_("eng.forza"),ele:t_("eng.elevazione"),
+  par:t_("eng.riflessi"),pre:t_("eng.presa"),usc:t_("eng.uscite"),rin:t_("eng.rinvio")};
+const ATTR_HELP = {ctr:t_("eng.controllo_della_palla_appena"),crs:t_("eng.precisione_dei_cross"),tir:t_("eng.precisione_e_potenza_sotto"),lun:t_("eng.tiri_dalla_distanza"),cpz:t_("eng.punizioni_angoli_e_rigori"),
+  dec:t_("eng.scegliere_la_giocata_giusta"),fre:t_("eng.lucidita_sotto_porta_e"),agg:t_("eng.voglia_di_contrastare_e"),for:t_("eng.duelli_fisici_e_protezione"),ele:t_("eng.salto_nei_duelli_aerei"),
+  par:t_("eng.parate_sui_tiri"),pre:t_("eng.bloccare_la_palla_senza"),usc:t_("eng.uscite_su_cross_e"),rin:t_("eng.precisione_dei_rinvii")};
 const ROLE_W = {
   P:{par:4,pre:2,usc:2,pos:2,rin:1,dec:0.5},
   D:{con:3,pos:3,tes:2,ele:1,for:1.5,vel:1,pas:1,dec:1,ctr:0.5},
@@ -25,12 +25,12 @@ const ROLE_W = {
 };
 /* profili: danno a ogni giocatore un carattere tecnico riconoscibile */
 const PROFILES = {
-  P:[['Portiere completo',{}],['Para tutto',{par:2,pre:1,usc:-1,rin:-1}],['Portiere moderno',{rin:2,usc:1,pas:1,pre:-1}],['Dominatore dell\'area',{usc:2,ele:1,pre:1,par:-1}]],
-  D:[['Stopper',{con:2,for:2,agg:2,tes:1,pas:-1,vel:-1}],['Difensore moderno',{pas:2,ctr:1,dec:1,vis:1,for:-1}],['Terzino di spinta',{vel:2,crs:2,res:1,tes:-2,ele:-1}],['Torre',{tes:2,ele:2,for:1,vel:-2,ctr:-1}],['Difensore di posizione',{pos:2,dec:2,agg:-1,vel:-1}]],
-  C:[['Regista',{pas:2,vis:2,dec:1,con:-1,for:-1}],['Mediano',{con:2,agg:2,res:1,for:1,vis:-1,dri:-1}],['Tuttocampista',{res:2,vel:1,con:1}],['Trequartista',{vis:2,dri:2,lun:1,con:-2,agg:-1}],['Esterno',{vel:2,crs:2,dri:1,con:-1,tes:-1}],['Tiratore',{lun:2,cpz:2,tir:1,res:-1}]],
-  A:[['Bomber d\'area',{tir:2,fre:2,pos:2,dri:-1,pas:-1}],['Attaccante rapido',{vel:3,dri:1,tes:-1,for:-1}],['Ariete',{tes:2,ele:2,for:2,vel:-2,dri:-1}],['Seconda punta',{pas:2,vis:2,dri:1,tes:-1}],['Ala',{dri:2,vel:2,crs:1,tes:-2}]]
+  P:[[t_("eng.portiere_completo"),{}],[t_("eng.para_tutto"),{par:2,pre:1,usc:-1,rin:-1}],[t_("eng.portiere_moderno"),{rin:2,usc:1,pas:1,pre:-1}],[t_("eng.dominatore_dell_area"),{usc:2,ele:1,pre:1,par:-1}]],
+  D:[[t_("eng.stopper"),{con:2,for:2,agg:2,tes:1,pas:-1,vel:-1}],[t_("eng.difensore_moderno"),{pas:2,ctr:1,dec:1,vis:1,for:-1}],[t_("eng.terzino_di_spinta"),{vel:2,crs:2,res:1,tes:-2,ele:-1}],[t_("eng.torre"),{tes:2,ele:2,for:1,vel:-2,ctr:-1}],[t_("eng.difensore_di_posizione"),{pos:2,dec:2,agg:-1,vel:-1}]],
+  C:[[t_("eng.regista"),{pas:2,vis:2,dec:1,con:-1,for:-1}],[t_("eng.mediano"),{con:2,agg:2,res:1,for:1,vis:-1,dri:-1}],[t_("eng.tuttocampista"),{res:2,vel:1,con:1}],[t_("eng.trequartista"),{vis:2,dri:2,lun:1,con:-2,agg:-1}],[t_("eng.esterno"),{vel:2,crs:2,dri:1,con:-1,tes:-1}],[t_("eng.tiratore"),{lun:2,cpz:2,tir:1,res:-1}]],
+  A:[[t_("eng.bomber_d_area"),{tir:2,fre:2,pos:2,dri:-1,pas:-1}],[t_("eng.attaccante_rapido"),{vel:3,dri:1,tes:-1,for:-1}],[t_("eng.ariete"),{tes:2,ele:2,for:2,vel:-2,dri:-1}],[t_("eng.seconda_punta"),{pas:2,vis:2,dri:1,tes:-1}],[t_("eng.ala"),{dri:2,vel:2,crs:1,tes:-2}]]
 };
-const ROLE_NAME = {P:'Portiere',D:'Difensore',C:'Centrocampista',A:'Attaccante'};
+const ROLE_NAME = {P:t_("eng.portiere"),D:t_("eng.difensore"),C:t_("eng.centrocampista"),A:t_("eng.attaccante")};
 const COACH_MODS = ['4-4-2','4-3-3','4-2-3-1','3-5-2','4-5-1'];
 const FIRST = ['Luca','Marco','Andrea','Matteo','Davide','Simone','Federico','Lorenzo','Alessandro','Riccardo','Tommaso','Gabriele','Edoardo','Nicolò','Pietro','Giacomo','Filippo','Daniele','Emanuele','Stefano','Michele','Samuele','Leonardo','Christian','Diego','Elia','Mattia','Jacopo','Ivan','Kevin','Omar','Yusuf','Mamadou','Ibrahim','Nikola','Luka','Tiago','Rafael','Ismael','Bruno'];
 const LAST = ['Bertoli','Ferraresi','Gualtieri','Mancuso','Pellegatti','Rinaldelli','Castagnoli','Zanella','Morosini','Caputi','Belloni','Sartorello','Ferrucci','Lombardini','Testa','Bonvicini','Marangon','Pavan','Scarpa','Vianello','Toffolo','Bortolin','Zennaro','Gasparini','Carraro','Nardelli','Calò','Ruggeri','Spada','Fontanive','Callegaro','Dal Bello','Trevisan','Polesel','Furlan','Baldan','Cecchetto','Rizzato','Sambo','Diallo','Koné','Petrović','Mendes','Haddad','Novak','Okafor','Lindqvist','Moretto'];
@@ -128,7 +128,7 @@ function ensureCaptains(t, quiet){
   const ord=capOrder(t); const old=t.cap;
   if(!has(t.cap)) t.cap = has(t.vcap) ? t.vcap : ord[0];
   if(!has(t.vcap) || t.vcap===t.cap) t.vcap = ord.find(id=>id!==t.cap);
-  if(!quiet && t.id===0 && G.P[t.cap] && old!=null && old!==t.cap) news(`${G.P[t.cap].fn} ${G.P[t.cap].ln} è il nuovo capitano; vice ${G.P[t.vcap].ln}.`,'club',false,t.id);
+  if(!quiet && t.id===0 && G.P[t.cap] && old!=null && old!==t.cap) news(t_("eng.e_il_nuovo_capitano",{fn:G.P[t.cap].fn,ln:G.P[t.cap].ln,ln2:G.P[t.vcap].ln}),'club',false,t.id);
 }
 function refInput(r){ return {id:r.id, n:r.n.split(' ').slice(-1)[0], full:r.n, esp:r.esp, car:r.car, fis:r.fis, err:r.err}; }
 function value(p){ const o=ovr(p); const af=p.age<=20?1.35:p.age<=23?1.2:p.age<=28?1:p.age<=31?0.7:0.4; return Math.round(Math.pow(o,2.5)*af)*1000; }
@@ -148,7 +148,7 @@ function teamPlayers(t){ return t.pl.map(id=>G.P[id]); }
 function newGame(clubName, seed){
   G = {v:2, rep:50, seed, rs:seed, nid:1, P:{}, T:[], season:1, md:0, sched:[], res:[], last:null, obs:{}, seen:{}, note:{}, news:[], scoutLeft:3, user:0, cands:null, albo:[], prs:[mkPres()]};
   const levels = [9.6, 11.0, 10.5, 10.1, 9.4, 9.0, 8.6, 8.2];
-  const names = [{n:clubName||'FC Presidente', c:'#d9d2bf'}, ...CLUBS];
+  const names = [{n:clubName||t_("eng.fc_presidente"), c:'#d9d2bf'}, ...CLUBS];
   names.forEach((cl,i)=>{
     const t = {id:i, n:cl.n, c:cl.c, pl:[], coach:mkCoach(levels[i]), cash:i===0?700000:550000, pop:40+ri(0,20), fac:{st:1,cs:1,sg:1}, own:{bank:0}, build:null,
       tab:{g:0,v:0,n:0,p:0,gf:0,gs:0,pt:0}, form:[]};
@@ -164,7 +164,7 @@ function newGame(clubName, seed){
   G.sched = schedule(8);
   ensureRefs();
   G.T.forEach(t=>ensureBudget(t));
-  news('Benvenuto, presidente. Il tuo allenatore è '+G.T[0].coach.n+'. Hai 3 relazioni dell\'osservatore a disposizione per ogni giornata.','club',false,0);
+  news(t_("eng.benvenuto_presidente_il_tuo",{n:G.T[0].coach.n}),'club',false,0);
   return G;
 }
 /* notizia: k = tipo (match, market, club, coach, player), pub = pubblica (Lega › Notizie) o privata (Scrivania),
@@ -217,7 +217,7 @@ function playMatchday(){
     m.h=h; m.a=a; m.seed=seed; m.inp=inp; m.refId=RT.id; out.push(m);
     applyResult(H,A,m);
     RT.g++; RT.vs+=m.ref.voto; RT.er+=m.ref.errs.length; RT.yc+=m.stats[0].yc+m.stats[1].yc; RT.rc+=m.stats[0].rc+m.stats[1].rc; RT.pen+=m.ev.filter(x=>x.type==='pen').length;
-    [H,A].forEach((t,side)=>{ const c=t.coach; if(c.squal>0 && inp.t[side].coach.absent) c.squal--; if(m.coachOff[side]){ c.squal=1; news(`${c.n} (${t.n}) è stato allontanato dall'arbitro ${RT.n}: salterà la prossima partita.`, t.id===0?'club':'match',true,t.id); } });
+    [H,A].forEach((t,side)=>{ const c=t.coach; if(c.squal>0 && inp.t[side].coach.absent) c.squal--; if(m.coachOff[side]){ c.squal=1; news(t_("eng.e_stato_allontanato_dall",{n:c.n,n2:t.n,n3:RT.n}), t.id===0?'club':'match',true,t.id); } });
   });
   for(const t of G.T){
     const pl=teamPlayers(t);
@@ -233,7 +233,7 @@ function playMatchday(){
       grow(p,t);
     }
     roundFinance(t,m,m.h===t.id);
-    if(t.build){ t.build.left--; if(t.build.left<=0){ t.fac[t.build.k]=facLevel(t,t.build.k)+1; if(t.id===0) news(({st:'Lo stadio',cs:'Il centro sportivo',sg:'Il settore giovanile'})[t.build.k]+' è salito al livello '+t.fac[t.build.k]+'.','club',false,t.id); t.build=null; } }
+    if(t.build){ t.build.left--; if(t.build.left<=0){ t.fac[t.build.k]=facLevel(t,t.build.k)+1; if(t.id===0) news(({st:t_("eng.lo_stadio"),cs:t_("eng.il_centro_sportivo"),sg:t_("eng.il_settore_giovanile")})[t.build.k]+` ${t_("eng.e_salito_al_livello",{v:t.fac[t.build.k]})}`,'club',false,t.id); t.build=null; } }
     pledgeSweep(t);
   }
   G.FA.forEach(id=>grow(G.P[id],null));
@@ -246,7 +246,7 @@ function playMatchday(){
   G.T.forEach(t=>ultCheck(t)); firePending();
   const um = out.find(m=>m.h===0||m.a===0);
   const home = um.h===0; const ug=home?um.gh:um.ga, og=home?um.ga:um.gh; const opp=G.T[home?um.a:um.h];
-  news(`Giornata ${G.md}: ${home?G.T[0].n+' – '+opp.n:opp.n+' – '+G.T[0].n} ${um.gh}-${um.ga}. ${ug>og?'Vittoria!':ug<og?'Sconfitta.':'Pareggio.'}`,'match',true,0);
+  news(t_("eng.giornata",{md:G.md,v:home?G.T[0].n+' – '+opp.n:opp.n+' – '+G.T[0].n,gh:um.gh,ga:um.ga,v2:ug>og?t_("eng.vittoria"):ug<og?t_("eng.sconfitta"):t_("eng.pareggio")}),'match',true,0);
   coachTalk();
   botMarket();
   return out;
@@ -262,8 +262,8 @@ function applyResult(H,A,m){
   m.att = Math.round(cap*fill_); m.inc = m.att*14;
   const res = Math.sign(m.gh-m.ga);
   [[m.played[0],res,H],[m.played[1],-res,A]].forEach(([lu,s,T])=>lu.forEach(id=>{ const p=G.P[id]; if(!p) return; p.apps++; p.rts.push(m.rt[id]); if(p.rts.length>6) p.rts.shift(); statApp(p,T.id,m.rt[id]);
-    if(m.inj[id]){ p.inj=m.inj[id]; if(T.id===0) news(`${p.fn} ${p.ln} si è infortunato: starà fuori ${p.inj} ${p.inj>1?'giornate':'giornata'}.`,'player',false,T.id); }
-    if(m.red.includes(id)){ p.sq=1; if(T.id===0) news(`${p.fn} ${p.ln} è stato espulso: salterà la prossima giornata.`,'player',false,T.id); } }));
+    if(m.inj[id]){ p.inj=m.inj[id]; if(T.id===0) news(t_("eng.si_e_infortunato_stara",{fn:p.fn,ln:p.ln,inj:p.inj,v:p.inj>1?'giornate':'giornata'}),'player',false,T.id); }
+    if(m.red.includes(id)){ p.sq=1; if(T.id===0) news(t_("eng.e_stato_espulso_saltera",{fn:p.fn,ln:p.ln}),'player',false,T.id); } }));
   m.scorers.forEach(s=>{ const p=G.P[s.pid]; p.gl++; statGoal(p); });
   H.pop = clamp(H.pop + res*1.2,10,100); A.pop = clamp(A.pop - res*1.2,10,100);
 }
@@ -272,7 +272,7 @@ function applyResult(H,A,m){
    Entrate e uscite per giornata, prestiti, stipendi con le scadenze di controllo e le penalizzazioni
    come in Serie A (adattate a 14 giornate): controlli dopo le giornate 4, 7, 10 e 13, più la fine stagione. */
 const CHECKS=[4,7,10,13];
-const CHECK_LBL=['1° controllo (come il 30 settembre)','2° controllo (come il 16 novembre)','3° controllo (come il 16 febbraio)','4° controllo (come il 16 maggio)','fine stagione (come il 30 settembre successivo)'];
+const CHECK_LBL=[t_("eng.1_controllo_come_il"),t_("eng.2_controllo_come_il"),t_("eng.3_controllo_come_il"),t_("eng.4_controllo_come_il"),t_("eng.fine_stagione_come_il")];
 function finInit(t){ if(!t.fin) t.fin={arr:[], loans:[], pen:0, penNext:0, sea:{inc:{},exp:{}}, led:[], checks:[], hist:[], excluded:false, homeInc:[]};
   const f=t.fin; if(f.ins==null){ f.ins=0; f.insN=0; f.esc=0; f.breach=0; f.budH=[]; f.valH=[]; f.lid=0;
     f.loans.forEach(l=>{ if(l.pr==null){ l.id=++f.lid; l.apr=8; l.n=14; l.pr=Math.round(l.rate*l.left/1.04); l.peg='none'; l.pids=[]; l.fac=[]; } }); }
@@ -308,7 +308,7 @@ function roundFinance(t,m,home){
   if(t.cash<0) spend(t,'interessi',Math.round(-t.cash*0.015));
   const ok=payWages(t,wageBill(t),periodOf(G.md+1));
   bankRound(t);
-  if(!ok){ const pl=teamPlayers(t); pl.forEach(p=>{ p.mor=clamp(p.mor-0.6,1,20); }); if(t.id===0) news(`Cassa vuota: questa giornata gli stipendi non sono stati pagati per intero (arretrati ${kcrE(arrears(t))}).`,'club',false,t.id); }
+  if(!ok){ const pl=teamPlayers(t); pl.forEach(p=>{ p.mor=clamp(p.mor-0.6,1,20); }); if(t.id===0) news(t_("eng.cassa_vuota_questa_giornata",{arrears:kcrE(arrears(t))}),'club',false,t.id); }
   f.led.unshift({s:G.season,md:G.md+1,...t._r}); if(f.led.length>14) f.led.length=14; t._r=null;
 }
 const kcrE=n=>(n<0?'−':'')+Math.round(Math.abs(n)/1000)+'k';
@@ -321,13 +321,13 @@ function wageCheck(t,k){
   const lbl=CHECK_LBL[k];
   if(k===2 && unp.includes(2) && unp.some(p=>p<2)){ f.checks.push({s:G.season,k,ok:false,pts:0,excl:true}); exclude(t); return; }
   if(k>=3){ f.penNext+=pts; } else f.pen+=pts;
-  f.checks.push({s:G.season,k,ok:false,pts,next:k>=3}); if(t.id===0) repAdd(-3,'stipendi non pagati al controllo');
-  teamPlayers(t).forEach(p=>{ p.mor=clamp(p.mor-1.2,1,20); addCause(p,'stipendi non pagati',-1.2); }); t.coach.mor=clamp((t.coach.mor??12)-1,1,20);
-  news(`${t.n}: stipendi non in regola al ${lbl}. Penalizzazione di ${pts} punti${k>=3?' da scontare la prossima stagione':''}.`, t.id===0?'club':'match',true,t.id);
+  f.checks.push({s:G.season,k,ok:false,pts,next:k>=3}); if(t.id===0) repAdd(-3,t_("eng.stipendi_non_pagati_al"));
+  teamPlayers(t).forEach(p=>{ p.mor=clamp(p.mor-1.2,1,20); addCause(p,t_("eng.stipendi_non_pagati"),-1.2); }); t.coach.mor=clamp((t.coach.mor??12)-1,1,20);
+  news(t_("eng.stipendi_non_in_regola",{n:t.n,lbl:lbl,pts:pts,v:k>=3?t_("eng.da_scontare_la_prossima"):''}), t.id===0?'club':'match',true,t.id);
 }
 function exclude(t){
-  const f=finInit(t); f.excluded=true; if(t.id===0) repAdd(-10,'squadra esclusa dal campionato');
-  news(`${t.n} escluso dal campionato: stipendi non pagati anche al 3° controllo. Le partite restanti sono perse a tavolino 0-3.`, t.id===0?'club':'match',true,t.id);
+  const f=finInit(t); f.excluded=true; if(t.id===0) repAdd(-10,t_("eng.squadra_esclusa_dal_campionato"));
+  news(t_("eng.escluso_dal_campionato_stipendi",{n:t.n}), t.id===0?'club':'match',true,t.id);
 }
 function teamPts(t){ return t.tab.pt-(t.fin?t.fin.pen:0); }
 /* presidente del computer: tiene i conti in ordine come può */
@@ -339,8 +339,8 @@ function botFinance(t){
     const pl=teamPlayers(t).sort((a,b)=>(a.peg?1:0)-(b.peg?1:0)||b.wg-a.wg); const p=pl[0]; if(!p || pl.length<=15 || p.peg) return;
     const buyers=G.T.filter(b=>b.id!==t.id && b.id!==0 && !finInit(b).excluded && b.cash>value(p)*0.9 && b.pl.length<22 && wageRatio(b)<0.8);
     const amt=Math.round(value(p)*0.85/1000)*1000; t.pl=t.pl.filter(x=>x!==p.id);
-    if(buyers.length){ const b=buyers.sort((x,y)=>y.cash-x.cash)[0]; budVary(b,'acquisti',amt); spend(b,'acquisti',amt); b.pl.push(p.id); p.team=b.id; p.ct=ri(2,3); news(`${t.n}, in difficoltà con i conti, cede ${p.fn} ${p.ln} a ${b.n} per ${kcrE(amt)}.`,'market',true,t.id); }
-    else { p.team=null; p.abroad=true; news(`${t.n}, in difficoltà con i conti, cede ${p.fn} ${p.ln} all'estero per ${kcrE(amt)}.`,'market',true,t.id); }
+    if(buyers.length){ const b=buyers.sort((x,y)=>y.cash-x.cash)[0]; budVary(b,'acquisti',amt); spend(b,'acquisti',amt); b.pl.push(p.id); p.team=b.id; p.ct=ri(2,3); news(t_("eng.in_difficolta_con_i",{n:t.n,fn:p.fn,ln:p.ln,n2:b.n,amt:kcrE(amt)}),'market',true,t.id); }
+    else { p.team=null; p.abroad=true; news(t_("eng.in_difficolta_con_i_2",{n:t.n,fn:p.fn,ln:p.ln,amt:kcrE(amt)}),'market',true,t.id); }
     earn(t,'cessioni',amt); onSold(t,p,amt); ensureCaptains(t,false);
   }
 }
@@ -355,8 +355,8 @@ function avgRt(p){ const r=(p.rts||[]).filter(x=>x!=null).slice(-4); return r.le
 function openReqs(t){ return (G.req||[]).filter(r=>r.team===t.id && r.st==='open'); }
 function mkReq(t,kind,o){ G.req=G.req||[]; const r={id:(G.rid=(G.rid||0)+1), team:t.id, kind, md:G.md, s:G.season, due:G.md+2, st:'open', ...o}; G.req.push(r);
   if(G.req.length>160) G.req=G.req.filter(x=>x.st==='open'||x.s===G.season).slice(-160);
-  if(t.id!==0) resolveReq(r, botChoice(t,r), true); else news(`Nuova richiesta nell'Ufficio: ${REQ_KIND[kind].toLowerCase()} — rispondi entro la giornata ${r.due+1}.`,'club',false,t.id); return r; }
-const REQ_KIND={aumento:'Aumento di stipendio', rinnovo:'Rinnovo del contratto', premio:'Premio partita', obiettivo:'Premio obiettivo', rinforzo:'Richiesta di rinforzo', offerta:'Offerta per un giocatore'};
+  if(t.id!==0) resolveReq(r, botChoice(t,r), true); else news(t_("eng.nuova_richiesta_nell_ufficio",{toLowerCase:REQ_KIND[kind].toLowerCase(),due:r.due+1}),'club',false,t.id); return r; }
+const REQ_KIND={aumento:t_("eng.aumento_di_stipendio"), rinnovo:t_("eng.rinnovo_del_contratto"), premio:t_("eng.premio_partita"), obiettivo:t_("eng.premio_obiettivo"), rinforzo:t_("eng.richiesta_di_rinforzo"), offerta:t_("eng.offerta_per_un_giocatore")};
 function genRequests(t){
   const f=finInit(t); if(f.excluded) return; const S=successF(t), pos=standings().indexOf(t), pl=teamPlayers(t), open=openReqs(t);
   const max = t.id===0 ? 2 : 3; let made=0; const room=()=>open.length+made<4 && made<max;
@@ -368,29 +368,29 @@ function genRequests(t){
     const r=clamp(0.06+0.32*Math.max(S,-0.3)+(avgRt(p)-6.2)*0.12+(p.amb-11)*0.015,0.03,0.65), nw=Math.round(p.wg*(1+r)/100)*100;
     p.reqS=G.season; p.reqMd=G.md;
     mkReq(t, ren?'rinnovo':'aumento', {pid:p.id, old:p.wg, nw, pct:Math.round(r*100),
-      txt: ren ? `${p.fn} ${p.ln} ha il contratto in scadenza: chiede il rinnovo per 3 anni a ${nw} cr a giornata (ora ${p.wg}, +${Math.round(r*100)}%).`
-               : `${p.fn} ${p.ln} sta rendendo bene${S>0.4?' e la squadra vola':''}: chiede l'aumento da ${p.wg} a ${nw} cr a giornata (+${Math.round(r*100)}%).`}); made++; }
+      txt: ren ? t_("eng.ha_il_contratto_in",{fn:p.fn,ln:p.ln,nw:nw,wg:p.wg,r:Math.round(r*100)})
+               : t_("eng.sta_rendendo_bene_chiede",{fn:p.fn,ln:p.ln,v:S>0.4?t_("eng.e_la_squadra_vola"):'',wg:p.wg,nw:nw,r:Math.round(r*100)})}); made++; }
   /* 2. premio partita, chiesto dal capitano prima delle partite che contano */
   const nx=G.sched[G.md]; if(nx && room() && G.md>=1){ const f2=nx.find(x=>x.includes(t.id)); const opp=G.T[f2[0]===t.id?f2[1]:f2[0]], op=standings().indexOf(opp);
     if((op<=2 || Math.abs(op-pos)<=1) && !open.some(r=>r.kind==='premio') && rnd()<0.45){ const cap=G.P[t.cap];
       const amt=Math.round((14000+30000*Math.max(0,S+0.25))*(op<=1?1.3:1)/1000)*1000;
-      mkReq(t,'premio',{pid:cap?cap.id:null, amt, opp:opp.id, mdx:G.md, txt:`Il capitano ${cap?cap.ln:''} chiede, a nome della squadra, un premio di ${Math.round(amt/1000)}k in caso di vittoria contro ${opp.n} (${op+1}° in classifica).`}); made++; } }
+      mkReq(t,'premio',{pid:cap?cap.id:null, amt, opp:opp.id, mdx:G.md, txt:t_("eng.il_capitano_chiede_a",{v:cap?cap.ln:'',amt:Math.round(amt/1000),n:opp.n,op:op+1})}); made++; } }
   /* 3. premio obiettivo stagionale */
   if(room() && G.md>=3 && G.md<=5 && t.objS!==G.season && rnd()<0.5){ t.objS=G.season; const cap=G.P[t.cap];
-    const [k,lim,base]= pos<=1?['vincere il campionato',1,170000]: pos<=3?['arrivare tra le prime quattro',4,85000]:['arrivare tra le prime sei',6,40000];
+    const [k,lim,base]= pos<=1?[t_("eng.vincere_il_campionato"),1,170000]: pos<=3?[t_("eng.arrivare_tra_le_prime"),4,85000]:[t_("eng.arrivare_tra_le_prime_2"),6,40000];
     const amt=Math.round(base*(1+Math.max(0,S)*1.1)/5000)*5000;
-    mkReq(t,'obiettivo',{pid:cap?cap.id:null, amt, lim, goal:k, txt:`Il capitano ${cap?cap.ln:''} chiede un premio collettivo di ${Math.round(amt/1000)}k se la squadra riesce a ${k}.`}); made++; }
+    mkReq(t,'obiettivo',{pid:cap?cap.id:null, amt, lim, goal:k, txt:t_("eng.il_capitano_chiede_un",{v:cap?cap.ln:'',amt:Math.round(amt/1000),k:k})}); made++; }
   /* 4. l'allenatore chiede un rinforzo (solo per il presidente umano: per il computer è il mercato) */
   if(t.id===0 && room() && !t.promise && !open.some(r=>r.kind==='rinforzo') && G.md>=2 && rnd()<0.14+0.12*Math.max(0,S)){
     const need=formNeed(t.coach.mod); let worst=null,wv=99; for(const r of ['D','C','A']){ const ps=pl.filter(p=>p.r===r).map(ovr).sort((a,b)=>b-a).slice(0,need[r]); const v=ps.length<need[r]?0:ps.reduce((a,b)=>a+b,0)/ps.length; if(v<wv){wv=v;worst=r;} }
     const thr=Math.round((avgTop(pl)+(S>0.3?0.4:0)-0.2)*10)/10;
-    mkReq(t,'rinforzo',{role:worst, thr, due:G.md+2, pdue:G.md+5, txt:`${t.coach.n} chiede un ${ {D:'difensore',C:'centrocampista',A:'attaccante'}[worst] } di valore almeno ${String(thr).replace('.',',')} entro la giornata ${G.md+5}.`}); made++; }
+    mkReq(t,'rinforzo',{role:worst, thr, due:G.md+2, pdue:G.md+5, txt:t_("eng.chiede_un_di_valore",{n:t.coach.n,v:{D:'difensore',C:'centrocampista',A:'attaccante'}[worst],fDec:fDec(thr),md:G.md+5})}); made++; }
 }
 /* le rivali corteggiano le stelle delle squadre in vetta */
 function seekBuyer(p){ const t=G.T[p.team], v=value(p);
   const buyers=G.T.filter(b=>b.id!==t.id && b.id!==0 && !finInit(b).excluded && b.cash>v*0.8 && b.pl.length<22); if(!buyers.length) return null;
   const b=buyers[Math.floor(rnd()*buyers.length)], amt=Math.round(v*(0.78+rnd()*0.22)/5000)*5000;
-  const r=mkReq(t,'offerta',{pid:p.id, buyer:b.id, amt, due:G.md+1, txt:`Su tua richiesta, ${b.n} offre ${Math.round(amt/1000)}k per ${p.fn} ${p.ln} (valore ${Math.round(v/1000)}k).`}); return r; }
+  const r=mkReq(t,'offerta',{pid:p.id, buyer:b.id, amt, due:G.md+1, txt:t_("eng.su_tua_richiesta_offre",{n:b.n,amt:Math.round(amt/1000),fn:p.fn,ln:p.ln,v:Math.round(v/1000)})}); return r; }
 function rivalOffers(){
   const st=standings();
   for(const t of G.T){ const pos=st.indexOf(t); if(finInit(t).excluded) continue;
@@ -399,7 +399,7 @@ function rivalOffers(){
       const foreign = pos<=1 && rnd()<0.5;
       const buyers=G.T.filter(b=>b.id!==t.id && b.id!==0 && !finInit(b).excluded && b.cash>value(p)*1.05 && b.pl.length<22 && wageRatio(b)<0.9); if(!buyers.length && !foreign) continue;
       const b=foreign?{id:-1,n:FOREIGN[Math.floor(rnd()*FOREIGN.length)]}:buyers[Math.floor(rnd()*buyers.length)], amt=Math.round(value(p)*(foreign?1.15+rnd()*0.3:1.02+rnd()*0.25)/5000)*5000;
-      mkReq(t,'offerta',{pid:p.id, buyer:b.id, bn:b.n, amt, txt:`${b.n} offre ${Math.round(amt/1000)}k per ${p.fn} ${p.ln} (valore ${Math.round(value(p)/1000)}k).${p.wantOut?' Il giocatore ha chiesto di essere ceduto.':''}`}); break; } }
+      mkReq(t,'offerta',{pid:p.id, buyer:b.id, bn:b.n, amt, txt:t_("eng.offre_k_per_valore",{n:b.n,amt:Math.round(amt/1000),fn:p.fn,ln:p.ln,value:Math.round(value(p)/1000),v:p.wantOut?t_("eng.il_giocatore_ha_chiesto"):''})}); break; } }
 }
 /* scelta del presidente del computer: dipende dai conti */
 function botChoice(t,r){
@@ -420,8 +420,8 @@ function reqMor(r){ const t=G.T[r.team], w=reqWho(r); return w.type==='p'?w.o.mo
 function reqMorAdd(r,d,why){ const t=G.T[r.team], w=reqWho(r); if(!d) return; if(w.type==='p'){ w.o.mor=clamp(w.o.mor+d,1,20); addCause(w.o,why,d); } else if(w.type==='c'){ const c=t.coach; c.mor=clamp((c.mor??12)+d,1,20); addCause(c,why,d); } else teamMor(t,d,why); }
 /* intervallo della trattativa: lo = il meglio per il presidente, hi = la richiesta */
 function negRange(r){
-  if(r.kind==='rinnovo'||r.kind==='aumento') return {lo:r.old, hi:r.nw, step:50, unit:'cr a giornata', E:r.kind==='rinnovo'?50:32, oneoff:true};
-  if(r.kind==='rinforzo') return {lo:Math.round((r.thr-2)*10)/10, hi:r.thr, step:0.1, unit:'di valore minimo', E:0, oneoff:false};
+  if(r.kind==='rinnovo'||r.kind==='aumento') return {lo:r.old, hi:r.nw, step:50, unit:t_("eng.cr_a_giornata"), E:r.kind==='rinnovo'?50:32, oneoff:true};
+  if(r.kind==='rinforzo') return {lo:Math.round((r.thr-2)*10)/10, hi:r.thr, step:0.1, unit:t_("eng.di_valore_minimo"), E:0, oneoff:false};
   return {lo:0, hi:r.amt, step:r.kind==='obiettivo'?5000:1000, unit:'cr', E:0, oneoff:false};
 }
 function hashN(n){ let h=(n*2654435761)>>>0; h^=h>>>15; h=Math.imul(h,2246822519)>>>0; return (h%10000)/10000; }
@@ -432,41 +432,41 @@ function negSetup(r){ const t=G.T[r.team], w=reqWho(r), mor=reqMor(r), R=negRang
   return {M:R.lo+(R.hi-R.lo)*f, k:clamp(0.28+(mor-12)*0.03+(prof-12)*0.015,0.1,0.55), pat:clamp(100+(mor-12)*4,60,130), c:R.hi, hist:[], st:'open'}; }
 function negRound(R,v,up){ const s=R.step; const x=up?Math.ceil((v-1e-9)/s)*s:Math.round(v/s)*s; return Math.round(clamp(x,R.lo,R.hi)*100)/100; }
 function negEff(r,v,oo){ const R=negRange(r); return v+(R.E&&oo?oo/R.E:0); }
-function openNeg(r){ if(r.neg) return r.neg; if(r.kind==='offerta'){ r.neg=offSetup(r); r.neg.pat0=r.neg.pat; return r.neg; } r.neg=negSetup(r); r.neg.pat0=r.neg.pat; reqMorAdd(r, reqWho(r).type==='t'?-0.15:-0.3, 'il presidente ha voluto trattare'); return r.neg; }
+function openNeg(r){ if(r.neg) return r.neg; if(r.kind==='offerta'){ r.neg=offSetup(r); r.neg.pat0=r.neg.pat; return r.neg; } r.neg=negSetup(r); r.neg.pat0=r.neg.pat; reqMorAdd(r, reqWho(r).type==='t'?-0.15:-0.3, t_("eng.il_presidente_ha_voluto")); return r.neg; }
 function negPropose(r,v,oo,m){ const n=r.neg, R=negRange(r); if(!n||n.st!=='open') return;
   v=negRound(R,v,false); oo=Math.max(0,Math.round(oo||0)); n.hist.push({by:'pres',v,oo,m:m||null});
   /* la motivazione: se è credibile rende più paziente e disponibile, se non lo è irrita */
   let cm=1, km=1, pre=''; if(m){ const t=G.T[r.team]; n.used=n.used||{}; const rep=n.used[m]||0; n.used[m]=rep+1; let cr=credibility(t,r,m); if(rep) cr*=0.5;
-    if(cr>0.5){ cm=0.65; km=1.35; pre=rep?'Me l\'ha già detto. ':'Capisco. '; } else if(cr<0){ cm=1.4; km=0.8; pre='Non mi prenda in giro: '+credTxt(t,r,m,cr).replace(/: non ci crede$/,'')+'. '; reqMorAdd(r,-0.15,'motivazione del presidente non credibile'); } else { cm=0.9; pre='Mah. '; } }
+    if(cr>0.5){ cm=0.65; km=1.35; pre=rep?t_("eng.me_l_ha_gia"):t_("eng.capisco"); } else if(cr<0){ cm=1.4; km=0.8; pre=`${t_("eng.non_mi_prenda_in",{replace:credTxt(t,r,m,cr).replace(/: non ci crede$/,'')})} `; reqMorAdd(r,-0.15,t_("eng.motivazione_del_presidente_non")); } else { cm=0.9; pre=t_("eng.mah"); } }
   const ve=negEff(r,v,oo);
-  if(ve>=n.M-1e-9){ n.hist.push({by:'req',txt:pre+'Affare fatto.'}); n.st='deal'; resolveReq(r,'deal',false,{v,oo,opened:true}); return; }
+  if(ve>=n.M-1e-9){ n.hist.push({by:'req',txt:pre+t_("eng.affare_fatto")}); n.st='deal'; resolveReq(r,'deal',false,{v,oo,opened:true}); return; }
   const g=clamp((n.M-ve)/Math.max(1e-9,R.hi-R.lo),0,1); n.pat=Math.max(0,n.pat-(10+75*Math.pow(g,1.1))*cm);
-  if(g>0.7) reqMorAdd(r,-0.15,'proposta giudicata offensiva');
-  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'req',v:n.c,txt:pre+'La mia pazienza è finita. Decida lei. Io resto su'}); return; }
+  if(g>0.7) reqMorAdd(r,-0.15,t_("eng.proposta_giudicata_offensiva"));
+  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'req',v:n.c,txt:pre+t_("eng.la_mia_pazienza_e")}); return; }
   const nc=Math.max(n.M, n.c-(n.c-n.M)*Math.min(0.8,n.k*km)-(R.hi-R.lo)*0.015); n.c=negRound(R,nc,true); if(n.c<n.M) n.c=negRound(R,n.M,true);
   const prev=n.hist.filter(h=>h.by==='req'&&h.v!=null).slice(-1)[0], moved=prev?n.c<prev.v-1e-9:n.c<R.hi-1e-9;
-  n.hist.push({by:'req',v:n.c,txt:pre+(!moved?(g>0.7?'Mi sembra poco serio. Resto su':'Non scendo, resto su'):(n.c-n.M)<(R.hi-R.lo)*0.04?'Questa è la mia ultima offerta:':g>0.7?'Mi sembra poco serio. Posso arrivare a':'Posso venirle incontro:')}); }
-const NEG_MOT={conti:'Siamo in rosso con il bilancio', futuro:'Puntiamo alla prossima stagione con acquisti migliori', gruppo:'Il gruppo viene prima del singolo', prestazioni:'Le prestazioni non lo giustificano'};
+  n.hist.push({by:'req',v:n.c,txt:pre+(!moved?(g>0.7?t_("eng.mi_sembra_poco_serio"):t_("eng.non_scendo_resto_su")):(n.c-n.M)<(R.hi-R.lo)*0.04?t_("eng.questa_e_la_mia"):g>0.7?t_("eng.mi_sembra_poco_serio_2"):t_("eng.posso_venirle_incontro"))}); }
+const NEG_MOT={conti:t_("eng.siamo_in_rosso_con"), futuro:t_("eng.puntiamo_alla_prossima_stagione"), gruppo:t_("eng.il_gruppo_viene_prima"), prestazioni:t_("eng.le_prestazioni_non_lo")};
 function credibility(t,r,m){ const ratio=wageRatio(t), wb=wageBill(t), pos=standings().indexOf(t), w=reqWho(r);
   if(m==='conti') return (ratio>0.85||arrears(t)>0||t.cash<wb*4)?1 : (ratio<0.72&&t.cash>wb*14)?-1 : 0.2;
   if(m==='futuro') return (pos>=4||G.md>=10)?0.7 : pos<=1?-0.3 : 0.2;
   if(m==='gruppo'){ const cl=clubClimate(t); return cl>=12.5?0.6 : cl<10?-0.3 : 0.1; }
   if(m==='prestazioni'){ if(w.type!=='p') return 0; const a=avgRt(w.o); return a<6.2?1 : a>6.9?-1 : 0.2; }
   return 0; }
-function credTxt(t,r,m,c){ if(m==='conti') return c>0.5?'i conti sono davvero in difficoltà':c<0?`in cassa ci sono ${kcrE(t.cash)}: non ci crede`:'i conti non sono un disastro, ma lo accetta';
-  if(m==='futuro') return c>0.5?'capisce il progetto':c<0?'la squadra è in vetta: non ci crede':'non è del tutto convinto';
-  if(m==='gruppo') return c>0.5?'lo spogliatoio è sereno, lo accetta':c<0?'con questo clima nello spogliatoio non ci crede':'lo accetta a fatica';
-  if(m==='prestazioni') return c>0.5?'sa di non aver reso':c<0?'con i voti che ha non ci sta':'non è d\'accordo, ma tace';
+function credTxt(t,r,m,c){ if(m==='conti') return c>0.5?t_("eng.i_conti_sono_davvero"):c<0?t_("eng.in_cassa_ci_sono",{cash:kcrE(t.cash)}):t_("eng.i_conti_non_sono");
+  if(m==='futuro') return c>0.5?t_("eng.capisce_il_progetto"):c<0?t_("eng.la_squadra_e_in"):t_("eng.non_e_del_tutto");
+  if(m==='gruppo') return c>0.5?t_("eng.lo_spogliatoio_e_sereno"):c<0?t_("eng.con_questo_clima_nello"):t_("eng.lo_accetta_a_fatica");
+  if(m==='prestazioni') return c>0.5?t_("eng.sa_di_non_aver"):c<0?t_("eng.con_i_voti_che"):t_("eng.non_e_d_accordo");
   return ''; }
 /* effetti pieni di un sì o di un no, per tipo di richiesta */
 function reqLoss(r){ const w=reqWho(r); if(w.type==='p') return -1.8*(1+(w.o.amb-10)*0.05); if(r.kind==='rinforzo') return -1.2; return r.kind==='obiettivo'?-0.9:-0.4; }
 function reqGain(r){ return (r.kind==='rinnovo'||r.kind==='aumento')?1.4 : r.kind==='rinforzo'?0.6 : r.kind==='obiettivo'?0.8 : 0.4; }
 function applyYes(r,t,p,v,oo){ /* conclude l'accordo al valore v (più eventuale una tantum) */
   const c=t.coach, a=Math.round(v);
-  if(r.kind==='rinnovo'||r.kind==='aumento'){ p.wg=a; if(r.kind==='rinnovo'){ p.ct=3; p.renewNo=null; } p.wantOut=false; if(oo) spend(t,'una tantum',oo); return `Accordo con ${p.ln}: ${a} cr a giornata${oo?' più '+kcrE(oo)+' alla firma':''}${r.kind==='rinnovo'?', contratto di 3 anni':''}.`; }
-  if(r.kind==='premio'){ t.bonus={md:r.mdx,amt:a}; addMission(t,{kind:'premio',amt:a,opp:r.opp,due:r.mdx+1,title:`Premio partita contro ${G.T[r.opp].n}`}); return `Premio partita: ${kcrE(a)} in caso di vittoria.`; }
-  if(r.kind==='obiettivo'){ t.obj={amt:a,lim:r.lim,goal:r.goal,s:G.season}; addMission(t,{kind:'obiettivo',amt:a,lim:r.lim,goal:r.goal,due:14,title:`Obiettivo: ${r.goal}`}); return `Premio obiettivo: ${kcrE(a)} se la squadra riesce a ${r.goal}.`; }
-  if(r.kind==='rinforzo'){ t.promise={role:r.role,thr:v,due:r.pdue,s:G.season}; addMission(t,{kind:'rinforzo',role:r.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[r.role],thr:v,due:r.pdue,title:`Rinforzo per ${c.n}`}); return `Promesso a ${c.n} un ${({D:'difensore',C:'centrocampista',A:'attaccante'})[r.role]} di valore almeno ${String(v).replace('.',',')} entro la giornata ${r.pdue}.`; }
+  if(r.kind==='rinnovo'||r.kind==='aumento'){ p.wg=a; if(r.kind==='rinnovo'){ p.ct=3; p.renewNo=null; } p.wantOut=false; if(oo) spend(t,'una tantum',oo); return t_("eng.accordo_con_cr_a",{ln:p.ln,a:a,v:oo?` ${t_("eng.piu_alla_firma",{oo:kcrE(oo)})}`:'',v2:r.kind==='rinnovo'?t_("eng.contratto_di_3_anni"):''}); }
+  if(r.kind==='premio'){ t.bonus={md:r.mdx,amt:a}; addMission(t,{kind:'premio',amt:a,opp:r.opp,due:r.mdx+1,title:t_("eng.premio_partita_contro",{n:G.T[r.opp].n})}); return t_("eng.premio_partita_in_caso",{a:kcrE(a)}); }
+  if(r.kind==='obiettivo'){ t.obj={amt:a,lim:r.lim,goal:r.goal,s:G.season}; addMission(t,{kind:'obiettivo',amt:a,lim:r.lim,goal:r.goal,due:14,title:t_("eng.obiettivo",{goal:r.goal})}); return t_("eng.premio_obiettivo_se_la",{a:kcrE(a),goal:r.goal}); }
+  if(r.kind==='rinforzo'){ t.promise={role:r.role,thr:v,due:r.pdue,s:G.season}; addMission(t,{kind:'rinforzo',role:r.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[r.role],thr:v,due:r.pdue,title:t_("eng.rinforzo_per",{n:c.n})}); return t_("eng.promesso_a_un_di",{n:c.n,v:({D:'difensore',C:'centrocampista',A:'attaccante'})[r.role],fDec:fDec(v),pdue:r.pdue}); }
   return ''; }
 function applyNo(r,t,p){ if((r.kind==='rinnovo')&&p) p.renewNo=G.season; }
 function resolveReq(r,ch,bot,o){
@@ -479,19 +479,19 @@ function resolveReq(r,ch,bot,o){
     out=closeOffer(r, ch==='neg'?'acc':ch, o); }
   else {
     const R=negRange(r), opened=!!o.opened, openPen=opened?(reqWho(r).type==='t'?-0.15:-0.3):0;
-    if(ch==='neg' && bot){ const n=negSetup(r); const v=negRound(R,n.M+(R.hi-n.M)*0.25,true); reqMorAdd(r,reqWho(r).type==='t'?-0.15:-0.3,'trattativa con il presidente'); out=applyYes(r,t,p,v,0); r.st='deal'; r.v=v; }
-    else if(ch==='acc'){ reqMorAdd(r,reqGain(r),r.kind==='rinforzo'?'il presidente ha promesso un rinforzo':(r.kind==='rinnovo'||r.kind==='aumento')?'richiesta accettata':'premio promesso'); out=applyYes(r,t,p,R.hi,0); r.st='acc'; r.v=R.hi; }
-    else if(ch==='deal'){ if(r.neg && o.acc){ r.neg.hist.push({by:'pres',acc:true,v:o.v}); r.neg.hist.push({by:'req',txt:'Bene, siamo d\'accordo.'}); } const full=o.v>=R.hi-1e-9; if(full) reqMorAdd(r,reqGain(r),'richiesta accolta dopo la trattativa'); out=applyYes(r,t,p,o.v,o.oo||0); r.st='deal'; r.v=o.v; if(!full) out+=' Accordo a metà strada.'; }
-    else if(ch==='rif'||ch==='exp'){ if(r.neg && ch==='rif'){ r.neg.hist.push({by:'pres',no:true}); } applyNo(r,t,p); const L=reqLoss(r)*(ch==='exp'?0.8:1); reqMorAdd(r,L-openPen,ch==='exp'?'richiesta ignorata dal presidente':'richiesta rifiutata'); r.st=ch;
-      const who=reqWho(r); if(who.type==='p' && who.o.amb>=13){ who.o.wantOut=true; out=`${who.o.ln} non la prende bene: vuole andare via.`; } else out=who.type==='c'?`${t.coach.n} non è contento.`:who.type==='t'?'La squadra è delusa.':`${who.o.ln} è deluso.`; }
+    if(ch==='neg' && bot){ const n=negSetup(r); const v=negRound(R,n.M+(R.hi-n.M)*0.25,true); reqMorAdd(r,reqWho(r).type==='t'?-0.15:-0.3,t_("eng.trattativa_con_il_presidente")); out=applyYes(r,t,p,v,0); r.st='deal'; r.v=v; }
+    else if(ch==='acc'){ reqMorAdd(r,reqGain(r),r.kind==='rinforzo'?t_("eng.il_presidente_ha_promesso"):(r.kind==='rinnovo'||r.kind==='aumento')?t_("eng.richiesta_accettata"):t_("eng.premio_promesso")); out=applyYes(r,t,p,R.hi,0); r.st='acc'; r.v=R.hi; }
+    else if(ch==='deal'){ if(r.neg && o.acc){ r.neg.hist.push({by:'pres',acc:true,v:o.v}); r.neg.hist.push({by:'req',txt:t_("eng.bene_siamo_d_accordo")}); } const full=o.v>=R.hi-1e-9; if(full) reqMorAdd(r,reqGain(r),t_("eng.richiesta_accolta_dopo_la")); out=applyYes(r,t,p,o.v,o.oo||0); r.st='deal'; r.v=o.v; if(!full) out+=t_("eng.accordo_a_meta_strada"); }
+    else if(ch==='rif'||ch==='exp'){ if(r.neg && ch==='rif'){ r.neg.hist.push({by:'pres',no:true}); } applyNo(r,t,p); const L=reqLoss(r)*(ch==='exp'?0.8:1); reqMorAdd(r,L-openPen,ch==='exp'?t_("eng.richiesta_ignorata_dal_president"):t_("eng.richiesta_rifiutata")); r.st=ch;
+      const who=reqWho(r); if(who.type==='p' && who.o.amb>=13){ who.o.wantOut=true; out=t_("eng.non_la_prende_bene",{ln:who.o.ln}); } else out=who.type==='c'?t_("eng.non_e_contento",{n:t.coach.n}):who.type==='t'?t_("eng.la_squadra_e_delusa"):t_("eng.e_deluso",{ln:who.o.ln}); }
     else if(ch==='rifm'){ applyNo(r,t,p); const m=o.motive||'conti', cr=credibility(t,r,m), X=Math.max(0,Math.round(o.oo||0));
       const ref = (r.kind==='rinnovo'||r.kind==='aumento') ? Math.max(5000,(R.hi-R.lo)*R.E*0.5) : r.kind==='rinforzo' ? 40000 : Math.max(5000,R.hi*0.5);
       const red=clamp(0.35*cr+0.5*Math.min(1,X/ref),-0.3,0.75), L=reqLoss(r)*(1-red);
-      if(X) spend(t,'una tantum',X); reqMorAdd(r,L-openPen,`rifiuto motivato: «${NEG_MOT[m]}»`); r.st='rifm';
-      const who=reqWho(r), nm=who.type==='c'?t.coach.n:who.type==='t'?'La squadra':who.o.ln;
+      if(X) spend(t,'una tantum',X); reqMorAdd(r,L-openPen,t_("eng.rifiuto_motivato",{v:NEG_MOT[m]})); r.st='rifm';
+      const who=reqWho(r), nm=who.type==='c'?t.coach.n:who.type==='t'?t_("eng.la_squadra"):who.o.ln;
       if(who.type==='p' && who.o.amb>=14 && red<0.2) who.o.wantOut=true;
-      out=`No motivato${X?' con '+kcrE(X)+' una tantum':''}: «${NEG_MOT[m]}». ${nm}: ${credTxt(t,r,m,cr)}.`;
-      if(r.neg){ r.neg.hist.push({by:'pres',no:true,m,oo:X}); r.neg.hist.push({by:'req',txt:(cr>0.5?'Va bene, capisco: ':cr<0?'Non ci credo: ':'Lo accetto, ma non sono contento: ')+credTxt(t,r,m,cr)+(X?`. Grazie per i ${kcrE(X)}.`:'.')}); } }
+      out=t_("eng.no_motivato",{v:X?` ${t_("eng.con_una_tantum",{X:kcrE(X)})}`:'',v2:NEG_MOT[m],nm:nm,credTxt:credTxt(t,r,m,cr)});
+      if(r.neg){ r.neg.hist.push({by:'pres',no:true,m,oo:X}); r.neg.hist.push({by:'req',txt:(cr>0.5?t_("eng.va_bene_capisco"):cr<0?t_("eng.non_ci_credo"):t_("eng.lo_accetto_ma_non"))+credTxt(t,r,m,cr)+(X?t_("eng.grazie_per_i",{X:kcrE(X)}):'.')}); } }
   }
   r.out=out; f.hist.unshift({s:G.season,md:G.md,t:`${REQ_KIND[r.kind]}: ${out}`}); if(f.hist.length>30) f.hist.length=30;
   if(t.id===0 && !bot) news(out,'club',false,t.id);
@@ -499,8 +499,8 @@ function resolveReq(r,ch,bot,o){
 /* dopo ogni giornata: premi partita, promesse, richieste scadute, malumori, nuove richieste */
 function afterRound(out){
   for(const t of G.T){ const m=out.find(x=>x.h===t.id||x.a===t.id), side=m.h===t.id?0:1, win=side?m.ga>m.gh:m.gh>m.ga;
-    if(t.bonus && t.bonus.md===G.md-1){ closeMission(t,'premio',win?'ok':'end',win?`Vittoria: premio di ${kcrE(t.bonus.amt)} pagato.`:'Niente vittoria: il premio non è dovuto.'); if(win){ spend(t,'premi',t.bonus.amt); if(t.id===0) news(`Vittoria: pagato il premio partita di ${kcrE(t.bonus.amt)}.`,'club',false,t.id); } t.bonus=null; }
-    if(t.promise && G.md>=t.promise.due){ const c=t.coach; c.mor=clamp((c.mor??12)-2,1,20); addCause(c,'promessa di rinforzo non mantenuta',-2); teamMor(t,-0.3,'promessa del presidente non mantenuta'); if(t.id===0) news(`${c.n}: "Mi era stato promesso un rinforzo." La promessa non è stata mantenuta.`,'coach',false,t.id); finInit(t).hist.unshift({s:G.season,md:G.md,t:'Promessa di rinforzo non mantenuta'}); closeMission(t,'rinforzo','ko','Non mantenuta: nessun rinforzo entro la scadenza.'); t.promise=null; }
+    if(t.bonus && t.bonus.md===G.md-1){ closeMission(t,'premio',win?'ok':'end',win?t_("eng.vittoria_premio_di_pagato",{amt:kcrE(t.bonus.amt)}):t_("eng.niente_vittoria_il_premio")); if(win){ spend(t,'premi',t.bonus.amt); if(t.id===0) news(t_("eng.vittoria_pagato_il_premio",{amt:kcrE(t.bonus.amt)}),'club',false,t.id); } t.bonus=null; }
+    if(t.promise && G.md>=t.promise.due){ const c=t.coach; c.mor=clamp((c.mor??12)-2,1,20); addCause(c,t_("eng.promessa_di_rinforzo_non"),-2); teamMor(t,-0.3,t_("eng.promessa_del_presidente_non")); if(t.id===0) news(t_("eng.mi_era_stato_promesso",{n:c.n}),'coach',false,t.id); finInit(t).hist.unshift({s:G.season,md:G.md,t:t_("eng.promessa_di_rinforzo_non_2")}); closeMission(t,'rinforzo','ko',t_("eng.non_mantenuta_nessun_rinforzo")); t.promise=null; }
     teamPlayers(t).forEach(p=>{ if(p.wantOut){ p.mor=clamp(p.mor-0.3,1,20); } });
   }
   (G.req||[]).filter(r=>r.st==='open' && r.kind==='acquisto').forEach(r=>{ r.st='exp'; });
@@ -514,16 +514,16 @@ function addMission(t,o){ t.miss=t.miss||[]; t.miss.unshift({id:(G.mid=(G.mid||0
 function closeMission(t,kind,st,res){ const m=(t.miss||[]).find(x=>x.kind===kind && x.st==='on'); if(m){ m.st=st; m.res=res; m.end=G.md; } }
 function activeMissions(t){ return (t.miss||[]).filter(m=>m.st==='on'); }
 function missionRemind(t){ if(t.id!==0) return; for(const m of activeMissions(t)){ if(m.kind!=='rinforzo') continue; const left=m.due-G.md;
-  if(left===2) news(`Promemoria: hai promesso a ${t.coach.n} un ${m.roleN} di valore almeno ${String(m.thr).replace('.',',')}. Mancano 2 giornate.`,'coach',false,t.id);
-  if(left===1) news(`Ultima occasione: compra ${m.roleN==='attaccante'?'l\'':'il '}${m.roleN} promesso a ${t.coach.n} prima di giocare la giornata ${m.due}.`,'coach',false,t.id); } }
-function promiseCheck(t,p){ if(t.promise && p.r===t.promise.role && ovr(p)>=t.promise.thr-0.05){ const c=t.coach; c.mor=clamp((c.mor??12)+1.5,1,20); addCause(c,'il presidente ha mantenuto la promessa',1.5); teamMor(t,0.3,'arriva il rinforzo promesso'); news(`${c.n} ringrazia: il rinforzo promesso è arrivato.`,'coach',false,t.id); closeMission(t,'rinforzo','ok',`Mantenuta: è arrivato ${p.fn} ${p.ln}.`); finInit(t).hist.unshift({s:G.season,md:G.md,t:`Promessa mantenuta: arriva ${p.ln}`}); t.promise=null; } }
+  if(left===2) news(t_("eng.promemoria_hai_promesso_a",{n:t.coach.n,roleN:m.roleN,fDec:fDec(m.thr)}),'coach',false,t.id);
+  if(left===1) news(t_("eng.ultima_occasione_compra_promesso",{v:m.roleN==='attaccante'?'l\'':t_("eng.il"),roleN:m.roleN,n:t.coach.n,due:m.due}),'coach',false,t.id); } }
+function promiseCheck(t,p){ if(t.promise && p.r===t.promise.role && ovr(p)>=t.promise.thr-0.05){ const c=t.coach; c.mor=clamp((c.mor??12)+1.5,1,20); addCause(c,t_("eng.il_presidente_ha_mantenuto"),1.5); teamMor(t,0.3,t_("eng.arriva_il_rinforzo_promesso")); news(t_("eng.ringrazia_il_rinforzo_promesso",{n:c.n}),'coach',false,t.id); closeMission(t,'rinforzo','ok',t_("eng.mantenuta_e_arrivato",{fn:p.fn,ln:p.ln})); finInit(t).hist.unshift({s:G.season,md:G.md,t:t_("eng.promessa_mantenuta_arriva",{ln:p.ln})}); t.promise=null; } }
 
 
 /* ====================== CALCIOMERCATO IN USCITA ======================
    Il presidente tratta il prezzo con il club che compra; se c'è l'accordo, decide il giocatore (in segreto). */
 /* club che compra: una squadra del campionato o un club estero (virtuale, ricco e prestigioso) */
-const FOREIGN=['un club inglese','un club spagnolo','un club tedesco','un club francese','un club arabo','un club turco'];
-function buyerOf(r){ return r.buyer===-1 ? {id:-1, n:r.bn||'un club estero', cash:1e9, pl:[], foreign:true} : G.T[r.buyer]; }
+const FOREIGN=[t_("eng.un_club_inglese"),t_("eng.un_club_spagnolo"),t_("eng.un_club_tedesco"),t_("eng.un_club_francese"),t_("eng.un_club_arabo"),t_("eng.un_club_turco")];
+function buyerOf(r){ return r.buyer===-1 ? {id:-1, n:r.bn||t_("eng.un_club_estero"), cash:1e9, pl:[], foreign:true} : G.T[r.buyer]; }
 function offMax(r){ const p=G.P[r.pid], b=buyerOf(r), v=value(p); if(b.foreign) return Math.max(r.amt*1.05, v*(1.2+(hashN(r.id+7))*0.3));
   const need=teamPlayers(b).filter(q=>q.r===p.r).length<({P:2,D:5,C:5,A:4})[p.r]?1:0, rich=clamp(b.cash/(v*2)-0.5,0,1), form=clamp((avgRt(p)-6.2)/1.2,-0.5,1);
   return Math.max(r.amt*1.02, Math.min(b.cash*0.95, v*(1.04+need*0.15+rich*0.15+form*0.1+(hashN(r.id+7)-0.5)*0.14))); }
@@ -533,29 +533,29 @@ function willGo(r){ const p=G.P[r.pid], t=G.T[r.team], b=buyerOf(r), st=standing
 function offSetup(r){ const X=offMax(r); return {X, k:0.32+(hashN(r.id+11)-0.5)*0.1, pat:90+(hashN(r.id+5))*30, c:r.amt, hist:[], st:'open', off:true}; }
 function offRange(r){ const v=value(G.P[r.pid]); return {lo:r.amt, hi:Math.max(r.amt*1.3,Math.round(v*1.7/5000)*5000), step:5000}; }
 function offPropose(r,P){ const n=r.neg, R=offRange(r); if(!n||n.st!=='open') return; P=Math.round(clamp(P,R.lo,R.hi)/5000)*5000; n.hist.push({by:'pres',v:P});
-  if(P<=n.X+1){ n.hist.push({by:'req',txt:'Affare fatto, per noi va bene.'}); n.st='deal'; resolveReq(r,'deal',false,{v:P,opened:true}); return; }
+  if(P<=n.X+1){ n.hist.push({by:'req',txt:t_("eng.affare_fatto_per_noi")}); n.st='deal'; resolveReq(r,'deal',false,{v:P,opened:true}); return; }
   const g=clamp((P-n.X)/Math.max(1,n.X*0.5),0,1); n.pat=Math.max(0,n.pat-(10+75*Math.pow(g,1.1)));
-  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'req',v:n.c,txt:'Non andiamo oltre. La nostra offerta resta'}); return; }
+  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'req',v:n.c,txt:t_("eng.non_andiamo_oltre_la")}); return; }
   const prev=n.c; n.c=Math.min(n.X, Math.round((n.c+(n.X-n.c)*n.k+n.X*0.01)/5000)*5000); if(n.c>n.X) n.c=Math.floor(n.X/5000)*5000; if(n.c<prev) n.c=prev;
-  n.hist.push({by:'req',v:n.c,txt:n.c<=prev?(g>0.7?'Cifre fuori mercato. Restiamo a':'Più di così non possiamo, restiamo a'):(n.X-n.c)<n.X*0.03?'Ultimo rilancio:':g>0.7?'Cifra esagerata. Possiamo salire a':'Possiamo alzare a'}); }
-const OFF_MOT={incedibile:'Per noi è incedibile', obiettivo:'Ci serve per raggiungere l\'obiettivo', futuro:'Fa parte del progetto per la prossima stagione'};
+  n.hist.push({by:'req',v:n.c,txt:n.c<=prev?(g>0.7?t_("eng.cifre_fuori_mercato_restiamo"):t_("eng.piu_di_cosi_non")):(n.X-n.c)<n.X*0.03?t_("eng.ultimo_rilancio"):g>0.7?t_("eng.cifra_esagerata_possiamo_salire"):t_("eng.possiamo_alzare_a")}); }
+const OFF_MOT={incedibile:t_("eng.per_noi_e_incedibile"), obiettivo:t_("eng.ci_serve_per_raggiungere"), futuro:t_("eng.fa_parte_del_progetto")};
 function offCred(t,r,m){ const p=G.P[r.pid], top=teamPlayers(t).sort((a,b)=>ovr(b)-ovr(a)).slice(0,4).includes(p), pos=standings().indexOf(t);
   if(m==='incedibile') return top?1:-0.5; if(m==='obiettivo') return pos<=3?0.8:pos>=6?-0.4:0.2; if(m==='futuro') return p.age<=26?0.6:p.age>=31?-0.5:0.1; return 0; }
 /* chiude l'offerta: vendita (se il giocatore accetta) o rifiuto */
 function closeOffer(r,ch,o){ const t=G.T[r.team], p=G.P[r.pid], b=buyerOf(r), w=willGo(r); let out='';
   if(ch==='acc'||ch==='deal'){ const amt=ch==='acc'?r.amt:o.v;
-    if(!(b.cash>=amt*0.9 && b.pl.length<23)){ r.st='exp'; return `${b.n} non ha più i fondi: l'affare salta.`; }
-    { const bk=bankOkSale(t,p,amt); if(bk){ r.st='bank'; if(r.neg) r.neg.hist.push({by:'pl',txt:'La banca non ha dato l\'ok: il giocatore è in pegno.'}); return bk+' L\'affare salta.'; } }
+    if(!(b.cash>=amt*0.9 && b.pl.length<23)){ r.st='exp'; return t_("eng.non_ha_piu_i",{n:b.n}); }
+    { const bk=bankOkSale(t,p,amt); if(bk){ r.st='bank'; if(r.neg) r.neg.hist.push({by:'pl',txt:t_("eng.la_banca_non_ha")}); return bk+` ${t_("eng.l_affare_salta")}`; } }
     if(rnd()<w){ t.pl=t.pl.filter(x=>x!==p.id); if(b.foreign){ p.team=null; p.abroad=true; } else { b.pl.push(p.id); p.team=b.id; p.ct=3; p.wg=Math.max(p.wg,Math.round(wage(p)*1.15/100)*100); budVary(b,'acquisti',amt); spend(b,'acquisti',amt); ensureCaptains(b,true); } p.wantOut=false; p.mor=clamp(p.mor+1,1,20); earn(t,'cessioni',amt); onSold(t,p,amt); ensureCaptains(t,t.id!==0);
-      r.st=ch; r.v=amt; out=`${p.fn} ${p.ln} accetta: ceduto a ${b.n} per ${kcrE(amt)}.`; news(`${t.n} cede ${p.fn} ${p.ln} a ${b.n} per ${kcrE(amt)}.`, t.id===0?'market':'match',true,t.id);
-      if(r.neg) r.neg.hist.push({by:'pl',txt:`Accetto il trasferimento a ${b.n}.`}); }
-    else { r.st='plno'; p.mor=clamp(p.mor-0.5,1,20); addCause(p,'il club voleva vendermi',-0.5); out=`Accordo tra i club, ma ${p.ln} rifiuta il trasferimento a ${b.n}: vuole restare.`;
-      if(r.neg) r.neg.hist.push({by:'pl',txt:`Grazie, ma resto qui. Non voglio andare a ${b.n}.`}); } }
-  else { const d0 = w>0.6 ? -1.6 : w<0.35 ? 0.3 : -0.3; let d=d0, why=w>0.6?'cessione rifiutata dal club':w<0.35?'il presidente non vuole vendermi':'cessione rifiutata dal club';
-    if(ch==='rifm' && d0<0){ const cr=offCred(t,r,o.motive); d=d0*(1-clamp(0.45*cr,-0.3,0.6)); why=`rifiuto motivato: «${OFF_MOT[o.motive]}»`;
-      if(r.neg) r.neg.hist.push({by:'pl',txt:cr>0.5?'Capisco, mi fa piacere sentirmelo dire.':cr<0?'Non ci credo: è solo un modo per tenermi qui.':'Va bene, ne riparleremo.'}); }
+      r.st=ch; r.v=amt; out=t_("eng.accetta_ceduto_a_per",{fn:p.fn,ln:p.ln,n:b.n,amt:kcrE(amt)}); news(t_("eng.cede_a_per",{n:t.n,fn:p.fn,ln:p.ln,n2:b.n,amt:kcrE(amt)}), t.id===0?'market':'match',true,t.id);
+      if(r.neg) r.neg.hist.push({by:'pl',txt:t_("eng.accetto_il_trasferimento_a",{n:b.n})}); }
+    else { r.st='plno'; p.mor=clamp(p.mor-0.5,1,20); addCause(p,t_("eng.il_club_voleva_vendermi"),-0.5); out=t_("eng.accordo_tra_i_club",{ln:p.ln,n:b.n});
+      if(r.neg) r.neg.hist.push({by:'pl',txt:t_("eng.grazie_ma_resto_qui",{n:b.n})}); } }
+  else { const d0 = w>0.6 ? -1.6 : w<0.35 ? 0.3 : -0.3; let d=d0, why=w>0.6?t_("eng.cessione_rifiutata_dal_club"):w<0.35?t_("eng.il_presidente_non_vuole"):t_("eng.cessione_rifiutata_dal_club");
+    if(ch==='rifm' && d0<0){ const cr=offCred(t,r,o.motive); d=d0*(1-clamp(0.45*cr,-0.3,0.6)); why=t_("eng.rifiuto_motivato",{v:OFF_MOT[o.motive]});
+      if(r.neg) r.neg.hist.push({by:'pl',txt:cr>0.5?t_("eng.capisco_mi_fa_piacere"):cr<0?t_("eng.non_ci_credo_e"):t_("eng.va_bene_ne_riparleremo")}); }
     p.mor=clamp(p.mor+d,1,20); addCause(p,why,d); if(w>0.6 && d<-1) p.wantOut=true;
-    r.st=ch; out=`Offerta di ${b.n} respinta: ${p.ln} ${w>0.6?(d<-1?'voleva andare ed è molto deluso':'voleva andare, ma capisce'):w<0.35?'è contento di restare':'resta'}.`; }
+    r.st=ch; out=t_("eng.offerta_di_respinta",{n:b.n,ln:p.ln,v:w>0.6?(d<-1?t_("eng.voleva_andare_ed_e"):t_("eng.voleva_andare_ma_capisce")):w<0.35?t_("eng.e_contento_di_restare"):'resta'}); }
   return out; }
 
 
@@ -576,38 +576,38 @@ function buyOpen(p){ G.req=G.req||[]; let r=G.req.find(q=>q.team===0&&q.kind==='
 function buyPlayerPhase(r){ const p=G.P[r.pid], I=joinInterest(r), free=p.team==null;
   const Wask=Math.round(Math.max(wage(p),p.wg)*(1.12+(p.amb-11)*0.02)/100)*100, Wmin=Math.max(free?wage(p)*0.7:p.wg, Wask*(1.05-I*0.45));
   const n=r.neg||{hist:[]}; r.neg={ph:'player', I, M:Wmin, ask:Wask, c:Wask, k:0.25+I*0.3, pat:60+I*70, pat0:130, hist:n.hist, st:'open', fee:n.fee||0};
-  if(I<0.15){ r.neg.st='no'; r.st='plno'; r.neg.hist.push({by:'pl',txt:'La ringrazio, ma non sono interessato a venire.'}); r.out=`${p.fn} ${p.ln} non è interessato al trasferimento.`; }
-  else r.neg.hist.push({by:'pl',txt:`Per venire chiedo ${fmtK(Wask)} cr a giornata, contratto di 3 anni.`}); }
-const fmtK=n=>Math.round(n).toLocaleString('it-IT');
+  if(I<0.15){ r.neg.st='no'; r.st='plno'; r.neg.hist.push({by:'pl',txt:t_("eng.la_ringrazio_ma_non")}); r.out=t_("eng.non_e_interessato_al",{fn:p.fn,ln:p.ln}); }
+  else r.neg.hist.push({by:'pl',txt:t_("eng.per_venire_chiedo_cr",{Wask:fmtK(Wask)})}); }
+const fmtK=n=>fInt(n);   /* formati in testi_it.js (0.4.2.6) */
 function buyPropose(r,v,oo){ const n=r.neg; if(!n||n.st!=='open') return; const p=G.P[r.pid];
   if(n.ph==='club'){ v=Math.round(v/5000)*5000; n.hist.push({by:'pres',v,ph:'club'});
-    if(v>=n.M-1){ n.fee=v; n.hist.push({by:'club',txt:'D\'accordo sul prezzo. Ora deve convincere il giocatore.'}); buyPlayerPhase(r); return; }
+    if(v>=n.M-1){ n.fee=v; n.hist.push({by:'club',txt:t_("eng.d_accordo_sul_prezzo")}); buyPlayerPhase(r); return; }
     const g=clamp((n.M-v)/Math.max(1,n.M*0.5),0,1); n.pat=Math.max(0,n.pat-(10+75*Math.pow(g,1.1)));
-    if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'club',v:n.c,txt:'Non scendiamo più. La nostra richiesta resta'}); return; }
+    if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'club',v:n.c,txt:t_("eng.non_scendiamo_piu_la")}); return; }
     const prev=n.c; n.c=Math.max(Math.ceil(n.M/5000)*5000, Math.round((n.c-(n.c-n.M)*n.k-n.M*0.01)/5000)*5000); if(n.c>prev) n.c=prev;
-    n.hist.push({by:'club',v:n.c,txt:n.c>=prev?(g>0.7?'Offerta irricevibile. Restiamo a':'Non possiamo scendere, restiamo a'):(n.c-n.M)<n.M*0.03?'Ultima richiesta:':g>0.7?'Offerta bassa. Possiamo scendere a':'Possiamo scendere a'}); return; }
+    n.hist.push({by:'club',v:n.c,txt:n.c>=prev?(g>0.7?t_("eng.offerta_irricevibile_restiamo_a"):t_("eng.non_possiamo_scendere_restiamo")):(n.c-n.M)<n.M*0.03?t_("eng.ultima_richiesta"):g>0.7?t_("eng.offerta_bassa_possiamo_scendere"):t_("eng.possiamo_scendere_a")}); return; }
   /* fase 2: contratto con il giocatore */
   v=Math.round(v/50)*50; oo=Math.max(0,Math.round(oo||0)); n.hist.push({by:'pres',v,oo,ph:'player'});
   const ve=v+oo/42;
-  if(ve>=n.M-1e-9){ n.hist.push({by:'pl',txt:'Affare fatto, vengo volentieri.'}); buyComplete(r,v,oo); return; }
+  if(ve>=n.M-1e-9){ n.hist.push({by:'pl',txt:t_("eng.affare_fatto_vengo_volentieri")}); buyComplete(r,v,oo); return; }
   const g=clamp((n.M-ve)/Math.max(1,n.ask*0.4),0,1); n.pat=Math.max(0,n.pat-(10+75*Math.pow(g,1.1)));
-  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'pl',v:n.c,txt:'Ho perso la pazienza. Resto su'}); return; }
+  if(n.pat<=0){ n.st='stalled'; n.hist.push({by:'pl',v:n.c,txt:t_("eng.ho_perso_la_pazienza")}); return; }
   const prev=n.c; n.c=Math.max(Math.ceil(n.M/50)*50, Math.round((n.c-(n.c-n.M)*n.k-n.ask*0.01)/50)*50); if(n.c>prev) n.c=prev;
-  n.hist.push({by:'pl',v:n.c,txt:n.c>=prev?'Non scendo, resto su':(n.c-n.M)<n.ask*0.03?'Ultima richiesta:':'Posso accettare'}); }
-function buyAccept(r){ const n=r.neg; if(!n) return; if(n.ph==='club'){ n.fee=n.c; n.hist.push({by:'pres',acc:true,v:n.c,ph:'club'}); n.hist.push({by:'club',txt:'Bene. Ora deve convincere il giocatore.'}); n.st='open'; buyPlayerPhase(r); } else { n.hist.push({by:'pres',acc:true,v:n.c,ph:'player'}); n.hist.push({by:'pl',txt:'Allora siamo d\'accordo.'}); buyComplete(r,n.c,0); } }
-function buyQuit(r){ if(!r||r.st!=='open') return; r.st='quit'; if(r.neg) r.neg.st='no'; r.out='Trattativa abbandonata.'; }
+  n.hist.push({by:'pl',v:n.c,txt:n.c>=prev?t_("eng.non_scendo_resto_su"):(n.c-n.M)<n.ask*0.03?t_("eng.ultima_richiesta"):t_("eng.posso_accettare")}); }
+function buyAccept(r){ const n=r.neg; if(!n) return; if(n.ph==='club'){ n.fee=n.c; n.hist.push({by:'pres',acc:true,v:n.c,ph:'club'}); n.hist.push({by:'club',txt:t_("eng.bene_ora_deve_convincere")}); n.st='open'; buyPlayerPhase(r); } else { n.hist.push({by:'pres',acc:true,v:n.c,ph:'player'}); n.hist.push({by:'pl',txt:t_("eng.allora_siamo_d_accordo")}); buyComplete(r,n.c,0); } }
+function buyQuit(r){ if(!r||r.st!=='open') return; r.st='quit'; if(r.neg) r.neg.st='no'; r.out=t_("eng.trattativa_abbandonata"); }
 function buyComplete(r,w,oo){ const p=G.P[r.pid], me=G.T[0], n=r.neg, fee=n.fee||0;
-  if(me.pl.length>=24){ n.st='no'; r.st='fail'; r.out='Rosa piena: massimo 24 giocatori.'; return; }
-  if(fee+oo>me.cash){ n.st='no'; r.st='fail'; r.out=`Non hai abbastanza crediti: servono ${kcrE(fee+oo)}.`; return; }
+  if(me.pl.length>=24){ n.st='no'; r.st='fail'; r.out=t_("eng.rosa_piena_massimo_24"); return; }
+  if(fee+oo>me.cash){ n.st='no'; r.st='fail'; r.out=t_("eng.non_hai_abbastanza_crediti",{fee:kcrE(fee+oo)}); return; }
   { const v=buyBlock(me,fee+oo); if(v){ n.st='no'; r.st='fail'; r.out=v; n.hist.push({by:'club',txt:v}); return; } }
   if(p.team!=null){ const from=G.T[p.team]; from.pl=from.pl.filter(x=>x!==p.id); earn(from,'cessioni',fee); onSold(from,p,fee); ensureCaptains(from,true); } else G.FA=G.FA.filter(x=>x!==p.id);
   spend(me,'acquisti',fee); if(oo) spend(me,'una tantum',oo); promiseCheck(me,p);
-  p.team=0; p.ct=3; p.wg=w; p.wantOut=false; p.renewNo=null; p.mor=clamp(12+n.I*4,1,20); addCause(p,'nuovo arrivo',0); me.pl.push(p.id); ensureCaptains(me,true);
-  n.st='deal'; r.st='deal'; r.out=`Ufficiale: ${p.fn} ${p.ln} firma con noi${fee?' per '+kcrE(fee):' da svincolato'}. Stipendio ${fmtK(w)} cr a giornata${oo?', '+kcrE(oo)+' alla firma':''}.`;
+  p.team=0; p.ct=3; p.wg=w; p.wantOut=false; p.renewNo=null; p.mor=clamp(12+n.I*4,1,20); addCause(p,t_("eng.nuovo_arrivo"),0); me.pl.push(p.id); ensureCaptains(me,true);
+  n.st='deal'; r.st='deal'; r.out=t_("eng.ufficiale_firma_con_noi",{fn:p.fn,ln:p.ln,v:fee?` ${t_("eng.per",{fee:kcrE(fee)})}`:t_("eng.da_svincolato"),w:fmtK(w),v2:oo?t_("eng.alla_firma",{oo:kcrE(oo)}):''});
   finInit(me).hist.unshift({s:G.season,md:G.md,t:r.out}); news(r.out,'market',true,0); }
 
 /* ---------- morale ---------- */
-const fmtV=v=>String(v).replace('.',',');
+const fmtV=v=>fDec(v);
 function morLevel(x){ return x>=16?'alto':x>=13.5?'buono':x>=10.5?'normale':x>=7.5?'basso':'pessimo'; }
 function teamMorale(t){ const pl=teamPlayers(t); if(!pl.length) return 12; const top=pl.slice().sort((a,b)=>(b.apps||0)-(a.apps||0)).slice(0,14); let s=0,w=0; for(const p of top){ const k=p.id===t.cap?3:p.id===t.vcap?1.5:1; s+=p.mor*k; w+=k; } return s/w; }
 function addCause(o,txt,d){ o.morC=o.morC||[]; o.morC.unshift({s:G.season,md:G.md+1,t:txt,d:Math.round(d*10)/10}); if(o.morC.length>5) o.morC.length=5; }
@@ -618,15 +618,15 @@ function updMorale(t,m,side){
   for(const p of pl){
     const mins=m.mins[p.id]||0, why=[]; let d=0;
     const neg=x=>x<0?x*clamp(1-(p.prof-12)*0.05,0.6,1.4):x*clamp(1+(p.amb-11)*0.02,0.85,1.2);
-    if(mins>0){ const rt=m.rt[p.id]??6; d+=neg((rt-6.1)*0.55); if(rt>=7.5) why.push(`ottima prova (voto ${fmtV(rt)})`); else if(rt<=5) why.push(`prova deludente (voto ${fmtV(rt)})`);
-      const g=goals[p.id]||0; if(g){ d+=0.3*g; why.push(g>1?`${g} gol`:'ha segnato'); } p.bench=0; }
-    else if(avail.has(p.id)){ p.bench=(p.bench||0)+1; if(ovr(p)>top-1.2){ let x=-0.32*(1+(p.amb-10)*0.06); if(p.bench>=3){ x-=0.25; why.push(`${p.bench} panchine di fila`); } else why.push('lasciato in panchina'); d+=neg(x); } }
+    if(mins>0){ const rt=m.rt[p.id]??6; d+=neg((rt-6.1)*0.55); if(rt>=7.5) why.push(t_("eng.ottima_prova_voto",{rt:fmtV(rt)})); else if(rt<=5) why.push(t_("eng.prova_deludente_voto",{rt:fmtV(rt)}));
+      const g=goals[p.id]||0; if(g){ d+=0.3*g; why.push(g>1?`${g} gol`:t_("eng.ha_segnato")); } p.bench=0; }
+    else if(avail.has(p.id)){ p.bench=(p.bench||0)+1; if(ovr(p)>top-1.2){ let x=-0.32*(1+(p.amb-10)*0.06); if(p.bench>=3){ x-=0.25; why.push(t_("eng.panchine_di_fila",{bench:p.bench})); } else why.push(t_("eng.lasciato_in_panchina")); d+=neg(x); } }
     d+=neg(res*(mins>0?0.32:0.1)); if(res && mins>0 && !why.length) why.push(res>0?'vittoria':'sconfitta');
     const club=(tm-p.mor)*0.05+(cm-12)*0.02+(cap&&cap!==p?(cap.mor-12)*0.015:0); d+=club;
-    if(Math.abs(club)>=0.25) why.push(club>0?'buon clima nello spogliatoio':'spogliatoio nervoso');
+    if(Math.abs(club)>=0.25) why.push(club>0?t_("eng.buon_clima_nello_spogliatoio"):t_("eng.spogliatoio_nervoso"));
     d=clamp(d,-1.6,1.6);
     const rev=(12-p.mor)*0.13; p.mor=clamp(p.mor+d+rev,1,20);
-    if(Math.abs(d)>=0.5 && why.length){ addCause(p, why.join(', '), d); if(t.id===0 && d<=-1) news(`${p.fn} ${p.ln} è giù di morale: ${why[0]}.`,'player',false,t.id); }
+    if(Math.abs(d)>=0.5 && why.length){ addCause(p, why.join(', '), d); if(t.id===0 && d<=-1) news(t_("eng.e_giu_di_morale",{fn:p.fn,ln:p.ln,v:why[0]}),'player',false,t.id); }
   }
   const cr=m.coachRt?m.coachRt[side]:null; let dc=0; const cw=[];
   if(cr){ c.rts=c.rts||[]; c.rts.push(cr.v); if(c.rts.length>8) c.rts.shift(); }
@@ -634,7 +634,7 @@ function updMorale(t,m,side){
   dc+=res*0.3; if(m.coachOff&&m.coachOff[side]) dc-=0.5; dc=clamp(dc,-1.5,1.5);
   c.mor=clamp(cm+dc+(12-cm)*0.13,1,20); if(Math.abs(dc)>=0.4 && cw.length) addCause(c, cw.join(', '), dc);
   const old=t.mor??12; t.mor=teamMorale(t);
-  if(t.id===0 && morLevel(old)!==morLevel(t.mor)) news(`Spogliatoio: il morale della squadra ora è ${morLevel(t.mor)}.`,'club',false,t.id);
+  if(t.id===0 && morLevel(old)!==morLevel(t.mor)) news(t_("eng.spogliatoio_il_morale_della",{morLevel:morLevel(t.mor)}),'club',false,t.id);
 }
 function standings(){ return [...G.T].sort((a,b)=>((a.fin&&a.fin.excluded)?1:0)-((b.fin&&b.fin.excluded)?1:0) || teamPts(b)-teamPts(a) || (b.tab.gf-b.tab.gs)-(a.tab.gf-a.tab.gs) || b.tab.gf-a.tab.gf); }
 
@@ -643,10 +643,10 @@ function coachTalk(){
   if(rnd()<0.25){
     let worst=null, wv=99;
     for(const r of ['D','C','A']){ const ps=pl.filter(p=>p.r===r).map(ovr).sort((a,b)=>b-a).slice(0,need[r]); const v=ps.length<need[r]?0:ps.reduce((a,b)=>a+b,0)/ps.length; if(v<wv){wv=v;worst=r;} }
-    news(`${t.coach.n} (allenatore): "Presidente, il reparto che mi preoccupa è quello dei ${ {D:'difensori',C:'centrocampisti',A:'attaccanti'}[worst] }. Un rinforzo lì farebbe la differenza."`,'coach',false,0);
+    news(t_("eng.allenatore_presidente_il_reparto",{n:t.coach.n,v:{D:'difensori',C:'centrocampisti',A:'attaccanti'}[worst]}),'coach',false,0);
   }
   const sad = pl.filter(p=>p.mor<6.5 && p.amb>11);
-  if(sad.length && rnd()<0.4){ const p=sad[0]; news(`${p.fn} ${p.ln} è scontento per il poco spazio. Se non gioca potrebbe chiedere la cessione.`,'player',false,0); }
+  if(sad.length && rnd()<0.4){ const p=sad[0]; news(t_("eng.e_scontento_per_il",{fn:p.fn,ln:p.ln}),'player',false,0); }
 }
 function botMarket(){
   for(const b of G.T){ if(b.id===0 || finInit(b).excluded || b.pl.length>=17) continue;
@@ -673,7 +673,7 @@ function botMarket(){
    Gli indici dei club cambiano solo con swapTeams: remapClubs li aggiorna ovunque. Nessuna funzione qui usa rnd(). */
 /* premi: [popolarità, aumento degli sponsor] per prima, seconda e terza; sc = popolarità al club del capocannoniere (tools/multi.js li può cambiare con PRIZES=…) */
 const PRIZES={pos:[[8,0.10],[4,0.05],[2,0.03]], sc:2}, YOUNG_AGE=21;
-function mkPres(){ return {id:'p1', n:'Il presidente', u:1, t:0, h:[]}; }
+function mkPres(){ return {id:'p1', n:t_("eng.il_presidente"), u:1, t:0, h:[]}; }
 function statApp(p,club,v){ const s=p.ss||(p.ss=[0,0,0,0,club]); s[0]++; s[4]=club;
   if(typeof v==='number'){ const x=Math.round(v*10); s[2]+=x; s[3]++; const c=p.cr||(p.cr=[0,0]); c[0]+=x; c[1]++; } }
 function statGoal(p){ (p.ss||(p.ss=[0,0,0,0,p.team]))[1]++; }
@@ -701,11 +701,11 @@ function awardPrizes(row){ const S=row.s;
   const give=(id,pop,sp,k)=>{ const t=G.T[id]; if(!t) return; t.pop=clamp(t.pop+pop,10,100); if(sp) t.spB=[S+1,sp]; row.pr.push([id,pop,sp,k]); return t; };
   const pc=x=>Math.round(x*100)+'%';
   row.r.slice(0,3).forEach((id,i)=>{ if(row.es.includes(id)) return; const [pp,sp]=PRIZES.pos[i], t=give(id,pp,sp,i+1);
-    news(i===0?`Premi della stagione ${S}: ${t.n} campione. Popolarità +${pp} e sponsor +${pc(sp)} per tutta la prossima stagione.`
-      :`Premi della stagione ${S}: ${t.n} ${i===1?'seconda':'terza'} classificata. Popolarità +${pp} e sponsor +${pc(sp)} per la prossima stagione.`,'match',true,id); });
+    news(i===0?t_("eng.premi_della_stagione_campione",{S:S,n:t.n,pp:pp,pc:pc(sp)})
+      :t_("eng.premi_della_stagione_classificat",{S:S,n:t.n,v:i===1?'seconda':'terza',pp:pp,pc:pc(sp)}),'match',true,id); });
   if(row.cc && row.cc[2]!=null && G.T[row.cc[2]]){ const t=give(row.cc[2],PRIZES.sc,0,0);
-    news(`Premi della stagione ${S}: ${row.cc[1]} (${t.n}) è il capocannoniere con ${row.cc[3]} gol. Popolarità del club +${PRIZES.sc}.`,'match',true,row.cc[2]); }
-  if(row.mg) news(`Premi della stagione ${S}: miglior giovane ${row.mg[1]}${G.T[row.mg[2]]?' ('+G.T[row.mg[2]].n+')':''}, media voto ${String(row.mg[3]/10).replace('.',',')} in ${row.mg[4]} partite.`,'match',true,row.mg[2]); }
+    news(t_("eng.premi_della_stagione_e",{S:S,v:row.cc[1],n:t.n,v2:row.cc[3],sc:PRIZES.sc}),'match',true,row.cc[2]); }
+  if(row.mg) news(t_("eng.premi_della_stagione_miglior",{S:S,v:row.mg[1],v2:G.T[row.mg[2]]?' ('+G.T[row.mg[2]].n+')':'',fDec:fDec(row.mg[3]/10),v3:row.mg[4]}),'match',true,row.mg[2]); }
 /* carriera dei presidenti umani: una riga per stagione e per club guidato */
 function closePresidents(st){ (G.prs||[]).forEach(pr=>{ const t=G.T[pr.t]; if(!pr.u||!t) return; const f=finInit(t), h=f.budH&&f.budH[0], pos=st.indexOf(t)+1;
   pr.h.push([G.season, pr.t, pos, pos===1?1:0, h&&h.s===G.season?(h.ok?1:0):null, G.pendFire&&pr.t===0?15:0, Math.round((G.rep??50)*10)/10]); }); }
@@ -734,25 +734,25 @@ function endSeason(){
   const excl = st.filter(t=>t.fin&&t.fin.excluded).map(t=>t.id);
   G.T.forEach(t=>wageCheck(t,4));
   G.T.forEach(t=>ultCheck(t));
-  st.forEach((t,i)=>{ t.prevPos=i; if(t.obj && t.obj.s===G.season){ closeMission(t,'obiettivo',i<t.obj.lim?'ok':'end',i<t.obj.lim?`Raggiunto (${i+1}° posto): premio di ${kcrE(t.obj.amt)} pagato.`:`Non raggiunto (${i+1}° posto): il premio non è dovuto.`); if(i<t.obj.lim){ spend(t,'premi',t.obj.amt); teamMor(t,0.6,'premio obiettivo incassato'); news(`${t.n}: obiettivo raggiunto (${t.obj.goal}), pagato il premio di ${kcrE(t.obj.amt)}.`, t.id===0?'club':'match',true,t.id); } t.obj=null; } t.promise=null; t.bonus=null; });
+  st.forEach((t,i)=>{ t.prevPos=i; if(t.obj && t.obj.s===G.season){ closeMission(t,'obiettivo',i<t.obj.lim?'ok':'end',i<t.obj.lim?t_("eng.raggiunto_posto_premio_di",{i:i+1,amt:kcrE(t.obj.amt)}):t_("eng.non_raggiunto_posto_il",{i:i+1})); if(i<t.obj.lim){ spend(t,'premi',t.obj.amt); teamMor(t,0.6,t_("eng.premio_obiettivo_incassato")); news(t_("eng.obiettivo_raggiunto_pagato_il",{n:t.n,goal:t.obj.goal,amt:kcrE(t.obj.amt)}), t.id===0?'club':'match',true,t.id); } t.obj=null; } t.promise=null; t.bonus=null; });
   (G.req||[]).forEach(r=>{ if(r.st==='open') r.st='exp'; });
   st.forEach((t,i)=>{ earn(t,'premi campionato',60000+(7-i)*30000); });
   G.T.forEach(t=>{ const f=finInit(t);
-    if(f.excluded){ f.arr=[]; f.excluded=false; const pl=teamPlayers(t).sort((a,b)=>b.wg-a.wg); pl.slice(0,3).forEach(p=>{ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; G.FA.push(p.id); }); t.cash=Math.max(t.cash,150000); ensureCaptains(t,true); news(`${t.n} riparte dopo l'esclusione: i giocatori più pagati se ne vanno da svincolati.`, t.id===0?'club':'match',true,t.id); }
-    f.pen=f.penNext; f.penNext=0; if(f.pen) news(`${t.n} parte con ${f.pen} punti di penalizzazione per gli stipendi della scorsa stagione.`, t.id===0?'club':'match',true,t.id);
+    if(f.excluded){ f.arr=[]; f.excluded=false; const pl=teamPlayers(t).sort((a,b)=>b.wg-a.wg); pl.slice(0,3).forEach(p=>{ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; G.FA.push(p.id); }); t.cash=Math.max(t.cash,150000); ensureCaptains(t,true); news(t_("eng.riparte_dopo_l_esclusione",{n:t.n}), t.id===0?'club':'match',true,t.id); }
+    f.pen=f.penNext; f.penNext=0; if(f.pen) news(t_("eng.parte_con_punti_di",{n:t.n,pen:f.pen}), t.id===0?'club':'match',true,t.id);
     f.arr.forEach(a=>{ a.s=G.season+1; a.p=0; });
-    f.hist.unshift({s:G.season,md:14,t:`Chiusura stagione: entrate ${kcrE(Object.values(f.sea.inc).reduce((a,b)=>a+b,0))}, uscite ${kcrE(Object.values(f.sea.exp).reduce((a,b)=>a+b,0))}`});
+    f.hist.unshift({s:G.season,md:14,t:t_("eng.chiusura_stagione_entrate_uscite",{reduce:kcrE(Object.values(f.sea.inc).reduce((a,b)=>a+b,0)),reduce2:kcrE(Object.values(f.sea.exp).reduce((a,b)=>a+b,0))})});
     closeBudget(t);
     f.prev=f.sea; f.sea={inc:{},exp:{}}; f.checks=[]; });
-  news(`Fine stagione ${G.season}: ${champ.n} vince il campionato. Il tuo club chiude ${upos}°.`,'club',true,champ.id);
+  news(t_("eng.fine_stagione_vince_il",{season:G.season,n:champ.n,upos:upos}),'club',true,champ.id);
   closePresidents(st); closeLeague(st, excl);
   for(const t of G.T){
     const pl=teamPlayers(t);
-    for(const p of pl){ p.age++; p.ct--; p.fat=0; if(p.age>=34 && rnd()<0.5 || p.age>=36){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(`${p.fn} ${p.ln} si ritira dal calcio a ${p.age} anni.`,'player',false,t.id); } }
-    teamPlayers(t).forEach(p=>{ if(p.ct<=0){ if(p.renewNo===G.season && t.pl.length>16){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.ct=0; G.FA.push(p.id); news(`${p.fn} ${p.ln} lascia ${t.n} a parametro zero: il contratto è scaduto senza rinnovo.`, t.id===0?'market':'match',true,t.id); } else { p.ct=ri(1,3); p.wg=Math.max(p.wg,wage(p)); } } });
+    for(const p of pl){ p.age++; p.ct--; p.fat=0; if(p.age>=34 && rnd()<0.5 || p.age>=36){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(t_("eng.si_ritira_dal_calcio",{fn:p.fn,ln:p.ln,age:p.age}),'player',false,t.id); } }
+    teamPlayers(t).forEach(p=>{ if(p.ct<=0){ if(p.renewNo===G.season && t.pl.length>16){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.ct=0; G.FA.push(p.id); news(t_("eng.lascia_a_parametro_zero",{fn:p.fn,ln:p.ln,n:t.n}), t.id===0?'market':'match',true,t.id); } else { p.ct=ri(1,3); p.wg=Math.max(p.wg,wage(p)); } } });
     ensureCaptains(t,t.id!==0);
     const sgL=facLevel(t,'sg')-1, ny = 2+(rnd()<0.4+0.15*sgL?1:0);
-    for(let i=0;i<ny;i++){ const r=pick(['P','D','C','C','A']); const p=mkPlayer(r, 6.2+rnd()*1.5+0.4*sgL, ri(16,17)); addToTeam(t,p); if(t.id===0) news(`Dal settore giovanile arriva ${p.fn} ${p.ln}, ${p.age} anni, ${ROLE_NAME[r].toLowerCase()}.`,'player',false,t.id); }
+    for(let i=0;i<ny;i++){ const r=pick(['P','D','C','C','A']); const p=mkPlayer(r, 6.2+rnd()*1.5+0.4*sgL, ri(16,17)); addToTeam(t,p); if(t.id===0) news(t_("eng.dal_settore_giovanile_arriva",{fn:p.fn,ln:p.ln,age:p.age,toLowerCase:ROLE_NAME[r].toLowerCase()}),'player',false,t.id); }
     t.tab={g:0,v:0,n:0,p:0,gf:0,gs:0,pt:0}; t.form=[];
     while(t.pl.length>22){ const worst=teamPlayers(t).sort((a,b)=>value(a)-value(b))[0]; t.pl=t.pl.filter(x=>x!==worst.id); worst.team=null; G.FA.push(worst.id); }
   }

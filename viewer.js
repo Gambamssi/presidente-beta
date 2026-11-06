@@ -6,7 +6,7 @@ const REPLAY_RATE=1.4;   // il replay va al rallentatore
 /* 0.4.2.3 (R6a): con le pause accorciate la durata vera dipende dalla partita (vDurMin, calcolata in vPrep) */
 function tickRateS(v,s){ return s===1 ? 2/DT : s===2 ? v.nT/900 : v.nT/300; }
 function tickRate(v){ return tickRateS(v,v.speed); }
-function vSpeedTxt(v,s){ return 'Velocità '+s+'×'; }   /* 0.4.2.3: niente più «Partita in circa N minuti» (Max) */
+function vSpeedTxt(v,s){ return t_("vis.velocita",{s:s}); }   /* 0.4.2.3: niente più «Partita in circa N minuti» (Max) */
 /* 0.4.2.0: i frame della simulazione sono a 16 bit (centimetri): vFr li riporta in metri (con orientamento e tuffo), con una piccola memoria */
 function vFr(v,k){ const c=v.fc||(v.fc=new Map()); let f=c.get(k); if(f) return f; const s=v.sim.frames[k]; if(!s) return null;
   f=frDecode(s, v.sim.cols.length); c.set(k,f); if(c.size>64) c.delete(c.keys().next().value); return f; }
@@ -22,7 +22,7 @@ const MENT=['prudente','equilibrata','offensiva'];
 
 function openViewer(i){
   const m=G.last&&G.last[i]; if(!m) return;
-  if(!m.inp){ toast('Questa partita è stata giocata con la versione precedente del gioco e non si può rivedere.'); return; }
+  if(!m.inp){ toast(t_("vis.questa_partita_e_stata")); return; }
   stopViewer();
   const sim=simMatch(m.inp, m.seed, true);
   const info={};
@@ -46,39 +46,39 @@ function teamColor(v,ti){ return G.T[ti===0?v.m.h:v.m.a].c; }
 function vViewerHTML(){
   const v=viewer, m=v.m, sim=v.sim;
   const planCol=ti=>{ const p=sim.plans[ti], c=m.inp.t[ti].coach;
-    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?`All. ${esc(c.n)} è squalificato: in panchina va il vice`:`All. ${esc(c.n)} · tattica ${c.tat}`}</p>
-      <p class="pl-form">${p.form}</p><p class="pl-meta">Mentalità ${MENT[p.ment+1]} · ${p.press===2?'pressing alto':'pressing basso'}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
+    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?t_("vis.all_e_squalificato_in",{n:esc(c.n)}):t_("vis.all_tattica",{n:esc(c.n),tat:c.tat})}</p>
+      <p class="pl-form">${p.form}</p><p class="pl-meta">${t_("vis.mentalita",{v:MENT[p.ment+1],v2:p.press===2?t_('vis.pressing_alto'):t_('vis.pressing_basso')})}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
   /* 0.4.2.3 (R6a): grafica della 019 — barra del punteggio con gli stemmi, comandi, riquadro 1050×600 (1,75:1) uguale in 2D e 3D */
   const side=ti=>{ const n=`<span class="vtn">${esc(vTeamName(v,ti))}</span>`, c=`<span class="vcrest" aria-hidden="true">${vCrest(v,ti)}</span>`; return `<div class="vside${ti?' away':''}">${ti?n+c:c+n}</div>`; };
   const ab=ti=>esc(vInit(vTeamName(v,ti)));
-  return `<section class="card viewer"><div class="vmb">${side(0)}<div class="vscore"><strong class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</strong><small><span id="v-clk2">0'</span> · <span id="v-half">1° tempo</span></small></div>${side(1)}</div>
-   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">Avanti <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?'Inizia':v.phase==='done'?'Rivedi':v.playing?'Pausa':'Riprendi'}</button><span class="vgrp" role="group" aria-label="Velocità">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${s}×</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d" aria-pressed="${!!V3.pref}">Replay 3D: ${V3.pref?'sì':'no'}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">Telecamera replay: ${V3.camMode==='tv'?'TV':'dietro la porta'}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">⛶ Schermo intero</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">Vignette: ${VPREF.vig?'sì':'no'}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>Carico il 3D…</span><button class="btn ghost small" data-act="vclose" id="v-close">Chiudi</button></div></div>
-   <div class="vfs" id="v-fs"><div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="Campo di gioco: la partita simulata in tempo reale"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
-    <div class="goalfx" id="v-goal" hidden>Gol</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">Replay</span></div>
+  return `<section class="card viewer"><div class="vmb">${side(0)}<div class="vscore"><strong class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</strong><small><span id="v-clk2">0'</span> · <span id="v-half">${t_("vis.1_tempo")}</span></small></div>${side(1)}</div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">${t_("vis.avanti")} <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?t_("vis.inizia"):v.phase==='done'?t_("vis.rivedi"):v.playing?t_("vis.pausa"):t_("vis.riprendi")}</button><span class="vgrp" role="group" aria-label="${t_("vis.velocita_2")}">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${t_("vis.x",{s:s})}</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d" aria-pressed="${!!V3.pref}">${t_("vis.replay_3d",{v:V3.pref?t_("vis.si"):t_('vis.no')})}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">${t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")})}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">${t_("vis.schermo_intero")}</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">${t_("vis.vignette",{v:VPREF.vig?t_("vis.si"):t_('vis.no')})}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>${t_("vis.carico_il_3d")}</span><button class="btn ghost small" data-act="vclose" id="v-close">${t_("vis.chiudi")}</button></div></div>
+   <div class="vfs" id="v-fs"><div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="${t_("vis.campo_di_gioco_la")}"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
+    <div class="goalfx" id="v-goal" hidden>${t_("vis.gol")}</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">${t_("vis.replay")}</span></div>
     <div class="vbug" id="v-bug"><span class="clock" id="v-clock">0'</span><span class="vbsc"><i style="background:${teamColor(v,0)}"></i>${ab(0)} <b id="v-bugsc">${v.sc[0]}–${v.sc[1]}</b> ${ab(1)}<i style="background:${teamColor(v,1)}"></i></span></div>
     <div class="forms" id="v-forms"></div>
     <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div><div class="vig" id="v-vig" hidden></div><div class="vscn" id="v-scn" hidden></div>
-    <button class="btn small vfsx" data-act="vfs">Esci da tutto schermo</button>
+    <button class="btn small vfsx" data-act="vfs">${t_("vis.esci_da_tutto_schermo")}</button>
    </div>
-   ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">Le scelte degli allenatori</p>${m.inp.ref?`<p class="pl-ref">Arbitro ${esc(m.inp.ref.full||m.inp.ref.n)}${G.refs&&G.refs[m.inp.ref.id]?` · assistenti ${esc(G.refs[m.inp.ref.id].a1)} e ${esc(G.refs[m.inp.ref.id].a2)}`:''}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">Calcio d'inizio</button></div>`:''}
+   ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">${t_("vis.le_scelte_degli_allenatori")}</p>${m.inp.ref?`<p class="pl-ref">${t_("vis.arbitro",{full:esc(m.inp.ref.full||m.inp.ref.n),v:G.refs&&G.refs[m.inp.ref.id]?` ${t_("vis.assistenti_e",{a1:esc(G.refs[m.inp.ref.id].a1),a2:esc(G.refs[m.inp.ref.id].a2)})}`:''})}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">${t_("vis.calcio_d_inizio")}</button></div>`:''}
    </div>
    <div class="intv" id="v-int" hidden></div>
-   <div class="vlive"><section class="vcard"><h3>Cronaca</h3><ol class="log" id="v-log"></ol></section><section class="vcard"><h3>Statistiche</h3><div class="vstats" id="v-stats"></div></section></div></section>`;
+   <div class="vlive"><section class="vcard"><h3>${t_("vis.cronaca")}</h3><ol class="log" id="v-log"></ol></section><section class="vcard"><h3>${t_("vis.statistiche")}</h3><div class="vstats" id="v-stats"></div></section></div></section>`;
 }
 /* 0.4.2.3 (R6a): scene della 019 (ingresso, intervallo, fine) con i dati veri della partita; in 3D una fascia sopra la scena 3D */
 function vIngresso(v){ const m=v.m, f=frameAt(0), cols=v.sim.cols, out=[], ri=m.inp.ref, RT=ri&&G.refs&&G.refs[ri.id];
   const cap=s=>{ const k=(f.cap||[]).find(k=>k>=0 && cols[k]!=null && v.team[k]===s); return k!=null?{k, i:v.info[cols[k]]}:null; }, c0=cap(0), c1=cap(1);
-  if(c0) out.push(`Capitano ${c0.i.ln} · ${vTeamName(v,0)}`); if(ri) out.push('Arbitro '+(ri.full||ri.n)); if(RT){ out.push('Assistente '+RT.a1); out.push('Assistente '+RT.a2); }
-  if(c1) out.push(`Capitano ${c1.i.ln} · ${vTeamName(v,1)}`);
+  if(c0) out.push(t_("vis.capitano",{ln:c0.i.ln,vTeamName:vTeamName(v,0)})); if(ri) out.push(t_("vis.arbitro_2",{full:ri.full||ri.n})); if(RT){ out.push(t_("vis.assistente",{a1:RT.a1})); out.push(t_("vis.assistente_2",{a2:RT.a2})); }
+  if(c1) out.push(t_("vis.capitano",{ln:c1.i.ln,vTeamName:vTeamName(v,1)}));
   const gk=[0,1].map(s=>cols.findIndex((id,k)=>v.info[id].gk && v.team[k]===s && f.P[k] && !((s?c1:c0)&&(s?c1:c0).k===k))).filter(k=>k>=0).map(k=>v.info[cols[k]].ln);
-  if(gk.length) out.push((gk.length>1?'Portieri ':'Portiere ')+gk.join(' e ')); out.push('Poi gli altri giocatori'); return out; }
+  if(gk.length) out.push((gk.length>1?t_("vis.portieri"):t_("vis.portiere"))+gk.join(t_("vis.e"))); out.push(t_("vis.poi_gli_altri_giocatori")); return out; }
 function vScnHTML(v,kind){
   const m=v.m, sim=v.sim, A=esc(vTeamName(v,0)), B=esc(vTeamName(v,1));
-  if(kind==='start') return `<h2>Le squadre entrano in campo</h2><div class="vproc">${vIngresso(v).map(x=>`<span>${esc(x)}</span>`).join('')}</div>`;
+  if(kind==='start') return `<h2>${t_("vis.le_squadre_entrano_in")}</h2><div class="vproc">${vIngresso(v).map(x=>`<span>${esc(x)}</span>`).join('')}</div>`;
   if(kind==='ht'){ const k=Math.min(v.nT,Math.floor(v.t)+1), tot=v.pt[k], ph=tot?Math.round(v.p0[k]/tot*100):50, a=v.st[0], b=v.st[1];
-    return `<h2>Intervallo</h2><p class="vres">${A} <b>${v.sc[0]} – ${v.sc[1]}</b> ${B}</p><div class="vproc"><span>Possesso ${ph}% – ${100-ph}%</span><span>Tiri ${a.sh} (${a.sot}) – ${b.sh} (${b.sot})</span><span>Angoli ${a.cor} – ${b.cor}</span><span>Falli ${a.fou} – ${b.fou}</span></div><div class="vscn-act"><button class="btn go" data-act="vnext">Secondo tempo</button></div>`; }
+    return `<h2>${t_("vis.intervallo")}</h2><p class="vres">${A} <b>${v.sc[0]} – ${v.sc[1]}</b> ${B}</p><div class="vproc"><span>${t_("vis.possesso",{ph:ph,v:100-ph})}</span><span>${t_("vis.tiri",{sh:a.sh,sot:a.sot,sh2:b.sh,sot2:b.sot})}</span><span>${t_("vis.angoli",{cor:a.cor,cor2:b.cor})}</span><span>${t_("vis.falli",{fou:a.fou,fou2:b.fou})}</span></div><div class="vscn-act"><button class="btn go" data-act="vnext">${t_("vis.secondo_tempo")}</button></div>`; }
   const gl=s=>sim.ev.filter(e=>e.type==='goal'&&e.side===s).map(e=>`${esc((v.info[e.p[0]]||{}).ln||'')} ${e.min}${e.og?' (aut.)':''}`).join(', ');
-  return `<h2>Fine partita</h2><p class="vres">${A} <b>${m.gh} – ${m.ga}</b> ${B}</p>${m.gh+m.ga?`<p class="vgl">${gl(0)||'–'} · ${gl(1)||'–'}</p>`:''}<div class="vscn-act"><button class="btn go" data-act="vnext">Pagelle</button><button class="btn ghost" data-act="vscniv">Intervista</button></div>`; }
+  return `<h2>${t_("vis.fine_partita")}</h2><p class="vres">${A} <b>${m.gh} – ${m.ga}</b> ${B}</p>${m.gh+m.ga?`<p class="vgl">${gl(0)||'–'} · ${gl(1)||'–'}</p>`:''}<div class="vscn-act"><button class="btn go" data-act="vnext">${t_("vis.pagelle")}</button><button class="btn ghost" data-act="vscniv">${t_("vis.intervista")}</button></div>`; }
 /* 0.4.2.3: in 2D l'ingresso compare DOPO il pannello delle scelte degli allenatori, come fascia per 3,5 s dal calcio d'inizio */
 function vIngOn(v){ return !!(v && v.phase==='live' && v.ingUntil && performance.now()<v.ingUntil); }
 function vScnShow(v){ const el=$('#v-scn'); if(!el) return; const sc=v&&v.phase==='scene'?v.scene:vIngOn(v)?{kind:'start',d2:false}:null;
@@ -94,7 +94,7 @@ function attachViewer(){
   cancelAnimationFrame(v.raf); v.last=performance.now(); v.raf=requestAnimationFrame(loop);
 }
 function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; v.playing=true; const p=$('#v-pre'); if(p) p.remove();
-  if(use3D()){ v.playing=false; startScene('start'); } else { v.ingUntil=performance.now()+3500; vScnShow(v); } const b=$('#v-play'); if(b) b.textContent='Pausa'; }
+  if(use3D()){ v.playing=false; startScene('start'); } else { v.ingUntil=performance.now()+3500; vScnShow(v); } const b=$('#v-play'); if(b) b.textContent=t_("vis.pausa"); }
 
 function loop(now){
   const v=viewer; if(!v || !onMatchPage()) return;
@@ -149,7 +149,7 @@ function handleEvent(e, live, idx){
   if(e.type==='subcall'){ v.cap=e; showCap(e); return; }
   if(e.type==='fo'||e.type==='spgo'||e.type==='ko'||e.type==='kick'&&idx===0) return;
   logEvent(e);
-  if(e.type==='referr' && e.cm) logEvent({...e, type:'refj', text:'Moviola: '+e.cm});
+  if(e.type==='referr' && e.cm) logEvent({...e, type:'refj', text:t_("vis.moviola",{cm:e.cm})});
   if(e.type!=='cor' && e.type!=='off') { v.cap=e; showCap(e); }
 }
 function logEvent(e){
@@ -161,20 +161,20 @@ function logEvent(e){
 }
 function showCap(e){
   const cap=$('#v-cap'); if(!cap) return; const v=viewer; const fl=(e.flash||[]).map(id=>v.info[id]).filter(Boolean);
-  cap.innerHTML=(fl.length?`<span class="tag">★ Giocata di classe · ${fl.map(p=>esc(p.ln)).join(', ')}</span>`:'')+`<span>${esc(e.text)}</span>`;
+  cap.innerHTML=(fl.length?`<span class="tag">${t_("vis.giocata_di_classe")} ${fl.map(p=>esc(p.ln)).join(', ')}</span>`:'')+`<span>${esc(e.text)}</span>`;
   cap.className='cap'+(fl.length?' fl':'')+(e.type==='goal'?' gl':'');
 }
 function updHud(){
   const v=viewer; if(!v) return; const T=Math.floor(v.phase==='replay'?v.rep.t:v.t);
   const clk=$('#v-clock'); if(clk) clk.textContent=minuteOf(T);
   const c2=$('#v-clk2'); if(c2) c2.textContent=minuteOf(T); const bs=$('#v-bugsc'); if(bs) bs.textContent=v.sc[0]+'–'+v.sc[1];
-  const hf=$('#v-half'); if(hf) hf.textContent=v.phase==='done'||(v.phase==='scene'&&v.scene.kind==='end')?'Finale':v.phase==='scene'&&v.scene.kind==='ht'?'Intervallo':v.phase==='pre'?'Prima del calcio d\'inizio':T<v.sim.htTick?'1° tempo':'2° tempo';
+  const hf=$('#v-half'); if(hf) hf.textContent=v.phase==='done'||(v.phase==='scene'&&v.scene.kind==='end')?t_("vis.finale"):v.phase==='scene'&&v.scene.kind==='ht'?t_("vis.intervallo"):v.phase==='pre'?t_("vis.prima_del_calcio_d"):T<v.sim.htTick?'1° tempo':'2° tempo';
   const f=$('#v-forms'); if(f) f.innerHTML=`<span style="--c:${teamColor(v,0)}">${esc(v.forms[0])}</span><span style="--c:${teamColor(v,1)}">${esc(v.forms[1])}</span>`;
   const s=$('#v-stats'); if(s){ const k=Math.min(v.nT,Math.floor(v.t)+1), tot=v.pt[k], ph=tot?Math.round(v.p0[k]/tot*100):50;
     const row=(l,a,b)=>`<div class="sr"><span class="num">${a}</span><span>${l}</span><span class="num">${b}</span></div>`;
     const A=v.st[0], B=v.st[1];
     s.innerHTML=`<div class="poss"><span class="num">${ph}%</span><span class="pbar"><i style="width:${ph}%;background:${teamColor(v,0)}"></i><i style="width:${100-ph}%;background:${teamColor(v,1)}"></i></span><span class="num">${100-ph}%</span></div>`+
-      row('Tiri (in porta)',`${A.sh} (${A.sot})`,`${B.sh} (${B.sot})`)+row('Calci d\'angolo',A.cor,B.cor)+row('Falli',A.fou,B.fou)+row('Fuorigioco',A.off,B.off)+row('Cartellini',`${A.yc}🟨 ${A.rc?A.rc+'🟥':''}`,`${B.yc}🟨 ${B.rc?B.rc+'🟥':''}`); }
+      row(t_("vis.tiri_in_porta"),`${A.sh} (${A.sot})`,`${B.sh} (${B.sot})`)+row(t_("vis.calci_d_angolo"),A.cor,B.cor)+row(t_("vis.falli_2"),A.fou,B.fou)+row(t_("vis.fuorigioco"),A.off,B.off)+row(t_("vis.cartellini"),`${A.yc}🟨 ${A.rc?A.rc+'🟥':''}`,`${B.yc}🟨 ${B.rc?B.rc+'🟥':''}`); }
   updNext();
 }
 function minuteOf(t){ const sim=viewer.sim, s=t*DT/TIME_F; if(t<sim.htTick){ const m=Math.floor(s/60); return m>=45?`45+${m-44}'`:`${m+1}'`; } const m=45+Math.floor((s-sim.htTick*DT/TIME_F)/60); return m>=90?`90+${m-89}'`:`${m+1}'`; }
@@ -183,19 +183,19 @@ function finishViewer(reattach, post){
   if(!reattach){ processEvents(v.phase==='live'); vFlush();
     v.t=v.nT-1; v.phase='done'; v.playing=false; v.pq=[]; v.wins=[]; v.post=post||'whistle'; v.postT=performance.now(); const rb=$('#v-rpl'); if(rb) rb.hidden=true; }
   v.sc=[v.m.gh,v.m.ga]; const s=$('#v-score'); if(s) s.textContent=v.sc[0]+' – '+v.sc[1];
-  const b=$('#v-play'); if(b) b.textContent='Rivedi'; const pre=$('#v-pre'); if(pre) pre.remove();
+  const b=$('#v-play'); if(b) b.textContent=t_("vis.rivedi"); const pre=$('#v-pre'); if(pre) pre.remove();
   if(!v.iv){ const x=interview(v.m); v.iv={x, best:x.id, k:0, phase:'q', t:0, closed:false}; }
   if(!v.post) v.post='whistle';
   const iv=$('#v-int'); if(iv) iv.innerHTML=interviewHTML(v.iv.x);
-  G.iv=G.iv||{}; if(!G.iv[v.key] && (v.m.h===0||v.m.a===0)){ G.iv[v.key]=1; const x=v.iv.x; news(`Intervista a ${x.fn} ${x.ln}: «${x.qa[0][1].split('. ')[0].replace(/\.$/,'')}.»`,'player',false,G.P[x.id]&&G.P[x.id].team!=null?G.P[x.id].team:0); save(); }
+  G.iv=G.iv||{}; if(!G.iv[v.key] && (v.m.h===0||v.m.a===0)){ G.iv[v.key]=1; const x=v.iv.x; news(t_("vis.intervista_a",{fn:x.fn,ln:x.ln,replace:x.qa[0][1].split('. ')[0].replace(/\.$/,'')}),'player',false,G.P[x.id]&&G.P[x.id].team!=null?G.P[x.id].team:0); save(); }
   renderIV(); updHud();
 }
-function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); if(v.phase==='done') return openViewer(G.last.indexOf(v.m)); v.playing=!v.playing; el.textContent=v.playing?'Pausa':'Riprendi'; }
+function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); if(v.phase==='done') return openViewer(G.last.indexOf(v.m)); v.playing=!v.playing; el.textContent=v.playing?t_("vis.pausa"):t_("vis.riprendi"); }
 function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
-function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent='Telecamera replay: '+(V3.camMode==='tv'?'TV':'dietro la porta'); }
+function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent=t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")}); }
 function v3dToggle(){ if(viewer.phase==='replay') endReplay(); V3.pref=!V3.pref; try{ localStorage.setItem('presidente-vista',V3.pref?'3d':'2d'); }catch(_){} if(V3.pref) setupMatch3D(); render(); }
 function startReplay(p){ const v=viewer; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
-  if(p.e.type==='referr'){ const cap=$('#v-cap'); if(cap){ cap.innerHTML=`<span class="tag">Moviola · il giornalista</span><span>${esc(p.e.cm)}</span>`; cap.className='cap rf'; } }
+  if(p.e.type==='referr'){ const cap=$('#v-cap'); if(cap){ cap.innerHTML=`<span class="tag">${t_("vis.moviola_il_giornalista")}</span><span>${esc(p.e.cm)}</span>`; cap.className='cap rf'; } }
   const f=frameAt(p.t0); const bx=f.bx-52.5, bz=f.by-34; V3.cp.set(bx*0.82,17,bz*0.3+34); V3.cl.set(bx*0.92,0,bz*0.55); V3.last=performance.now(); }
 function endReplay(){ const v=viewer; if(v&&v.phase==='scene') return endScene(); if(!v||v.phase!=='replay') return; const e=v.rep.e; v.phase='live'; v.rep=null; const rb=$('#v-rpl'); if(rb) rb.hidden=true;
   if(e && e.type==='goal'){ const ko=v.sim.ev.find(x=>x.type==='ko' && x.t>e.t); if(ko && ko.t-3>v.t){ v.t=ko.t-3; processEvents(true); } } }
@@ -299,7 +299,7 @@ function vFixFrame(v,t,P,o){
 const VIG_KEY='presidente-pref-vign';
 const VPREF={vig:(()=>{ try{ return localStorage.getItem(VIG_KEY)!=='0'; }catch(_){ return true; } })()};
 function vSetVig(on){ VPREF.vig=!!on; try{ localStorage.setItem(VIG_KEY,on?'1':'0'); }catch(_){} if(!on) vVigHide();
-  const b=$('#v-vigb'); if(b){ b.textContent='Vignette: '+(on?'sì':'no'); b.setAttribute('aria-pressed',String(!!on)); } }
+  const b=$('#v-vigb'); if(b){ b.textContent=t_("vis.vignette",{v:on?t_("vis.si"):t_('vis.no')}); b.setAttribute('aria-pressed',String(!!on)); } }
 /* tema (dalla 0.4.2.4, G1a): il pulsante del visore usa lo stesso stato e la stessa chiave del pulsante della testata (ui.js: themeNow, themeToggle) */
 const vThemeNow=()=>themeNow(), vThemeLbl=()=>themeLbl();
 function vTheme(){ themeToggle(); }
@@ -310,7 +310,7 @@ function vFull(){ const el=$('#v-fs'); if(!el) return;
   const fake=()=>{ el.classList.add('fsx'); document.body.classList.add('vfsx'); vFsLbl(); };
   if(el.requestFullscreen) el.requestFullscreen().then(vFsLbl).catch(fake); else fake(); }
 function vFsOn(){ const el=$('#v-fs'); return !!(el && (document.fullscreenElement===el || el.classList.contains('fsx'))); }
-function vFsLbl(){ const b=$('#v-fsb'); if(b) b.textContent=vFsOn()?'⛶ Esci da tutto schermo':'⛶ Schermo intero'; }
+function vFsLbl(){ const b=$('#v-fsb'); if(b) b.textContent=vFsOn()?t_("vis.esci_da_tutto_schermo_2"):t_("vis.schermo_intero"); }
 document.addEventListener('fullscreenchange',()=>{ vFsLbl(); if(viewer) draw(); });
 
 /* ---------- 0.4.2.3 (R6a): maglie vere dei club sul campo, con il controllo del contrasto ----------
@@ -341,73 +341,73 @@ function vCrest(v,ti){ return crestHTML(ti===0?v.m.h:v.m.a); }
    La frase dipende da risultato, minuto, modulo, cartellini, morale e carattere dell'allenatore (coachTemper), scelta con un
    hash del momento (partita, tick, squadra): mai R() né rnd(). Calcolate tutte in vPrep: saltare con «Avanti» non cambia nulla.
    Aggancio per R3 (vVigPiano): se la simulazione registra un cambio di piano vero (oggi l'evento 'form' di coachThink; da R3
-   l'evento 'plan' con il campo vig), la vignetta dice quello. Frasi in VIG_FRASI, elenco separato pronto per L1. */
+   l'evento 'plan' con il campo vig), la vignetta dice quello. Frasi in testi_it.js (chiavi vig.<id>); VIG_FRASI tiene solo id e condizioni (0.4.2.6, L1). */
 const VIG_GAP=300, VIG_MS=3000;   /* VIG_MS: secondi veri di lettura, uguali a 1×, 2× e 4× */   /* secondi di partita tra due vignette della stessa squadra */
 const VIG_FRASI=[
-  {id:'g01',se:'',t:'Stiamo corti, ragazzi!'},
-  {id:'g02',se:'',t:'Concentrati, si riparte!'},
-  {id:'g03',se:'',t:'Parlatevi, chiamate la palla!'},
-  {id:'g04',se:'',t:'Occhio alle marcature!'},
-  {id:'g05',se:'',t:'Palla a terra, giochiamola!'},
-  {id:'g06',se:'',t:'Seguite l\'uomo, non solo la palla!'},
-  {id:'m01',se:'',t:'Teniamo il {form}, ognuno al suo posto!'},
-  {id:'m02',se:'',t:'Larghi sugli esterni: il {form} vuole ampiezza!'},
-  {id:'m03',se:'',t:'Rispettate le distanze del {form}!'},
-  {id:'v01',se:'vince',t:'Adesso gestiamo, niente frenesia!'},
-  {id:'v02',se:'vince',t:'Non abbassatevi troppo, teniamo noi il pallone!'},
-  {id:'v03',se:'vince',t:'Bravi! Ma la partita non è finita.'},
-  {id:'v04',se:'vince tardi',t:'Ultimi minuti: palla lontano dalla nostra area!'},
-  {id:'v05',se:'vince tardi',t:'Teniamola là davanti, facciamo passare il tempo!'},
-  {id:'p01',se:'perde',t:'Su, c\'è tempo! Un passo in più!'},
-  {id:'p02',se:'perde',t:'Più coraggio, attacchiamo la profondità!'},
-  {id:'p03',se:'perde',t:'Non mollate, la rimettiamo in piedi!'},
-  {id:'p04',se:'perde tardi',t:'Tutti avanti, ci serve un gol!'},
-  {id:'p05',se:'perde tardi',t:'Rischiamo, non abbiamo niente da perdere!'},
-  {id:'x01',se:'pari',t:'Pazienza, lo spazio arriva!'},
-  {id:'x02',se:'pari',t:'Equilibrio! Non scopriamoci.'},
-  {id:'x03',se:'pari tardi',t:'Un punto non basta, proviamoci!'},
-  {id:'x04',se:'pari tardi calmo',t:'Teniamo il punto, niente follie.'},
-  {id:'t01',se:'presto',t:'Prendiamo le misure, niente fretta!'},
-  {id:'t02',se:'presto',t:'Primi minuti: linee strette e corte!'},
-  {id:'t03',se:'fine1',t:'Ancora pochi minuti, poi ne parliamo negli spogliatoi.'},
-  {id:'t04',se:'fine1',t:'Chiudiamo il tempo senza rischi!'},
-  {id:'f01',se:'gol_fatto',t:'Così! Adesso restate concentrati!'},
-  {id:'f02',se:'gol_fatto',t:'Bravissimi! Subito in posizione!'},
-  {id:'f03',se:'gol_fatto',t:'Grande gol! Ora non regaliamo niente.'},
-  {id:'f04',se:'gol_fatto pari',t:'Rimessa in piedi! Adesso andiamo a vincerla!'},
-  {id:'f05',se:'gol_fatto caldo',t:'Siiì! Ma non è finita, testa!'},
-  {id:'s01',se:'gol_subito',t:'Testa alta, si ricomincia!'},
-  {id:'s02',se:'gol_subito',t:'Non è successo niente, reagiamo!'},
-  {id:'s03',se:'gol_subito caldo',t:'Così non va! Più cattiveria!'},
-  {id:'s04',se:'gol_subito caldo',t:'Chi doveva seguirlo? Svegliatevi!'},
-  {id:'s05',se:'gol_subito calmo',t:'Calma, continuiamo a giocare come sappiamo.'},
-  {id:'c01',se:'cart_nostro',t:'Attenti adesso, non prendiamone un altro!'},
-  {id:'c02',se:'cart_nostro ammoniti',t:'Entrate pulite, abbiamo già troppi ammoniti!'},
-  {id:'c03',se:'cart_nostro caldo',t:'Arbitro, ma era fallo quello?!'},
-  {id:'c04',se:'cart_nostro caldo',t:'Ma dai! Sempre a noi i cartellini!'},
-  {id:'c05',se:'cart_loro',t:'È ammonito: puntatelo in dribbling!'},
-  {id:'c06',se:'cart_loro',t:'Visto? Sono in difficoltà, insistiamo!'},
-  {id:'r01',se:'dieci',t:'In dieci: stringiamoci, tutti dietro la palla!'},
-  {id:'r02',se:'dieci',t:'Uno in meno: raddoppiamo la corsa!'},
-  {id:'r03',se:'loro10',t:'Sono in dieci! Allarghiamo il gioco!'},
-  {id:'r04',se:'loro10',t:'Uomo in più: facciamo girare la palla!'},
-  {id:'i01',se:'inf',t:'Forza, stringete i denti finché entra il cambio!'},
-  {id:'i02',se:'inf',t:'Ricompattiamoci, nessuno si distragga!'},
-  {id:'b01',se:'cambio',t:'Entra con la testa giusta, fai quello che abbiamo detto!'},
-  {id:'b02',se:'cambio',t:'Cambio: stessa disposizione, si riparte!'},
-  {id:'b03',se:'cambio',t:'Energie fresche: adesso alziamo il ritmo!'},
-  {id:'o01',se:'fallo_nostro',t:'Niente falli inutili vicino all\'area!'},
-  {id:'o02',se:'fallo_nostro',t:'Ordinati! Tutti in posizione sulla punizione!'},
-  {id:'o03',se:'fallo_loro',t:'Sfruttiamo la punizione, attenti allo schema!'},
-  {id:'o04',se:'fallo_loro',t:'Battiamola veloce, sono scoperti!'},
-  {id:'k01',se:'caldo',t:'Svegliaaa! Più ritmo!'},
-  {id:'k02',se:'caldo',t:'Ma che fate? Pressione, pressione!'},
-  {id:'k03',se:'calmo',t:'Tranquilli, giocate semplice.'},
-  {id:'k04',se:'calmo',t:'Bene così, continuiamo con ordine.'},
-  {id:'u01',se:'morale_giu',t:'Crediamoci! Siamo più forti di così!'},
-  {id:'u02',se:'morale_giu',t:'Testa sgombra, una giocata alla volta!'},
-  {id:'u03',se:'morale_su',t:'Si vede che ci credete, avanti così!'},
-  {id:'u04',se:'morale_su',t:'Siete in fiducia: osate la giocata!'}
+  {id:'g01',se:''},
+  {id:'g02',se:''},
+  {id:'g03',se:''},
+  {id:'g04',se:''},
+  {id:'g05',se:''},
+  {id:'g06',se:''},
+  {id:'m01',se:''},
+  {id:'m02',se:''},
+  {id:'m03',se:''},
+  {id:'v01',se:'vince'},
+  {id:'v02',se:'vince'},
+  {id:'v03',se:'vince'},
+  {id:'v04',se:'vince tardi'},
+  {id:'v05',se:'vince tardi'},
+  {id:'p01',se:'perde'},
+  {id:'p02',se:'perde'},
+  {id:'p03',se:'perde'},
+  {id:'p04',se:'perde tardi'},
+  {id:'p05',se:'perde tardi'},
+  {id:'x01',se:'pari'},
+  {id:'x02',se:'pari'},
+  {id:'x03',se:'pari tardi'},
+  {id:'x04',se:'pari tardi calmo'},
+  {id:'t01',se:'presto'},
+  {id:'t02',se:'presto'},
+  {id:'t03',se:'fine1'},
+  {id:'t04',se:'fine1'},
+  {id:'f01',se:'gol_fatto'},
+  {id:'f02',se:'gol_fatto'},
+  {id:'f03',se:'gol_fatto'},
+  {id:'f04',se:'gol_fatto pari'},
+  {id:'f05',se:'gol_fatto caldo'},
+  {id:'s01',se:'gol_subito'},
+  {id:'s02',se:'gol_subito'},
+  {id:'s03',se:'gol_subito caldo'},
+  {id:'s04',se:'gol_subito caldo'},
+  {id:'s05',se:'gol_subito calmo'},
+  {id:'c01',se:'cart_nostro'},
+  {id:'c02',se:'cart_nostro ammoniti'},
+  {id:'c03',se:'cart_nostro caldo'},
+  {id:'c04',se:'cart_nostro caldo'},
+  {id:'c05',se:'cart_loro'},
+  {id:'c06',se:'cart_loro'},
+  {id:'r01',se:'dieci'},
+  {id:'r02',se:'dieci'},
+  {id:'r03',se:'loro10'},
+  {id:'r04',se:'loro10'},
+  {id:'i01',se:'inf'},
+  {id:'i02',se:'inf'},
+  {id:'b01',se:'cambio'},
+  {id:'b02',se:'cambio'},
+  {id:'b03',se:'cambio'},
+  {id:'o01',se:'fallo_nostro'},
+  {id:'o02',se:'fallo_nostro'},
+  {id:'o03',se:'fallo_loro'},
+  {id:'o04',se:'fallo_loro'},
+  {id:'k01',se:'caldo'},
+  {id:'k02',se:'caldo'},
+  {id:'k03',se:'calmo'},
+  {id:'k04',se:'calmo'},
+  {id:'u01',se:'morale_giu'},
+  {id:'u02',se:'morale_giu'},
+  {id:'u03',se:'morale_su'},
+  {id:'u04',se:'morale_su'}
 ];
 const VIG_EV=new Set(['goal','fo','yc','rc','coachoff','inj','sub','subcall']);
 function vHash(v,t,side,k){ return hashU(v.key+'|'+t+'|'+side,k); }
@@ -434,13 +434,13 @@ function vVigTags(v,side,p,main){
 function vVigPiano(v,side,p){
   const e=v.sim.ev.find(x=>(x.type==='plan'||x.type==='form') && x.side===side && x.t>=p.s-4 && x.t<=p.r); if(!e) return null;
   if(e.type==='plan') return e.vig||e.text||null;
-  return /attacco/.test(e.form) ? 'Tutti all\'attacco, ci serve un gol!' : `Cambiamo: ${e.form}!`; }
+  return /attacco/.test(e.form) ? t_("vis.tutti_all_attacco_ci") : t_("vis.cambiamo",{form:e.form}); }
 function vVigFrase(v,side,p,main){
   const {T, form}=vVigTags(v,side,p,main);
   const ok=VIG_FRASI.filter(f=>f.se.split(' ').filter(Boolean).every(x=>T.has(x)));
   const w=ok.map(f=>1+2*f.se.split(' ').filter(Boolean).length), tot=w.reduce((a,b)=>a+b,0);
   let x=vHash(v,p.s,side,5)*tot, i=0; while(i<ok.length-1 && x>=w[i]){ x-=w[i]; i++; }
-  const f=ok[i]; return f ? {id:f.id, t:f.t.replace('{form}',form)} : null; }
+  const f=ok[i]; return f ? {id:f.id, t:t_('vig.'+f.id,{form})} : null; }   /* testo in testi_it.js (vig.<id>) */
 function vPrepVig(v){
   v.vig=[]; v.vigI=0; v.vigOn=null; const last=[-1e9,-1e9], gap=VIG_GAP*TIME_F/DT;
   const pick=(p,ty)=>p.evs.find(e=>ty.includes(e.type));
@@ -451,7 +451,7 @@ function vPrepVig(v){
     const first=vHash(v,p.s,9,1)<0.5?0:1;
     for(const side of [first,1-first]){ if(p.s-last[side]<gap) continue;
       const pr=vVigPiano(v,side,p), fr=pr?{id:'piano',t:pr}:vVigFrase(v,side,p,main); if(!fr) continue;
-      const co=v.m.inp.t[side].coach, who=co.absent?'Il vice':'All. '+co.n.split(' ').slice(-1)[0];
+      const co=v.m.inp.t[side].coach, who=co.absent?t_("vis.il_vice"):t_("vis.all",{v:co.n.split(' ').slice(-1)[0]});
       v.vig.push({t:p.s+1, s:p.s, r:p.r, side, who, id:fr.id, text:fr.t, ev:main.type}); last[side]=p.s; break; } }
 }
 function vVigHide(){ const v=viewer; if(v) v.vigOn=null; const el=$('#v-vig'); if(el) el.hidden=true; }
@@ -468,16 +468,16 @@ function vVigTick(v){
    replay → fine del replay; azione → prossima palla ferma; palla ferma → fine del tempo; scene → scena dopo;
    dopo il fischio finale → pagelle → intervista → chiusura. Gli eventi saltati vanno comunque nel registro. */
 function vNextLabel(){ const v=viewer; if(!v) return '';
-  if(v.phase==='pre') return "Avanti: calcio d'inizio";
-  if(v.phase==='scene') return v.scene.kind==='start' ? "Avanti: calcio d'inizio" : v.scene.kind==='ht' ? 'Avanti: secondo tempo' : 'Avanti: pagelle';
-  if(v.phase==='replay') return 'Avanti: fine replay';
-  if(v.phase==='done') return v.post==='whistle' ? 'Avanti: pagelle' : v.post==='pag' ? 'Avanti: intervista' : 'Chiudi';
+  if(v.phase==='pre') return t_("vis.avanti_calcio_d_inizio");
+  if(v.phase==='scene') return v.scene.kind==='start' ? t_("vis.avanti_calcio_d_inizio") : v.scene.kind==='ht' ? t_("vis.avanti_secondo_tempo") : t_("vis.avanti_pagelle");
+  if(v.phase==='replay') return t_("vis.avanti_fine_replay");
+  if(v.phase==='done') return v.post==='whistle' ? t_("vis.avanti_pagelle") : v.post==='pag' ? t_("vis.avanti_intervista") : t_("vis.chiudi");
   const first=v.t<v.sim.htTick && !v.htDone, lim=first?v.sim.htTick:v.nT-1;
-  if(!ballDead(v,v.t) && nextStop(v,v.t,lim)!=null) return 'Avanti: fine azione';
-  return first ? 'Avanti: fine primo tempo' : 'Avanti: fine partita';
+  if(!ballDead(v,v.t) && nextStop(v,v.t,lim)!=null) return t_("vis.avanti_fine_azione");
+  return first ? t_("vis.avanti_fine_primo_tempo") : t_("vis.avanti_fine_partita");
 }
-function updNext(){ const v=viewer; const b=$('#v-next'); if(!b||!v) return; const l=vNextLabel(); if(b.dataset.lbl!==l){ b.dataset.lbl=l; b.innerHTML=l==='Chiudi'?'Chiudi':`${esc(l)} <span aria-hidden="true">⏭</span>`; b.setAttribute('aria-label',l); }
-  const cl=$('#v-close'); if(cl) cl.hidden=(l==='Chiudi'); }
+function updNext(){ const v=viewer; const b=$('#v-next'); if(!b||!v) return; const l=vNextLabel(); if(b.dataset.lbl!==l){ b.dataset.lbl=l; b.innerHTML=l===t_("vis.chiudi")?t_("vis.chiudi"):`${esc(l)} <span aria-hidden="true">⏭</span>`; b.setAttribute('aria-label',l); }
+  const cl=$('#v-close'); if(cl) cl.hidden=(l===t_("vis.chiudi")); }
 /* salta fino al tick T: gli eventi prima di T si registrano senza replay né 3D (e senza contare come visti), quelli di T normalmente */
 function vJump(T){ const v=viewer, ev=v.sim.ev;
   while(v.evI<ev.length && ev[v.evI].t<T){ handleEvent(ev[v.evI], false, v.evI); v.evI++; }
@@ -486,25 +486,25 @@ function vJump(T){ const v=viewer, ev=v.sim.ev;
   processEvents(true); }
 /* a fine partita: nel registro anche gli eventi dopo l'ultimo frame (fischio finale, voto alla terna), prima della scena finale */
 function vFlush(){ const v=viewer, ev=v.sim.ev; while(v.evI<ev.length){ handleEvent(ev[v.evI], false, v.evI); v.evI++; } updHud(); }
-const LIVE_LBL=new Set(['Avanti: fine azione','Avanti: fine primo tempo','Avanti: fine partita']);
+const LIVE_LBL=new Set([t_("vis.avanti_fine_azione"),t_("vis.avanti_fine_primo_tempo"),t_("vis.avanti_fine_partita")]);
 function vNext(){ const v=viewer; if(!v) return;
   /* fa quello che il tasto mostrava al momento del tocco (l'etichetta può cambiare mentre si preme) */
   let l=vNextLabel(); const shown=($('#v-next')||{dataset:{}}).dataset.lbl;
   if(v.phase==='live' && LIVE_LBL.has(shown) && LIVE_LBL.has(l)){ const first=v.t<v.sim.htTick && !v.htDone;
-    if(shown==='Avanti: fine azione' ? nextStop(v,v.t,first?v.sim.htTick:v.nT-1)!=null : (shown==='Avanti: fine primo tempo')===first) l=shown; }
+    if(shown===t_("vis.avanti_fine_azione") ? nextStop(v,v.t,first?v.sim.htTick:v.nT-1)!=null : (shown===t_("vis.avanti_fine_primo_tempo"))===first) l=shown; }
   if(v.phase==='pre'){ kickoff(); }
   else if(v.phase==='scene'){ endScene(); }
   else if(v.phase==='replay'){ endReplay(); }
   else if(v.phase==='live'){
-    if(!v.playing){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
-    if(l==='Avanti: fine azione'){ const first=v.t<v.sim.htTick && !v.htDone; vJump(nextStop(v,v.t,first?v.sim.htTick:v.nT-1)); }
-    else if(l==='Avanti: fine primo tempo'){ vJump(v.sim.htTick); v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
+    if(!v.playing){ v.playing=true; const b=$('#v-play'); if(b) b.textContent=t_("vis.pausa"); }
+    if(l===t_("vis.avanti_fine_azione")){ const first=v.t<v.sim.htTick && !v.htDone; vJump(nextStop(v,v.t,first?v.sim.htTick:v.nT-1)); }
+    else if(l===t_("vis.avanti_fine_primo_tempo")){ vJump(v.sim.htTick); v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
     else { vJump(v.nT-1); if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(false,'whistle'); }
   }
   else if(v.phase==='done'){
     if(v.post==='whistle'){ v.post='pag'; renderIV(); }
     else if(v.post==='pag'){ v.post='iv'; Object.assign(v.iv,{k:0,phase:'q',t:0,closed:false}); renderIV(); }
-    else { const m=v.m, a=G.T[m.h].n, b=G.T[m.a].n; stopViewer(); viewer=null; render(); toast(`Finale: ${a} ${m.gh} – ${m.ga} ${b}`); return; }
+    else { const m=v.m, a=G.T[m.h].n, b=G.T[m.a].n; stopViewer(); viewer=null; render(); toast(t_("vis.finale_2",{a:a,gh:m.gh,ga:m.ga,b:b})); return; }
   }
   draw(); updNext();
 }
@@ -540,15 +540,15 @@ function startScene(kind){
   let end=0; acts.forEach(a=>a.segs.forEach(s=>end=Math.max(end,s.b)));
   v.scene={kind, t:0, acts, dur:end+(kind==='end'?1.2:0.8), T1:v.sceneT1, fresh:true};
   v.phase='scene'; v.pq=[]; v.wins=[];
-  const rb=$('#v-rpl'); if(rb){ rb.hidden=false; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent=kind==='start'?'Ingresso in campo':kind==='ht'?'Intervallo':'Fine partita'; }
-  const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${kind==='start'?'Le squadre entrano in campo con la terna arbitrale.':kind==='ht'?'Fine primo tempo: le squadre rientrano negli spogliatoi.':'Fischio finale: le squadre rientrano negli spogliatoi.'}</span>`; }
+  const rb=$('#v-rpl'); if(rb){ rb.hidden=false; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent=kind==='start'?t_("vis.ingresso_in_campo"):kind==='ht'?t_("vis.intervallo"):t_("vis.fine_partita"); }
+  const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${kind==='start'?t_("vis.le_squadre_entrano_in_2"):kind==='ht'?t_("vis.fine_primo_tempo_le"):t_("vis.fischio_finale_le_squadre")}</span>`; }
   vScnShow(v); return true;
 }
 function endScene(){
   const v=viewer; if(!v||v.phase!=='scene') return; const k=v.scene.kind; v.scene=null; v.phase='live'; vScnShow(v);
-  const rb=$('#v-rpl'); if(rb){ rb.hidden=true; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent='Replay'; }
+  const rb=$('#v-rpl'); if(rb){ rb.hidden=true; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent=t_("vis.replay"); }
   const bd=$('#v-board'); if(bd) bd.hidden=true;
-  if(k==='start'){ v.playing=true; const b=$('#v-play'); if(b) b.textContent='Pausa'; }
+  if(k==='start'){ v.playing=true; const b=$('#v-play'); if(b) b.textContent=t_("vis.pausa"); }
   if(k==='end') finishViewer(false,'pag');
 }
 function scenePos(a,ts){ for(const h of a.hide) if(ts>=h[0]&&ts<h[1]) return null; let s=a.segs[0]; if(ts<s.a) return {x:s.A[0],y:s.A[1]};
@@ -593,7 +593,7 @@ function draw(){
   const T=v.phase==='replay'?v.rep.t:v.t;
   const gfx=$('#v-goal'); if(gfx){ const ge=v.phase==='replay'&&v.rep.e.type==='goal' ? (T>=v.rep.e.t&&T<v.rep.e.t+6) : (v.phase==='live'&&performance.now()<(v.goalShow||0)); gfx.hidden=!ge; }
   const bd=$('#v-board'); if(bd){ const on=v.phase==='scene' && v.scene.kind==='ht' && v.scene.t>v.scene.T1+0.2 && v.scene.t<v.scene.T1+4.0;
-    if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">Fine primo tempo</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(vTeamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(vTeamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
+    if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">${t_("vis.fine_primo_tempo")}</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(vTeamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(vTeamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
   if(v.ingUntil && v.phase!=='scene') vScnShow(v);
   if(show3) draw3D(T, ivOn, spOn?v.sp3d:null); else draw2D(T, ivOn);
   updHud();
@@ -679,7 +679,7 @@ try{ if(localStorage.getItem('presidente-vista')==='2d') V3.pref=false; }catch(e
 function vThreeMsg(){ const e=$('#v-3msg'); if(e) e.hidden=!V3.load; }
 function vThreeDone(ok){
   if(!V3.load) return; V3.load=false; clearTimeout(V3.lt);
-  if(ok&&window.THREE) V3.ok=null; else { V3.ok=false; toast('Il 3D non si è caricato: il visore resta in 2D.'); }
+  if(ok&&window.THREE) V3.ok=null; else { V3.ok=false; toast(t_("vis.il_3d_non_si")); }
   vThreeMsg();
   if(viewer){ if(V3.ok!==false) setupMatch3D(); if(onMatchPage()) render(); }
 }
@@ -735,7 +735,7 @@ function initThree(){
     const r=new T.WebGLRenderer({antialias:true});
     r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
     r.shadowMap.enabled=true; r.shadowMap.type=T.PCFSoftShadowMap; r.outputEncoding=T.sRGBEncoding;
-    r.domElement.className='gl'; r.domElement.setAttribute('role','img'); r.domElement.setAttribute('aria-label','Campo 3D con le azioni salienti della partita');
+    r.domElement.className='gl'; r.domElement.setAttribute('role','img'); r.domElement.setAttribute('aria-label',t_("vis.campo_3d_con_le"));
     const sc=new T.Scene(); sc.background=new T.Color('#08120d'); sc.fog=new T.Fog('#08120d',120,240);
     const cam=new T.PerspectiveCamera(36,16/9,0.5,500);
     sc.add(new T.HemisphereLight('#e9f1ff','#1b3a22',0.85));
@@ -959,48 +959,48 @@ function interview(m){
   const R=makeRng((m.seed^Math.imul(best,2654435761))|0), P=a=>a[Math.floor(R()*a.length)];
   const coach=m.inp.t[ti].coach.n.split(' ').slice(-1)[0];
   const plan=m.plans?m.plans[ti]:null; const qa=[];
-  const word=goals===2?'Due gol':goals===3?'Tre gol':'';
+  const word=goals===2?t_("vis.due_gol"):goals===3?t_("vis.tre_gol"):'';
   let a1;
   if(res>0){
-    if(goals>=2) a1=P([`Una serata da ricordare. ${word} non capitano tutte le settimane: li dedico alla mia famiglia, che era in tribuna.`,`Quando la palla gira così ti arriva sempre nel posto giusto. ${word}, ma il merito è anche di chi mi ha servito.`]);
-    else if(goals===1) a1=P([`Il gol è la ciliegina. La cosa più bella è come abbiamo sofferto tutti insieme.`,`Ho visto lo spazio e ho calciato senza pensarci troppo. Sono contento per la squadra.`]);
-    else if(p.r==='P') a1=P([`Il mio lavoro è farmi trovare pronto quando serve. Stasera è servito più del solito.`,`Un portiere vive per serate così. Ma senza la difesa davanti non vai da nessuna parte.`]);
-    else if(p.r==='D') a1=P([`Per un difensore non c'è soddisfazione più grande che non far respirare gli attaccanti.`,`Abbiamo chiuso ogni spazio. Quando la difesa regge, davanti prima o poi segni.`]);
-    else a1=P([`Non ho segnato, ma ho cercato di dare ordine e accendere il gioco. Oggi è andata bene.`,`Ho corso tanto e toccato tanti palloni. Vincere così, da squadra, è la cosa che preferisco.`]);
+    if(goals>=2) a1=P([t_("vis.una_serata_da_ricordare",{word:word}),t_("vis.quando_la_palla_gira",{word:word})]);
+    else if(goals===1) a1=P([t_("vis.il_gol_e_la"),t_("vis.ho_visto_lo_spazio")]);
+    else if(p.r==='P') a1=P([t_("vis.il_mio_lavoro_e"),t_("vis.un_portiere_vive_per")]);
+    else if(p.r==='D') a1=P([t_("vis.per_un_difensore_non"),t_("vis.abbiamo_chiuso_ogni_spazio")]);
+    else a1=P([t_("vis.non_ho_segnato_ma"),t_("vis.ho_corso_tanto_e")]);
   } else if(res===0){
-    a1 = goals? P([`Il gol fa piacere, ma io volevo i tre punti. Ce li siamo lasciati scappare.`,`Segnare è sempre bello, però un pareggio ci sta stretto.`])
-              : P([`Un punto che muove la classifica. Potevamo fare di più, ma su questo campo non è facile.`,`Partita equilibrata. Ci prendiamo il punto e pensiamo alla prossima.`]);
+    a1 = goals? P([t_("vis.il_gol_fa_piacere"),t_("vis.segnare_e_sempre_bello")])
+              : P([t_("vis.un_punto_che_muove"),t_("vis.partita_equilibrata_ci_prendiamo")]);
   } else {
-    a1 = p.tem>=13 ? P([`Qualche decisione dell'arbitro mi ha lasciato perplesso, ma non voglio cercare alibi. Abbiamo perso e basta.`,`Sono arrabbiato. Il premio personale non me lo godo, non dopo una sconfitta così.`])
-                  : P([`Il premio personale vale poco quando si perde. Da domani torniamo a lavorare.`,`Abbiamo sbagliato troppo davanti. Io ci ho provato, ma da soli non si vince.`]);
+    a1 = p.tem>=13 ? P([t_("vis.qualche_decisione_dell_arbitro"),t_("vis.sono_arrabbiato_il_premio")])
+                  : P([t_("vis.il_premio_personale_vale"),t_("vis.abbiamo_sbagliato_troppo_davanti")]);
   }
-  qa.push([`${p.fn||p.ln}, voto ${String(m.rt[best]).replace('.',',')} e migliore in campo. ${res>0?'Che vittoria è stata?':res<0?'Peccato per il risultato: cosa è mancato?':'Un pareggio: sei soddisfatto?'}`, a1]);
+  qa.push([t_("vis.voto_e_migliore_in",{fn:p.fn||p.ln,fDec:fDec(m.rt[best]),v:res>0?t_("vis.che_vittoria_e_stata"):res<0?t_("vis.peccato_per_il_risultato"):t_("vis.un_pareggio_sei_soddisfatto")}), a1]);
   if(p.age<=20){
-    qa.push([`Hai solo ${p.age} anni${flashes?' e stasera si sono viste giocate di gran classe':''}. Senti la pressione?`,
-      p.amb>=14? `La pressione mi piace. Voglio arrivare in Lega Prima, e non ci voglio mettere troppo.` : p.prof>=14? `No, mi alleno per questo. Ascolto il mister ${coach} e cerco di migliorare ogni giorno.` : `Un po' sì, è normale. Ma in campo mi diverto e il resto passa.`]);
+    qa.push([t_("vis.hai_solo_anni_senti",{age:p.age,v:flashes?t_("vis.e_stasera_si_sono"):''}),
+      p.amb>=14? t_("vis.la_pressione_mi_piace") : p.prof>=14? t_("vis.no_mi_alleno_per",{coach:coach}) : t_("vis.un_po_si_e")]);
   } else if(p.age>=31){
-    qa.push([`A ${p.age} anni sei ancora decisivo. Qual è il segreto?`, p.prof>=13? `Mi curo, dormo, mangio bene. A questa età non si improvvisa niente.` : `L'esperienza. So dove va il pallone un attimo prima degli altri.`]);
+    qa.push([t_("vis.a_anni_sei_ancora",{age:p.age}), p.prof>=13? t_("vis.mi_curo_dormo_mangio") : t_("vis.l_esperienza_so_dove")]);
   } else if(plan && plan.form){
-    qa.push([`Il mister ${coach} ha scelto il ${plan.form}. Come ti sei trovato?`, plan.ment>0? `Bene: volevamo fare la partita e abbiamo spinto dal primo minuto. In quel sistema ho tanto spazio.` : plan.ment<0? `Sapevamo di dover soffrire. Squadra corta e ripartenze: il mister l'aveva preparata così.` : `È un sistema che conosciamo. Quando ognuno sa cosa fare, le cose vengono da sole.`]);
+    qa.push([t_("vis.il_mister_ha_scelto",{coach:coach,form:plan.form}), plan.ment>0? t_("vis.bene_volevamo_fare_la") : plan.ment<0? t_("vis.sapevamo_di_dover_soffrire") : t_("vis.e_un_sistema_che")]);
   } else {
-    qa.push([`Cosa ti chiede il mister ${coach}?`, `Di stare corti e di non mollare mai. Oggi credo di aver fatto quello che voleva.`]);
+    qa.push([t_("vis.cosa_ti_chiede_il",{coach:coach}), t_("vis.di_stare_corti_e")]);
   }
   if(team.id===0){
-    qa.push([`Il presidente era in tribuna. Un messaggio per lui?`, p.mor>=13? `Lo ringrazio per la fiducia. Qui si lavora bene e si vede in campo.` : p.mor<=7? `Gli dico che voglio giocare di più. Stasera credo di aver dimostrato di meritarlo.` : `Che può stare tranquillo: questo gruppo ha fame.`]);
+    qa.push([t_("vis.il_presidente_era_in"), p.mor>=13? t_("vis.lo_ringrazio_per_la") : p.mor<=7? t_("vis.gli_dico_che_voglio") : t_("vis.che_puo_stare_tranquillo")]);
   } else {
     const fx=G.sched[G.md]; const nx=fx && fx.find(f=>f.includes(team.id)); const no=nx? G.T[nx[0]===team.id?nx[1]:nx[0]] : null;
-    if(no) qa.push([`Prossima sfida contro ${no.n}.`, res>0? `Adesso serve continuità. Sarà dura, ma ce la giochiamo con tutti.` : `Dobbiamo reagire subito. È la partita giusta per rimetterci in carreggiata.`]);
-    else qa.push([`Si chiude la stagione. Un bilancio?`, res>=0? `Positivo. Siamo cresciuti tanto e l'anno prossimo vogliamo di più.` : `Ci sono cose da migliorare. Ne parleremo con calma, adesso un po' di riposo.`]);
+    if(no) qa.push([t_("vis.prossima_sfida_contro",{n:no.n}), res>0? t_("vis.adesso_serve_continuita_sara") : t_("vis.dobbiamo_reagire_subito_e")]);
+    else qa.push([t_("vis.si_chiude_la_stagione"), res>=0? t_("vis.positivo_siamo_cresciuti_tanto") : t_("vis.ci_sono_cose_da")]);
   }
   return {id:best, fn:p.fn, ln:p.ln, r:p.r, age:p.age, team, rt:m.rt[best], goals, qa};
 }
 function interviewHTML(x){
-  return `<p class="eyebrow">Intervista · migliore in campo</p>
-   <div class="iv-head"><span class="badge" style="--c:${x.team.c}">${esc((x.fn[0]||'')+(x.ln[0]||''))}</span><div><p class="iv-name">${esc(x.fn)} ${esc(x.ln)}</p><p class="muted">${ROLE_NAME[x.r]} · ${x.age} anni · ${esc(x.team.n)} · voto ${String(x.rt).replace('.',',')}${x.goals?' · '+x.goals+' gol':''}</p></div>${G.P[x.id]?`<button class="btn ghost small" data-act="sheet" data-pid="${x.id}">Apri la scheda</button>`:''}</div>
+  return `<p class="eyebrow">${t_("vis.intervista_migliore_in_campo")}</p>
+   <div class="iv-head"><span class="badge" style="--c:${x.team.c}">${esc((x.fn[0]||'')+(x.ln[0]||''))}</span><div><p class="iv-name">${esc(x.fn)} ${esc(x.ln)}</p><p class="muted">${t_("vis.anni_voto",{v:ROLE_NAME[x.r],age:x.age,n:esc(x.team.n),fDec:fDec(x.rt),v2:x.goals?' · '+x.goals+' gol':''})}</p></div>${G.P[x.id]?`<button class="btn ghost small" data-act="sheet" data-pid="${x.id}">${t_("vis.apri_la_scheda")}</button>`:''}</div>
    <dl class="iv-qa">${x.qa.map(([q,a])=>`<dt>${esc(q)}</dt><dd>«${esc(a)}»</dd>`).join('')}</dl>`;
 }
 function pagelleHTML(){
-  const v=viewer, m=v.m, sim=v.sim, ev=sim.ev, fv=x=>String(x).replace('.',',');
+  const v=viewer, m=v.m, sim=v.sim, ev=sim.ev, fv=x=>fDec(x);
   const cls=x=>x>=7?'hi':x<=5.5?'lo':'';
   const col=side=>{ const ids=Object.keys(sim.rt).filter(id=>v.info[id]&&v.info[id].t===side);
     const inMin={}, outMin={}; ev.filter(e=>e.type==='sub'&&e.side===side).forEach(e=>{ inMin[e.p[0]]=e.min; if(e.p[1]!=null) outMin[e.p[1]]=e.min; });
@@ -1008,13 +1008,13 @@ function pagelleHTML(){
     const capId=(m.inp.t[side].capOrder||[])[0];
     ids.sort((a,b)=>(inMin[a]?1:0)-(inMin[b]?1:0) || v.info[a].num-v.info[b].num);
     const rows=ids.map(id=>{ const i=v.info[id], r=sim.rt[id];
-      return `<li class="${inMin[id]?'sub':''}"><span class="pn">${i.num}</span><span class="pnm">${esc(i.ln)}${id==capId?' <b class="capm">C</b>':''}${goals[id]?' '+'⚽'.repeat(goals[id]):''}${rc[id]?' 🟥':yc[id]?' 🟨':''}${inMin[id]?` <small class="in">↑ ${inMin[id]}</small>`:''}${outMin[id]?` <small class="out">↓ ${outMin[id]}</small>`:''}</span><b class="pv ${cls(r)}">${fv(r)}</b></li>`; }).join('');
+      return `<li class="${inMin[id]?'sub':''}"><span class="pn">${i.num}</span><span class="pnm">${esc(i.ln)}${id==capId?` ${t_("vis.c")}`:''}${goals[id]?' '+'⚽'.repeat(goals[id]):''}${rc[id]?' 🟥':yc[id]?' 🟨':''}${inMin[id]?` <small class="in">↑ ${inMin[id]}</small>`:''}${outMin[id]?` <small class="out">↓ ${outMin[id]}</small>`:''}</span><b class="pv ${cls(r)}">${fv(r)}</b></li>`; }).join('');
     const c=m.inp.t[side].coach, cr=sim.coachRt&&sim.coachRt[side];
-    const crow=`<li class="coachr"><span class="pn">All.</span><span class="pnm">${esc(c.n)}${cr&&cr.why.length?`<small>${esc(cr.why.slice(0,2).join(', '))}</small>`:''}</span><b class="pv ${cr&&cr.v!=null?cls(cr.v):''}">${cr&&cr.v!=null?fv(cr.v):'–'}</b></li>`;
+    const crow=`<li class="coachr"><span class="pn">${t_("vis.all_2")}</span><span class="pnm">${esc(c.n)}${cr&&cr.why.length?`<small>${esc(cr.why.slice(0,2).join(', '))}</small>`:''}</span><b class="pv ${cr&&cr.v!=null?cls(cr.v):''}">${cr&&cr.v!=null?fv(cr.v):'–'}</b></li>`;
     return `<div class="pcol"><p class="ph"><i style="background:${teamColor(v,side)}"></i>${esc(vTeamName(v,side))} <b>${side?m.ga:m.gh}</b></p><ul>${rows}${crow}</ul></div>`; };
   const rf=sim.ref||{}, RT=G.refs&&G.refs[m.refId], ri=m.inp.ref;
-  const terna=ri?`<div class="pref"><span>Terna: <b>${esc(ri.full||ri.n)}</b>${RT?` · assistenti ${esc(RT.a1)} e ${esc(RT.a2)}`:''}${rf.errs&&rf.errs.length?` · <span class="lo">${rf.errs.length===1?'1 errore':'2 errori'} alla moviola</span>`:''}</span><b class="pv ${cls(rf.voto)}">${fv(rf.voto)}</b></div>`:'';
-  return `<div class="pag-in"><div class="pag-h"><p class="eyebrow">Pagelle</p></div><div class="pcols">${col(0)}${col(1)}</div>${terna}</div>`;
+  const terna=ri?`<div class="pref"><span>${t_("vis.terna",{full:esc(ri.full||ri.n),v:RT?` ${t_("vis.assistenti_e",{a1:esc(RT.a1),a2:esc(RT.a2)})}`:'',v2:rf.errs&&rf.errs.length?` · <span class="lo">${t_("vis.alla_moviola",{v:rf.errs.length===1?'1 errore':'2 errori'})}</span>`:''})}</span><b class="pv ${cls(rf.voto)}">${fv(rf.voto)}</b></div>`:'';
+  return `<div class="pag-in"><div class="pag-h"><p class="eyebrow">${t_("vis.pagelle")}</p></div><div class="pcols">${col(0)}${col(1)}</div>${terna}</div>`;
 }
 function renderIV(){
   const v=viewer, host=$('#stage'); if(!host||!v||!v.iv) return;
@@ -1027,10 +1027,10 @@ function renderIV(){
   if(cap) cap.hidden=true;
   if(!o){ o=document.createElement('div'); o.id='v-ivo'; o.className='ivo'; host.appendChild(o); }
   const x=v.iv.x, [q]=x.qa[v.iv.k], last=v.iv.k>=x.qa.length-1;
-  o.innerHTML=`<div class="bub a" id="iv-a" ${v.iv.phase==='q'?'hidden':''}><span class="who">${esc(x.fn)} ${esc(x.ln)} · voto ${String(x.rt).replace('.',',')}</span><p id="iv-at"></p></div>
-   <div class="ivq"><div class="ivq-txt"><span class="tag">Giornalista</span><p>${esc(q)}</p></div>
-    <div class="ivo-ctrl"><span class="dots" aria-label="Domanda ${v.iv.k+1} di ${x.qa.length}">${x.qa.map((_,i)=>`<i class="${i===v.iv.k?'on':''}"></i>`).join('')}</span>
-    ${last&&v.iv.phase==='done'?`<button class="btn ghost small" data-act="ivagain">Rivedi l'intervista</button>`:`<button class="btn ghost small" data-act="ivnext">${v.iv.phase==='q'?'Risposta':last?'Fine':'Domanda dopo'} ›</button>`}</div></div>`;
+  o.innerHTML=`<div class="bub a" id="iv-a" ${v.iv.phase==='q'?'hidden':''}><span class="who">${t_("vis.voto",{fn:esc(x.fn),ln:esc(x.ln),fDec:fDec(x.rt)})}</span><p id="iv-at"></p></div>
+   <div class="ivq"><div class="ivq-txt"><span class="tag">${t_("vis.giornalista")}</span><p>${esc(q)}</p></div>
+    <div class="ivo-ctrl"><span class="dots" aria-label="${t_("vis.domanda_di",{k:v.iv.k+1,qa:x.qa.length})}">${x.qa.map((_,i)=>`<i class="${i===v.iv.k?'on':''}"></i>`).join('')}</span>
+    ${last&&v.iv.phase==='done'?`<button class="btn ghost small" data-act="ivagain">${t_("vis.rivedi_l_intervista")}</button>`:`<button class="btn ghost small" data-act="ivnext">${v.iv.phase==='q'?t_("vis.risposta"):last?t_("vis.fine"):t_("vis.domanda_dopo")} ›</button>`}</div></div>`;
   updIV();
 }
 function updIV(){ const v=viewer, el=$('#iv-at'); if(!el||!v.iv) return; const a=v.iv.x.qa[v.iv.k][1]; const n=(v.iv.phase==='a'&&!reduced())?Math.min(a.length,Math.floor(v.iv.t/32)):a.length; el.textContent='«'+a.slice(0,n)+(n<a.length?'':'»'); }

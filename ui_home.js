@@ -5,7 +5,7 @@
 
 /* ---------- nomi dei club cliccabili ---------- */
 function clubLink(id, chip){ const t=G.T[id]; if(!t) return '';
-  return `<button class="link clubl" data-act="club" data-id="${id}" title="Profilo di ${esc(t.n)}">${chip?`<span class="chip" style="--c:${t.c}"></span>`:''}${esc(t.n)}</button>`; }
+  return `<button class="link clubl" data-act="club" data-id="${id}" title="${t_("home.profilo_di",{n:esc(t.n)})}">${chip?`<span class="chip" style="--c:${t.c}"></span>`:''}${esc(t.n)}</button>`; }
 /* nel testo di una notizia: i nomi dei club riconoscibili diventano link */
 function linkClubs(txt){ const s=esc(txt), L=G.T.map(t=>[esc(t.n),t.id]).sort((a,b)=>b[0].length-a[0].length);
   const rx=new RegExp(L.map(([n])=>n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
@@ -45,84 +45,84 @@ function publicAlbo(){ return (G.albo||[]).slice().reverse(); }
 /* presidente umano di un club e la sua carriera pubblica (niente cassa, debiti, quote, trattative, reputazione) */
 function publicPres(id){ const pr=(G.prs||[]).find(x=>x.u&&x.t===id); if(!pr) return null;
   return {id:pr.id, n:presName(pr), h:pr.h.map(h=>({s:h[0], c:h[1], pos:h[2], tr:h[3], ok:h[4], fired:h[5]})), cur:G.fired?null:{s:G.season, c:pr.t, pos:standings().indexOf(G.T[pr.t])+1}}; }
-const presName = pr=>pr.n||'Il presidente';
+const presName = pr=>pr.n||t_("home.il_presidente");
 function publicRound(){ return G.md<G.sched.length? G.sched[G.md].map(([h,a])=>({h,a})) : []; }
 
 /* ---------- la segretaria ---------- */
-const secName = ()=>(G&&G.sec&&G.sec.n)||'Giulia';
+const secName = ()=>(G&&G.sec&&G.sec.n)||t_("home.giulia");
 const NUM_IT=['nessuna','una','due','tre','quattro','cinque','sei','sette','otto','nove','dieci'];
 const numIt = n=>NUM_IT[n]||String(n);
 /* variante della frase scelta con un hash su stagione, giornata e voce: non consuma i numeri casuali del gioco */
 function pickV(key, arr){ return arr[Math.floor(hashU(key+'|'+G.season+'|'+G.md, 31)*arr.length)%arr.length]; }
-const SEC_LBL={blk:'Bloccante', urg:'Urgente', todo:'Da fare'};
+const SEC_LBL={blk:t_("home.bloccante"), urg:t_("home.urgente"), todo:t_("home.da_fare")};
 const goAct = (a,s)=>`data-act="go" data-a="${a}"${s?` data-s="${s}"`:''}`;
-function reqLabel(q){ const p=q.pid!=null?G.P[q.pid]:null; return REQ_KIND[q.kind].toLowerCase()+(p?' di '+p.fn+' '+p.ln:q.kind==='rinforzo'?' dell\'allenatore':q.kind==='premio'||q.kind==='obiettivo'?' della squadra':''); }
+function reqLabel(q){ const p=q.pid!=null?G.P[q.pid]:null; return REQ_KIND[q.kind].toLowerCase()+(p?` ${t_("home.di",{fn:p.fn,ln:p.ln})}`:q.kind==='rinforzo'?' dell\'allenatore':q.kind==='premio'||q.kind==='obiettivo'?t_("home.della_squadra"):''); }
 /* voci della segretaria, in ordine di priorità: bloccanti, urgenti, da fare */
 function secItems(){
   const t=G.T[0], f=finInit(t), it=[], end=G.md>=G.sched.length;
   const add=(lv,key,txt,short,btn,act)=>it.push({lv,key,txt,short,btn,act});
   // BLOCCANTI
-  if(G.fired) add('blk','fired', pickV('fired',[`Presidente, la banca l'ha sollevata dall'incarico. ${G.fired.offers.length} società le offrono la presidenza: prima di tutto va scelta la nuova.`,`Presidente, ci sono ${G.fired.offers.length} offerte per un nuovo incarico. Finché non ne sceglie una non si gioca.`]),
-    'Scegliere la nuova società', 'Vedi le offerte', 'data-act="secfired"');
-  if(G.md===0 && needBudget(t)) add('blk','bud', pickV('bud',[`Il preventivo della stagione ${G.season} è ancora da convalidare: senza, la Lega non ci fa giocare.`,`Prima della giornata 1 serve il preventivo convalidato. L'ho lasciato aperto in Bilancio, con il tasto per compilarlo in automatico.`]),
-    'Convalidare il preventivo', 'Apri il bilancio', goAct('societa','bilancio'));
+  if(G.fired) add('blk','fired', pickV('fired',[t_("home.presidente_la_banca_l",{offers:G.fired.offers.length}),t_("home.presidente_ci_sono_offerte",{offers:G.fired.offers.length})]),
+    t_("home.scegliere_la_nuova_societa"), t_("home.vedi_le_offerte"), 'data-act="secfired"');
+  if(G.md===0 && needBudget(t)) add('blk','bud', pickV('bud',[t_("home.il_preventivo_della_stagione",{season:G.season}),t_("home.prima_della_giornata_1")]),
+    t_("home.convalidare_il_preventivo"), t_("home.apri_il_bilancio"), goAct('societa','bilancio'));
   // URGENTI
   if(t.ult && t.ult.st==='on'){ const c=ultConds(t), ko=c.filter(x=>!x.ok);
-    add('urg','ult', `La banca ha dato un ultimatum: la verifica è ${ultWhen(t.ult)}. ${ko.length?'Oggi non sono rispettate queste condizioni: '+esc(ko.map(x=>x.t).join('; '))+'.':'Per ora le condizioni sono rispettate: '+esc(c.map(x=>x.t).join('; '))+'.'}`,
-      `Ultimatum della banca (verifica ${ultWhen(t.ult)})`, 'Vai alla banca', goAct('societa','banca')); }
+    add('urg','ult', t_("home.la_banca_ha_dato",{ultWhen:ultWhen(t.ult),v:ko.length?t_("home.oggi_non_sono_rispettate",{join:esc(ko.map(x=>x.t).join('; '))}):t_("home.per_ora_le_condizioni",{join:esc(c.map(x=>x.t).join('; '))})}),
+      t_("home.ultimatum_della_banca_verifica",{ultWhen:ultWhen(t.ult)}), t_("home.vai_alla_banca"), goAct('societa','banca')); }
   activeMissions(t).filter(m=>m.kind==='rinforzo' && m.due-G.md<=1).forEach(m=>
-    add('urg','miss'+m.due, pickV('miss',[`Ha promesso a ${esc(t.coach.n)} un ${m.roleN} di valore almeno ${String(m.thr).replace('.',',')}: va comprato prima di giocare la giornata ${m.due}.`,`Ultima occasione per il ${m.roleN} promesso a ${esc(t.coach.n)} (valore almeno ${String(m.thr).replace('.',',')}): la promessa scade con la giornata ${m.due}.`]),
-      `Rinforzo promesso all'allenatore: un ${m.roleN} entro la giornata ${m.due}`, 'Cerca sul mercato', `data-act="missmkt" data-r="${m.role}"`));
+    add('urg','miss'+m.due, pickV('miss',[t_("home.ha_promesso_a_un",{n:esc(t.coach.n),roleN:m.roleN,fDec:fDec(m.thr),due:m.due}),t_("home.ultima_occasione_per_il",{roleN:m.roleN,n:esc(t.coach.n),fDec:fDec(m.thr),due:m.due})]),
+      t_("home.rinforzo_promesso_all_allenatore",{roleN:m.roleN,due:m.due}), t_("home.cerca_sul_mercato"), `data-act="missmkt" data-r="${m.role}"`));
   const open=(G.req||[]).filter(q=>q.team===0 && q.st==='open' && q.kind!=='acquisto' && q.kind!=='offerta').sort((a,b)=>a.due-b.due);
   open.filter(reqExpiring).forEach(q=>
-    add('urg','req'+q.id, pickV('req'+q.kind,[`C'è una richiesta che scade: ${esc(reqLabel(q))}. Se non risponde prima di giocare, decade da sola.`,`La richiesta (${esc(reqLabel(q))}) aspetta una risposta: dopo questa giornata scade.`]),
-      `Risposta a: ${reqLabel(q)}`, 'Apri la richiesta', `data-act="reqgo" data-id="${q.id}"`));
+    add('urg','req'+q.id, pickV('req'+q.kind,[t_("home.c_e_una_richiesta",{reqLabel:esc(reqLabel(q))}),t_("home.la_richiesta_aspetta_una",{reqLabel:esc(reqLabel(q))})]),
+      t_("home.risposta_a",{reqLabel:reqLabel(q)}), t_("home.apri_la_richiesta"), `data-act="reqgo" data-id="${q.id}"`));
   const arr=arrears(t);
   if(arr>0){ const nx=CHECKS.find(c=>c>G.md);
-    add('urg','arr', `Ci sono ${kcr(arr)} cr di stipendi arretrati. ${nx?`Il prossimo controllo è dopo la giornata ${nx}: vanno pagati prima, altrimenti arriva la penalizzazione.`:'Vanno pagati prima del controllo di fine stagione.'}`,
-      `Stipendi arretrati: ${kcr(arr)} cr`, 'Apri i conti', goAct('societa','conti')); }
-  if(f.ins>0) add('urg','ins', `La rata della banca non è stata pagata: insoluto di ${kcr(f.ins)} cr da ${f.insN} ${f.insN===1?'giornata':'giornate'}, con la mora dell'1% a giornata. Alla terza giornata di fila il debito diventa quote della banca.`,
-      `Rata della banca non pagata (${kcr(f.ins)} cr)`, 'Vai alla banca', goAct('societa','banca'));
-  { const b=f.bud; if(canRevise(t) && b.rev && !b.rev.ok) add('urg','rev', `La revisione dopo la giornata ${b.rev.md} dice che i conti sono fuori dal preventivo (scostamento ${Math.round(b.rev.scost*100)}%). Si può aggiornare una volta sola, fino alla giornata 9.`,
-      'Preventivo fuori tolleranza da aggiornare', 'Apri il bilancio', goAct('societa','bilancio')); }
+    add('urg','arr', t_("home.ci_sono_cr_di",{arr:kcr(arr),v:nx?t_("home.il_prossimo_controllo_e",{nx:nx}):t_("home.vanno_pagati_prima_del")}),
+      t_("home.stipendi_arretrati_cr",{arr:kcr(arr)}), t_("home.apri_i_conti"), goAct('societa','conti')); }
+  if(f.ins>0) add('urg','ins', t_("home.la_rata_della_banca",{ins:kcr(f.ins),insN:f.insN,v:f.insN===1?'giornata':'giornate'}),
+      t_("home.rata_della_banca_non",{ins:kcr(f.ins)}), t_("home.vai_alla_banca"), goAct('societa','banca'));
+  { const b=f.bud; if(canRevise(t) && b.rev && !b.rev.ok) add('urg','rev', t_("home.la_revisione_dopo_la",{md:b.rev.md,scost:Math.round(b.rev.scost*100)}),
+      t_("home.preventivo_fuori_tolleranza_da"), t_("home.apri_il_bilancio"), goAct('societa','bilancio')); }
   // DA FARE
   const rest=open.filter(q=>!reqExpiring(q));
-  if(rest.length) add('todo','reqs', `${rest.length===1?'C\'è una richiesta':'Ci sono '+numIt(rest.length)+' richieste'} in attesa: ${esc(rest.map(reqLabel).join(', '))}.`,
-      'Richieste in attesa', rest.length===1?'Apri la richiesta':'Vedi le richieste', `data-act="reqgo" data-id="${rest[0].id}"`);
+  if(rest.length) add('todo','reqs', t_("home.in_attesa",{v:rest.length===1?t_("home.c_e_una_richiesta_2"):t_("home.ci_sono_richieste",{numIt:numIt(rest.length)}),join:esc(rest.map(reqLabel).join(', '))}),
+      t_("home.richieste_in_attesa"), rest.length===1?t_("home.apri_la_richiesta"):t_("home.vedi_le_richieste"), `data-act="reqgo" data-id="${rest[0].id}"`);
   const offs=(G.req||[]).filter(q=>q.team===0 && q.st==='open' && q.kind==='offerta');
-  if(offs.length) add('todo','offs', `${offs.length===1?'È arrivata un\'offerta':'Sono arrivate '+numIt(offs.length)+' offerte'} per i suoi giocatori: ${esc(offs.map(q=>G.P[q.pid].ln+' ('+buyerOf(q).n+', '+kcr(q.amt)+' cr)').join(', '))}.`,
-      'Offerte per i tuoi giocatori', 'Vai alle trattative', goAct('mercato','trattative'));
+  if(offs.length) add('todo','offs', t_("home.per_i_suoi_giocatori",{v:offs.length===1?t_("home.e_arrivata_un_offerta"):t_("home.sono_arrivate_offerte",{numIt:numIt(offs.length)}),join:esc(offs.map(q=>G.P[q.pid].ln+' ('+buyerOf(q).n+', '+kcr(q.amt)+' cr)').join(', '))}),
+      t_("home.offerte_per_i_tuoi"), t_("home.vai_alle_trattative"), goAct('mercato','trattative'));
   if(G.md>=10){ const exp=teamPlayers(t).filter(p=>!p.retired && p.ct<=1);
-    if(exp.length) add('todo','ct', `Contratti in scadenza a fine stagione: ${esc(exp.map(p=>p.fn+' '+p.ln).join(', '))}. Conviene decidere per tempo chi tenere.`,
-      'Contratti in scadenza', 'Apri la rosa', goAct('squadra','rosa')); }
-  { const c2=2*(wageBill(t)+staffCost(t)); if(t.cash<c2) add('todo','cash', `In cassa ci sono ${kcr(t.cash)} cr, meno di due giornate di stipendi e staff (${kcr(c2)} cr).`,
-      'Cassa bassa', 'Apri i conti', goAct('societa','conti')); }
-  if(!end && G.scoutLeft>0) add('todo','obs', pickV('obs',[`L'osservatore ha ancora ${G.scoutLeft===1?'una relazione':numIt(G.scoutLeft)+' relazioni'} per questa giornata.`,`Se vuole far valutare qualcuno, all'osservatore ${G.scoutLeft===1?'resta una relazione':'restano '+numIt(G.scoutLeft)+' relazioni'} per questa giornata.`]),
-      'Relazioni dell\'osservatore', 'Cerca giocatori', goAct('mercato','cerca'));
+    if(exp.length) add('todo','ct', t_("home.contratti_in_scadenza_a",{join:esc(exp.map(p=>p.fn+' '+p.ln).join(', '))}),
+      t_("home.contratti_in_scadenza"), t_("home.apri_la_rosa"), goAct('squadra','rosa')); }
+  { const c2=2*(wageBill(t)+staffCost(t)); if(t.cash<c2) add('todo','cash', t_("home.in_cassa_ci_sono",{cash:kcr(t.cash),c2:kcr(c2)}),
+      t_("home.cassa_bassa"), t_("home.apri_i_conti"), goAct('societa','conti')); }
+  if(!end && G.scoutLeft>0) add('todo','obs', pickV('obs',[t_("home.l_osservatore_ha_ancora",{v:G.scoutLeft===1?t_("home.una_relazione"):numIt(G.scoutLeft)+' relazioni'}),t_("home.se_vuole_far_valutare",{v:G.scoutLeft===1?t_("home.resta_una_relazione"):t_("home.restano_relazioni",{numIt:numIt(G.scoutLeft)})})]),
+      t_("home.relazioni_dell_osservatore"), t_("home.cerca_giocatori"), goAct('mercato','cerca'));
   G.news.filter(n=>n.s===G.season && n.md===G.md-1 && /è salito al livello/.test(n.t||'')).forEach((n,i)=>
-    add('todo','fac'+i, `Lavori finiti: ${esc(n.t)}`, 'Lavori conclusi', 'Vedi le strutture', goAct('societa','strutture')));
+    add('todo','fac'+i, t_("home.lavori_finiti",{tt:esc(n.t)}), t_("home.lavori_conclusi"), t_("home.vedi_le_strutture"), goAct('societa','strutture')));
   return it;
 }
 function secBadge(){ return G? secItems().filter(x=>x.lv!=='todo').length : 0; }
 function secGreet(it){
   const nb=it.filter(x=>x.lv==='blk').length, nu=it.filter(x=>x.lv==='urg').length, n=nb+nu, nt=it.length-n;
-  const when=G.md>=G.sched.length?'prima di chiudere la stagione':'prima della giornata '+(G.md+1);
-  if(!n){ const ok='Tutto in ordine, Presidente. Possiamo giocare.'; return nt? ok+' '+(nt===1?'C\'è solo una cosa da fare, quando vuole:':'Se ha un momento, ci sono '+numIt(nt)+' cose da fare:') : ok; }
-  const hi=pickV('hi',['Buongiorno Presidente','Bentornato, Presidente','Ben arrivato, Presidente']);
-  return `${hi}, ${when} ${n===1?'c\'è una cosa urgente':'ci sono '+numIt(n)+' cose urgenti'}.${nb?(nb===n?' Finché non '+(n===1?'è sistemata':'sono sistemate')+' non si gioca.':' La prima non ci lascia giocare.'):''}`;
+  const when=G.md>=G.sched.length?t_("home.prima_di_chiudere_la"):t_("home.prima_della_giornata",{md:G.md+1});
+  if(!n){ const ok=t_("home.tutto_in_ordine_presidente"); return nt? ok+' '+(nt===1?t_("home.c_e_solo_una"):t_("home.se_ha_un_momento",{numIt:numIt(nt)})) : ok; }
+  const hi=pickV('hi',[t_("home.buongiorno_presidente"),t_("home.bentornato_presidente"),t_("home.ben_arrivato_presidente")]);
+  return `${hi}, ${when} ${n===1?t_("home.c_e_una_cosa"):t_("home.ci_sono_cose_urgenti",{numIt:numIt(n)})}.${nb?(nb===n?` ${t_("home.finche_non_non_si",{v:n===1?t_("home.e_sistemata"):t_("home.sono_sistemate")})}`:t_("home.la_prima_non_ci")):''}`;
 }
 function secHTML(){ const it=secItems(), nm=secName();
-  return `<section class="card sec" aria-label="La segretaria"><div class="sec-h"><span class="sec-av" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span><div><p class="eyebrow">${esc(nm)} · segreteria del presidente</p><p class="sec-say">${secGreet(it)}</p></div></div>
+  return `<section class="card sec" aria-label="${t_("home.la_segretaria")}"><div class="sec-h"><span class="sec-av" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span><div><p class="eyebrow">${t_("home.segreteria_del_presidente",{nm:esc(nm)})}</p><p class="sec-say">${secGreet(it)}</p></div></div>
    ${it.length?`<ul class="secl">${it.map(x=>`<li class="si ${x.lv}"><span class="si-tag">${SEC_LBL[x.lv]}</span><p>${x.txt}</p><button class="btn small ${x.lv==='todo'?'ghost':''}" ${x.act}>${x.btn}</button></li>`).join('')}</ul>`:''}</section>`; }
 
 /* ---------- Scrivania ---------- */
 /* riquadro «Premi della stagione»: dopo la fine stagione, finché non si gioca la prima giornata della nuova */
 function prizesHTML(){ const r=(G.albo||[])[G.albo?G.albo.length-1:0]; if(!r||r.s!==G.season-1||G.md>0) return '';
-  const lab={1:'Campione',2:'Seconda',3:'Terza',0:'Club del capocannoniere'};
-  const li=(r.pr||[]).map(([id,pop,sp,k])=>`<li class="${id===0?'me':''}"><span>${lab[k]}</span><span>${clubLink(id,true)}</span><b>popolarità +${pop}${sp?` · sponsor +${Math.round(sp*100)}% nella stagione ${r.s+1}`:''}</b></li>`).join('');
+  const lab={1:t_("home.campione"),2:t_("home.seconda"),3:t_("home.terza"),0:t_("home.club_del_capocannoniere")};
+  const li=(r.pr||[]).map(([id,pop,sp,k])=>`<li class="${id===0?'me':''}"><span>${lab[k]}</span><span>${clubLink(id,true)}</span>${t_("home.popolarita",{pop:pop,v:sp?` ${t_("home.sponsor_nella_stagione",{sp:Math.round(sp*100),s:r.s+1})}`:''})}</li>`).join('');
   const mine=(r.pr||[]).filter(x=>x[0]===0);
-  return `<section class="card prz"><p class="eyebrow">Premi della stagione ${r.s}</p><ul class="przl">${li}</ul>
-   <p class="muted small">${r.cc?`Capocannoniere ${esc(r.cc[1])} con ${r.cc[3]} gol. `:''}${r.mg?`Miglior giovane ${esc(r.mg[1])} (media ${String(r.mg[3]/10).replace('.',',')}). `:''}${mine.length?'Il tuo club ha avuto un premio: i tifosi sono di più e gli sponsor pagano di più per tutta la stagione. Il preventivo ne tiene già conto.':'Gli aumenti degli sponsor valgono solo per la stagione che inizia, poi tornano normali.'} Tutto l'albo è in <button class="link" ${goAct('lega','albo')}>Lega › Albo d'oro</button>.</p></section>`; }
+  return `<section class="card prz"><p class="eyebrow">${t_("home.premi_della_stagione",{s:r.s})}</p><ul class="przl">${li}</ul>
+   <p class="muted small">${t_("home.tutto_l_albo_e",{v:r.cc?`${t_("home.capocannoniere_con_gol",{v:esc(r.cc[1]),v2:r.cc[3]})} `:'',v2:r.mg?`${t_("home.miglior_giovane_media",{v:esc(r.mg[1]),fDec:fDec(r.mg[3]/10)})} `:'',v3:mine.length?t_("home.il_tuo_club_ha"):t_("home.gli_aumenti_degli_sponsor")})} <button class="link" ${goAct('lega','albo')}>${t_("home.lega_albo_d_oro")}</button>.</p></section>`; }
 /* Scrivania (0.4.2.4, G1a): impaginazione della 013 di Evivora-scambio (fascia verde con la segretaria, sei riquadri), solo con dati
    che il gioco ha già: niente «In arrivo» e niente numeri inventati. Sotto restano «Come si gioca», premi, richieste e impegni. */
 const SEC_ICO={blk:'clipboard', urg:'clock', todo:'check'};
@@ -136,96 +136,96 @@ function deskTop3(t){ const pl=teamPlayers(t).filter(p=>!p.retired);
   const art=clubArt(t.id);
   return {played, html:L.map((p,i)=>{ const s=st(p);
     return `<li class="ev-topitem"><span class="ev-rank">${i+1}</span><span class="ev-face-small" aria-hidden="true">${faceHTML(p.id*7919+13,{eta:p.age,ruolo:'giocatore',colori:{primario:art.primario,secondario:art.secondario}})}</span>
-      <div><b>${nameBtn(p)}</b><small>${roleTag(p.r)} ${p.age} anni · valore ${ovrTxt(p)}</small><small>${played?`${s[0]} ${s[0]===1?'presenza':'presenze'} · ${s[1]} gol · media voto ${v10(avg(p))}`:'Ancora nessuna partita in questa stagione'}</small></div></li>`; }).join('')}; }
+      <div>${t_("home.anni_valore",{nameBtn:nameBtn(p),roleTag:roleTag(p.r),age:p.age,ovrTxt:ovrTxt(p),v:played?t_("home.gol_media_voto",{v:s[0],v2:s[0]===1?'presenza':'presenze',v3:s[1],v10:v10(avg(p))}):t_("home.ancora_nessuna_partita_in")})}</div></li>`; }).join('')}; }
 function vScrivania(){
   const t=G.T[0], priv=G.news.filter(n=>!isPublicNews(n)).slice(0,14), it=secItems(), nm=secName(), art=clubArt(0);
   const st=standings(), pos=st.indexOf(t)+1, end=G.md>=G.sched.length, nb=it.filter(x=>x.lv!=='todo').length;
-  const intro=G.season===1&&G.md===0?`<section class="card"><p class="eyebrow">Come si gioca</p><p>Sei il presidente: compri, vendi, scegli l'allenatore e investi. Formazione e tattica le decide l'allenatore. Guarda le partite (in Lega › Giornata) per notare i giovani che fanno <span class="gold">giocate di classe</span>: è così che si scoprono i talenti prima degli altri.</p></section>`:'';
+  const intro=G.season===1&&G.md===0?`<section class="card"><p class="eyebrow">${t_("home.come_si_gioca")}</p><p>${t_("home.sei_il_presidente_compri")} <span class="gold">${t_("home.giocate_di_classe")}</span>${t_("home.e_cosi_che_si")}</p></section>`:'';
   const face=faceHTML(secSeed(),{eta:34,ruolo:'segretaria',genere:'donna',espressione:'sorriso',colori:{primario:art.primario,secondario:art.secondario}})
     .replace(/<rect width="180" height="206" rx="11"[^>]+\/>/,'').replace(/<circle cx="91" cy="96"[^>]+\/>/,'');
-  const hero=`<section class="ev-hero" aria-label="La segretaria"><svg class="ev-hero-grid" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true"><path d="M0 110H1440M590 0L740 220M1010 0L830 220M710 0V220"/><circle cx="710" cy="110" r="65"/><path d="M0 30H190V190H0M1250 30H1440V190H1250"/></svg>
+  const hero=`<section class="ev-hero" aria-label="${t_("home.la_segretaria")}"><svg class="ev-hero-grid" viewBox="0 0 1440 220" preserveAspectRatio="none" aria-hidden="true"><path d="M0 110H1440M590 0L740 220M1010 0L830 220M710 0V220"/><circle cx="710" cy="110" r="65"/><path d="M0 30H190V190H0M1250 30H1440V190H1250"/></svg>
     <div class="ev-hero-inner"><div class="ev-hero-person" aria-hidden="true">${face}</div>
-     <div class="ev-hero-text"><p class="ev-overline">${esc(nm)} · segreteria del presidente</p><h1>Bentornato, Presidente</h1><p class="sec-say">${secGreet(it)}</p></div>
-     <button class="ev-hero-club link" data-act="club" data-id="0" title="Il profilo pubblico del tuo club"><span class="crest" aria-hidden="true">${crestHTML(0)}</span><span><strong>${esc(t.n)}</strong><small>Stagione ${G.season} · ${pos}° posto</small></span></button></div></section>`;
-  const todo=`<section class="ev-box ev-todo sec" aria-label="Cose da fare"><h2 class="ev-box-title">${ico('clipboard')} Cose da fare${nb?` <span class="ev-counter" title="Cose bloccanti o urgenti">${nb}</span>`:''}</h2>
-    ${it.length?`<ul class="secl">${it.map(x=>`<li class="si ${x.lv}">${ico(SEC_ICO[x.lv],'ev-tico')}<div class="ev-text"><span class="si-tag">${SEC_LBL[x.lv]}</span><b>${esc(x.short)}</b><p>${x.txt}</p></div><button class="btn small ${x.lv==='todo'?'ghost':''}" ${x.act}>${x.btn}</button></li>`).join('')}</ul>`:`<p class="ev-soft">Niente da fare: si può giocare.</p>`}</section>`;
+     <div class="ev-hero-text"><p class="ev-overline">${t_("home.segreteria_del_presidente",{nm:esc(nm)})}</p><h1>${t_("home.bentornato_presidente")}</h1><p class="sec-say">${secGreet(it)}</p></div>
+     <button class="ev-hero-club link" data-act="club" data-id="0" title="${t_("home.il_profilo_pubblico_del")}"><span class="crest" aria-hidden="true">${crestHTML(0)}</span><span>${t_("home.stagione_posto",{n:esc(t.n),season:G.season,pos:pos})}</span></button></div></section>`;
+  const todo=`<section class="ev-box ev-todo sec" aria-label="${t_("home.cose_da_fare")}"><h2 class="ev-box-title">${ico('clipboard')} ${t_("home.cose_da_fare_2",{v:nb?` <span class="ev-counter" title="${t_("home.cose_bloccanti_o_urgenti")}">${nb}</span>`:''})}</h2>
+    ${it.length?`<ul class="secl">${it.map(x=>`<li class="si ${x.lv}">${ico(SEC_ICO[x.lv],'ev-tico')}<div class="ev-text"><span class="si-tag">${SEC_LBL[x.lv]}</span><b>${esc(x.short)}</b><p>${x.txt}</p></div><button class="btn small ${x.lv==='todo'?'ghost':''}" ${x.act}>${x.btn}</button></li>`).join('')}</ul>`:`<p class="ev-soft">${t_("home.niente_da_fare_si")}</p>`}</section>`;
   const wb=wageBill(t)+staffCost(t), inj=teamPlayers(t).filter(p=>!p.retired&&p.inj>0).length, n=teamPlayers(t).filter(p=>!p.retired).length;
-  const status=`<section class="ev-box ev-status" aria-label="Situazione del club"><h2 class="ev-box-title">${ico('chart')} Situazione club</h2>
-    ${deskRow('coins','Cassa',kcr(t.cash)+' cr',t.cash<0?'bad':'good')}${deskRow('wages','Stipendi e staff<small>a ogni giornata</small>',kcr(wb)+' cr')}${deskRow('squadra','Rosa',n+' giocatori')}
-    ${deskRow('aid','Infortunati',inj?String(inj):'nessuno',inj?'bad':'')}${deskRow('mood','Clima',morLevel(clubClimate(t)))}${deskRow('flag','Allenatore',esc(t.coach.n))}</section>`;
+  const status=`<section class="ev-box ev-status" aria-label="${t_("home.situazione_del_club")}"><h2 class="ev-box-title">${ico('chart')} ${t_("home.situazione_club")}</h2>
+    ${deskRow('coins',t_("home.cassa"),kcr(t.cash)+' cr',t.cash<0?'bad':'good')}${deskRow('wages',`${t_("home.stipendi_e_staff_a")}`,kcr(wb)+' cr')}${deskRow('squadra',t_("home.rosa"),n+' giocatori')}
+    ${deskRow('aid',t_("home.infortunati"),inj?String(inj):'nessuno',inj?'bad':'')}${deskRow('mood',t_("home.clima"),morLevel(clubClimate(t)))}${deskRow('flag',t_("home.allenatore"),esc(t.coach.n))}</section>`;
   const tb=t.tab, form=(t.form||[]).slice(-5);
-  const season=`<section class="ev-box ev-season" aria-label="Andamento della stagione"><h2 class="ev-box-title">${ico('lega')} Andamento stagione</h2>
-    <div class="ev-mini-stats"><div class="ev-mini"><b>${pos}°</b><span>Posizione</span></div><div class="ev-mini"><b>${tb.g}</b><span>Giocate</span></div><div class="ev-mini"><b>${tb.v}</b><span>Vittorie</span></div><div class="ev-mini"><b>${tb.n}</b><span>Pareggi</span></div><div class="ev-mini"><b>${tb.p}</b><span>Sconfitte</span></div></div>
-    <div class="ev-last5"><span>Ultime partite</span><span>${form.length?form.map(f=>`<span class="fm f${f}">${f}</span>`).join(''):'<span class="ev-soft">ancora nessuna</span>'}</span></div>
-    <p class="ev-soft">Punti ${teamPts(t)} · gol fatti ${tb.gf}, subiti ${tb.gs} · giornata ${G.md}/14. <button class="link" ${goAct('lega','classifica')}>Classifica</button></p></section>`;
+  const season=`<section class="ev-box ev-season" aria-label="${t_("home.andamento_della_stagione")}"><h2 class="ev-box-title">${ico('lega')} ${t_("home.andamento_stagione")}</h2>
+    <div class="ev-mini-stats"><div class="ev-mini"><b>${pos}°</b><span>${t_("home.posizione")}</span></div><div class="ev-mini"><b>${tb.g}</b><span>${t_("home.giocate")}</span></div><div class="ev-mini"><b>${tb.v}</b><span>${t_("home.vittorie")}</span></div><div class="ev-mini"><b>${tb.n}</b><span>${t_("home.pareggi")}</span></div><div class="ev-mini"><b>${tb.p}</b><span>${t_("home.sconfitte")}</span></div></div>
+    <div class="ev-last5"><span>${t_("home.ultime_partite")}</span><span>${form.length?form.map(f=>`<span class="fm f${f}">${f}</span>`).join(''):`<span class="ev-soft">${t_("home.ancora_nessuna")}</span>`}</span></div>
+    <p class="ev-soft">${t_("home.punti_gol_fatti_subiti",{teamPts:teamPts(t),gf:tb.gf,gs:tb.gs,md:G.md})} <button class="link" ${goAct('lega','classifica')}>${t_("home.classifica")}</button></p></section>`;
   let next;
   if(!end){ const f=G.sched[G.md].find(x=>x.includes(0)), opp=f[0]===0?f[1]:f[0], home=f[0]===0;
-    next=`<div class="ev-fixture-head">Giornata ${G.md+1} di 14 · ${home?'in casa':'in trasferta'}</div><div class="ev-match"><div class="ev-team"><span class="crest" aria-hidden="true">${crestHTML(f[0])}</span><strong>${clubLink(f[0])}</strong></div><span class="ev-match-vs">VS</span><div class="ev-team"><span class="crest" aria-hidden="true">${crestHTML(f[1])}</span><strong>${clubLink(f[1])}</strong></div></div>
-      <p class="ev-soft">${esc(G.T[opp].n)} è ${standings().indexOf(G.T[opp])+1}° in classifica con ${teamPts(G.T[opp])} punti.</p>`; }
-  else next=`<div class="ev-fixture-head">Campionato finito</div><p class="ev-soft">Le 14 giornate sono state giocate: si chiude la stagione.</p>`;
-  const nextB=`<section class="ev-box ev-next" aria-label="Prossimo impegno"><h2 class="ev-box-title">${ico('calendar')} Prossimo impegno</h2>${next}${playBtn('ev-full')}</section>`;
+    next=`<div class="ev-fixture-head">${t_("home.giornata_di_14",{md:G.md+1,v:home?t_("home.in_casa"):t_("home.in_trasferta")})}</div><div class="ev-match"><div class="ev-team"><span class="crest" aria-hidden="true">${crestHTML(f[0])}</span><strong>${clubLink(f[0])}</strong></div><span class="ev-match-vs">${t_("home.vs")}</span><div class="ev-team"><span class="crest" aria-hidden="true">${crestHTML(f[1])}</span><strong>${clubLink(f[1])}</strong></div></div>
+      <p class="ev-soft">${t_("home.e_in_classifica_con",{n:esc(G.T[opp].n),indexOf:standings().indexOf(G.T[opp])+1,teamPts:teamPts(G.T[opp])})}</p>`; }
+  else next=`<div class="ev-fixture-head">${t_("home.campionato_finito")}</div><p class="ev-soft">${t_("home.le_14_giornate_sono")}</p>`;
+  const nextB=`<section class="ev-box ev-next" aria-label="${t_("home.prossimo_impegno")}"><h2 class="ev-box-title">${ico('calendar')} ${t_("home.prossimo_impegno")}</h2>${next}${playBtn('ev-full')}</section>`;
   const nw=priv.slice(0,4), rest=priv.slice(4), nIco=k=>k==='market'?'mercato':k==='player'?'squadra':k==='match'?'ball':'news';
-  const nli=n=>`<li class="ev-new k-${n.k}"><span class="ev-news-art" aria-hidden="true">${ico(nIco(n.k))}</span><div><p>${esc(n.t)}</p><small>${n.s>1?'Stagione '+n.s+' · ':''}Giornata ${n.md} · notizia del club</small></div></li>`;
-  const news=`<section class="ev-box ev-news" aria-label="Notizie dal club"><h2 class="ev-box-title">${ico('news')} Ultime notizie <span class="ev-title-right">Dal club</span></h2>
-    <p class="ev-soft">Solo quelle che restano in società. Le notizie di tutta la lega sono in <button class="link" ${goAct('lega','notizie')}>Lega › Notizie</button>.</p>
-    <ul class="news ev-newsl">${nw.map(nli).join('')||'<li class="muted">Ancora nessuna.</li>'}</ul>${rest.length?`<details class="ev-more"><summary>Altre notizie del club (${rest.length})</summary><ul class="news ev-newsl">${rest.map(nli).join('')}</ul></details>`:''}</section>`;
+  const nli=n=>`<li class="ev-new k-${n.k}"><span class="ev-news-art" aria-hidden="true">${ico(nIco(n.k))}</span><div><p>${esc(n.t)}</p>${t_("home.giornata_notizia_del_club",{v:n.s>1?`${t_("home.stagione",{s:n.s})} `:'',md:n.md})}</div></li>`;
+  const news=`<section class="ev-box ev-news" aria-label="${t_("home.notizie_dal_club")}"><h2 class="ev-box-title">${ico('news')} ${t_("home.ultime_notizie")} <span class="ev-title-right">${t_("home.dal_club")}</span></h2>
+    <p class="ev-soft">${t_("home.solo_quelle_che_restano")} <button class="link" ${goAct('lega','notizie')}>${t_("home.lega_notizie")}</button>.</p>
+    <ul class="news ev-newsl">${nw.map(nli).join('')||`<li class="muted">${t_("home.ancora_nessuna_2")}</li>`}</ul>${rest.length?`<details class="ev-more"><summary>${t_("home.altre_notizie_del_club",{rest:rest.length})}</summary><ul class="news ev-newsl">${rest.map(nli).join('')}</ul></details>`:''}</section>`;
   const T3=deskTop3(t);
-  const top=`<section class="ev-box ev-top" aria-label="I migliori della squadra"><h2 class="ev-box-title">${ico('star')} Top 3 della squadra</h2><p class="ev-soft">${T3.played?'Per gol segnati in questa stagione, poi per media voto.':'Per valore, finché non si gioca: poi per gol e media voto.'}</p><ul class="ev-top3">${T3.html}</ul></section>`;
+  const top=`<section class="ev-box ev-top" aria-label="${t_("home.i_migliori_della_squadra")}"><h2 class="ev-box-title">${ico('star')} ${t_("home.top_3_della_squadra")}</h2><p class="ev-soft">${T3.played?t_("home.per_gol_segnati_in"):t_("home.per_valore_finche_non")}</p><ul class="ev-top3">${T3.html}</ul></section>`;
   return `<div class="ev-desk">${hero}<div class="ev-dash">${status}${todo}${season}${nextB}${news}${top}</div></div>`+intro+prizesHTML()+reqsHTML()+missionsHTML(t,false);
 }
 
 /* ---------- Lega ---------- */
 /* riquadro con gli ultimi aggiornamenti del gioco (da CHANGELOG in version.js): l'ultima versione aperta, le tre precedenti richiuse */
 function updatesHTML(){ const [last,...prev]=CHANGELOG, li=l=>`<ul class="chg">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`;
-  return `<section class="card ev-panel upd" aria-label="Aggiornamenti del gioco"><div class="head"><p class="eyebrow">Aggiornamenti del gioco · versione ${esc(last[0])} · ${esc(last[1])}</p><p class="muted small">Le novità del gioco, non della lega.</p></div>${li(last[2])}
-   ${prev.length?`<details class="upd-old"><summary>Versioni precedenti</summary>${prev.slice(0,3).map(([v,d,l])=>`<p class="eyebrow">Versione ${esc(v)} · ${esc(d)}</p>${li(l)}`).join('')}</details>`:''}</section>`; }
+  return `<section class="card ev-panel upd" aria-label="${t_("home.aggiornamenti_del_gioco")}"><div class="head"><p class="eyebrow">${t_("home.aggiornamenti_del_gioco_versione",{v:esc(last[0]),v2:esc(last[1])})}</p><p class="muted small">${t_("home.le_novita_del_gioco")}</p></div>${li(last[2])}
+   ${prev.length?`<details class="upd-old"><summary>${t_("home.versioni_precedenti")}</summary>${prev.slice(0,3).map(([v,d,l])=>`<p class="eyebrow">${t_("home.versione",{v:esc(v),d:esc(d)})}</p>${li(l)}`).join('')}</details>`:''}</section>`; }
 function vNotizie(){ const L=publicNews().slice(0,30);
-  return pageHead('Lega · redazione','Notizie e aggiornamenti','Le novità del gioco e quello che succede nella lega')+`<div class="ev-grid2 ev-news2">`+updatesHTML()+`<section class="card ev-panel"><div class="head"><p class="eyebrow">Notizie della lega</p><p class="muted">Quello che sanno tutti i club: risultati, trasferimenti, allenatori, penalizzazioni, esclusioni, presidenti e scudetto.</p></div>
-   <ul class="news">${L.map(n=>`<li class="k-${n.k}"><span class="md">${n.s>1?'S'+n.s+' ':''}G${n.md}</span><span>${linkClubs(pubNewsText(n))}</span></li>`).join('')||'<li class="muted">Ancora nessuna notizia.</li>'}</ul></section></div>`; }
+  return pageHead(t_("home.lega_redazione"),t_("home.notizie_e_aggiornamenti"),t_("home.le_novita_del_gioco_2"))+`<div class="ev-grid2 ev-news2">${updatesHTML()}<section class="card ev-panel"><div class="head"><p class="eyebrow">${t_("home.notizie_della_lega")}</p><p class="muted">${t_("home.quello_che_sanno_tutti")}</p></div>
+   <ul class="news">${L.map(n=>`<li class="k-${n.k}"><span class="md">${t_("home.g",{v:n.s>1?'S'+n.s+' ':'',md:n.md})}</span><span>${linkClubs(pubNewsText(n))}</span></li>`).join('')||`<li class="muted">${t_("home.ancora_nessuna_notizia")}</li>`}</ul></section></div>`; }
 function vGiornata(){
   const v=viewer? vViewerHTML() : '', st=standings(), P=id=>st.findIndex(x=>x.id===id)+1;
   let res='', mine=G.last&&G.last.find(m=>m.h===0||m.a===0);
-  const head=mine?`<section class="ev-titleband ev-score"><div class="ev-sc-top"><p class="ev-eyebrow">Lega · giornata ${G.md} · risultato finale</p><span>Stagione ${G.season}</span></div>
-     <div class="ev-sc-mid"><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.h)}</span><b>${clubLink(mine.h)}</b></div><div class="ev-sc-res"><b>${mine.gh}<i>:</i>${mine.ga}</b><small>${mine.forfeit?'a tavolino':'fine partita'}</small></div><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.a)}</span><b>${clubLink(mine.a)}</b></div></div>
-     <div class="ev-sc-top"><span>Classifica: ${P(0)}° posto</span><span>Giornata ${G.md} di 14</span></div></section>`
-    : pageHead('Lega · partita','Giornata '+G.md,G.md===0?'La stagione comincia con la prima giornata':'Risultati · replay · prossimo turno');
-  if(G.last) res=`<section class="card ev-panel"><h2 class="ev-ptitle">Giornata ${G.md} <small>· risultati</small></h2><ul class="results">${G.last.map((m,i)=>`<li class="${m.h===0||m.a===0?'me':''}"><span>${clubLink(m.h)}</span><b>${m.gh} – ${m.ga}</b><span>${clubLink(m.a)}${m.ref&&G.refs&&G.refs[m.refId]?`<small class="rfx">Arbitro ${esc(G.refs[m.refId].n)} · voto ${String(m.ref.voto).replace('.',',')}</small>`:''}${(m.h===0||m.a===0)&&m.att?`<small class="rfx">Spettatori ${fmt(m.att)} · possesso ${m.poss}% – ${100-m.poss}%</small>`:''}</span>${m.forfeit?'<span class="muted">a tavolino</span>':`<button class="btn ghost small" data-act="watch" data-i="${i}">${G.wm&&G.wm[mkey(m)]!=null?'Riguarda':'Guarda'}</button>`}</li>`).join('')}</ul><p class="muted">Puoi guardare tutte le partite dell'ultima giornata: i talenti si trovano anche nelle altre squadre.</p></section>`;
+  const head=mine?`<section class="ev-titleband ev-score"><div class="ev-sc-top"><p class="ev-eyebrow">${t_("home.lega_giornata_risultato_finale",{md:G.md})}</p><span>${t_("home.stagione_2",{season:G.season})}</span></div>
+     <div class="ev-sc-mid"><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.h)}</span><b>${clubLink(mine.h)}</b></div><div class="ev-sc-res"><b>${mine.gh}<i>:</i>${mine.ga}</b><small>${mine.forfeit?t_("home.a_tavolino"):t_("home.fine_partita")}</small></div><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.a)}</span><b>${clubLink(mine.a)}</b></div></div>
+     <div class="ev-sc-top"><span>${t_("home.classifica_posto",{P:P(0)})}</span><span>${t_("home.giornata_di_14_2",{md:G.md})}</span></div></section>`
+    : pageHead(t_("home.lega_partita"),t_("home.giornata",{md:G.md}),G.md===0?t_("home.la_stagione_comincia_con"):t_("home.risultati_replay_prossimo_turno"));
+  if(G.last) res=`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.giornata_risultati",{md:G.md})}</h2><ul class="results">${G.last.map((m,i)=>`<li class="${m.h===0||m.a===0?'me':''}"><span>${clubLink(m.h)}</span><b>${m.gh} – ${m.ga}</b><span>${clubLink(m.a)}${m.ref&&G.refs&&G.refs[m.refId]?`${t_("home.arbitro_voto",{n:esc(G.refs[m.refId].n),fDec:fDec(m.ref.voto)})}`:''}${(m.h===0||m.a===0)&&m.att?`${t_("home.spettatori_possesso",{att:fmt(m.att),poss:m.poss,v:100-m.poss})}`:''}</span>${m.forfeit?`<span class="muted">${t_("home.a_tavolino")}</span>`:`<button class="btn ghost small" data-act="watch" data-i="${i}">${G.wm&&G.wm[mkey(m)]!=null?t_("home.riguarda"):t_("home.guarda")}</button>`}</li>`).join('')}</ul><p class="muted">${t_("home.puoi_guardare_tutte_le")}</p></section>`;
   const R=publicRound();
-  const next=R.length?`<section class="card ev-panel"><h2 class="ev-ptitle">Prossimo turno <small>· giornata ${G.md+1}</small></h2><ul class="results nx">${R.map(({h,a})=>{ const me=h===0||a===0, o=G.T[h===0?a:h];
-      return `<li class="${me?'me':''}"><span>${clubLink(h)} <small class="muted">${P(h)}°</small></span><b class="vs">–</b><span>${clubLink(a)} <small class="muted">${P(a)}°</small>${me?`<small class="rfx">${h===0?'In casa':'In trasferta'} · allenatore ${esc(o.coach.n)} (${o.coach.mod})</small>`:''}</span></li>`; }).join('')}</ul></section>`
-    : `<section class="card ev-panel"><p class="eyebrow">Stagione finita</p><p class="match">${P(0)===1?'Campioni!':'Il tuo club chiude '+P(0)+'°'}</p><p class="muted">Campione: ${clubLink(st[0].id)}. Premi, età e settore giovanile si aggiornano quando chiudi la stagione con il tasto in alto.</p></section>`;
-  return v+head+`<div class="ev-day">`+res+next+`</div><p class="muted small center"><button class="link" data-act="club" data-id="0">Calendario e risultati del tuo club ›</button> · il calendario di ogni squadra è nel suo profilo.</p>`;
+  const next=R.length?`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.prossimo_turno_giornata",{md:G.md+1})}</h2><ul class="results nx">${R.map(({h,a})=>{ const me=h===0||a===0, o=G.T[h===0?a:h];
+      return `<li class="${me?'me':''}"><span>${clubLink(h)} <small class="muted">${P(h)}°</small></span><b class="vs">–</b><span>${clubLink(a)} <small class="muted">${P(a)}°</small>${me?`${t_("home.allenatore_2",{v:h===0?t_("home.in_casa_2"):t_("home.in_trasferta_2"),n:esc(o.coach.n),mod:o.coach.mod})}`:''}</span></li>`; }).join('')}</ul></section>`
+    : `<section class="card ev-panel"><p class="eyebrow">${t_("home.stagione_finita")}</p><p class="match">${P(0)===1?t_("home.campioni"):t_("home.il_tuo_club_chiude",{P:P(0)})}</p><p class="muted">${t_("home.campione_premi_eta_e",{clubLink:clubLink(st[0].id)})}</p></section>`;
+  return v+head+`<div class="ev-day">${res}${next}</div><p class="muted small center"><button class="link" data-act="club" data-id="0">${t_("home.calendario_e_risultati_del")}</button> ${t_("home.il_calendario_di_ogni")}</p>`;
 }
 function vMarcatori(){ const L=publicScorers();
-  return pageHead('Lega · gol','Classifica marcatori',`Gol e presenze · stagione ${G.season}, giornata ${G.md}/14`)+`<section class="card ev-panel"><div class="head"><p class="eyebrow">Marcatori · stagione ${G.season}</p><p class="muted">I primi 15 per gol segnati in questa stagione. I capocannonieri delle stagioni passate sono nell'Albo d'oro.</p></div>
-   ${L.length?`<div class="tw"><table class="tab ev-ptab ev-scorers"><thead><tr><th class="num">#</th><th>R</th><th>Giocatore</th><th>Squadra</th><th class="num">Gol</th><th class="num">Pres.</th></tr></thead><tbody>${L.map(({p,g,a},i)=>`<tr data-act="sheet" data-pid="${p.id}" class="${p.team===0?'me':''}"><td class="num rk">${i+1}</td><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(p)}</td><td class="tm">${p.team==null?'<span class="muted">Svincolato</span>':clubCell(p.team)}</td><td class="num strong mv" data-l="Gol">${g}</td><td class="num" data-l="Presenze">${a}</td></tr>`).join('')}</tbody></table></div>`
-     :'<p class="empty">Ancora nessun gol: la classifica parte con la prima giornata.</p>'}</section>`; }
+  return pageHead(t_("home.lega_gol"),t_("home.classifica_marcatori"),t_("home.gol_e_presenze_stagione",{season:G.season,md:G.md}))+`<section class="card ev-panel"><div class="head"><p class="eyebrow">${t_("home.marcatori_stagione",{season:G.season})}</p><p class="muted">${t_("home.i_primi_15_per")}</p></div>
+   ${L.length?`<div class="tw"><table class="tab ev-ptab ev-scorers"><thead><tr><th class="num">#</th><th>${t_("home.r")}</th><th>${t_("home.giocatore")}</th><th>${t_("home.squadra")}</th><th class="num">${t_("home.gol")}</th><th class="num">${t_("home.pres")}</th></tr></thead><tbody>${L.map(({p,g,a},i)=>`<tr data-act="sheet" data-pid="${p.id}" class="${p.team===0?'me':''}"><td class="num rk">${i+1}</td><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(p)}</td><td class="tm">${p.team==null?`<span class="muted">${t_("home.svincolato")}</span>`:clubCell(p.team)}</td><td class="num strong mv" data-l="${t_("home.gol")}">${g}</td><td class="num" data-l="${t_("home.presenze")}">${a}</td></tr>`).join('')}</tbody></table></div>`
+     :`<p class="empty">${t_("home.ancora_nessun_gol_la")}</p>`}</section>`; }
 
 /* Lega › Albo d'oro: una riga per stagione chiusa */
 function alboPl(x,txt){ const p=x&&G.P[x[0]]; if(!x) return '<span class="muted">—</span>';
   return `${p?`<button class="link" data-act="sheet" data-pid="${p.id}">${esc(x[1])}</button>`:esc(x[1])}${G.T[x[2]]?` <span class="muted small">${clubLink(x[2])}</span>`:''}<div class="muted small">${txt}</div>`; }
 function vAlbo(){ const A=publicAlbo();
-  const rows=A.map(r=>{ const ex=[...(r.rt||[]).map(id=>clubLink(id)+' <span class="muted small">retrocessa</span>'),...(r.es||[]).map(id=>clubLink(id)+' <span class="muted small">esclusa</span>')];
+  const rows=A.map(r=>{ const ex=[...(r.rt||[]).map(id=>clubLink(id)+` <span class="muted small">${t_("home.retrocessa")}</span>`),...(r.es||[]).map(id=>clubLink(id)+` <span class="muted small">${t_("home.esclusa")}</span>`)];
     return `<tr class="nohov"><td class="num strong">${r.s}</td><td class="strong">🏆 ${clubLink(r.r[0],true)}</td><td>${r.r[1]!=null?clubLink(r.r[1],true):'—'}</td><td>${r.r[2]!=null?clubLink(r.r[2],true):'—'}</td>
-      <td>${alboPl(r.cc, r.cc?r.cc[3]+' gol':'')}</td><td>${alboPl(r.mg, r.mg?'media '+String(r.mg[3]/10).replace('.',',')+' in '+r.mg[4]+' partite':'')}</td><td>${ex.length?ex.join('<br>'):'<span class="muted">—</span>'}</td></tr>`; }).join('');
-  return pageHead('Lega · storia','Albo d\'oro',A.length?`${A.length} ${A.length===1?'stagione chiusa':'stagioni chiuse'}`:'La prima riga arriva a fine stagione')+`<section class="card ev-panel"><div class="head"><p class="eyebrow">Albo d'oro</p><p class="muted">Campione, seconda e terza di ogni stagione, capocannoniere e miglior giovane (21 anni o meno, almeno metà delle partite giocate, media voto più alta). Le prime tre e il club del capocannoniere guadagnano popolarità; le prime tre anche sponsor più ricchi per la stagione dopo.</p></div>
-   ${A.length?`<div class="tw"><table class="tab albo"><thead><tr><th class="num">Stagione</th><th>Campione</th><th>Seconda</th><th>Terza</th><th>Capocannoniere</th><th>Miglior giovane</th><th>Retrocesse ed escluse</th></tr></thead><tbody>${rows}</tbody></table></div>${A.some(r=>r.rc)?'<p class="muted small">Le stagioni giocate prima della versione 0.4.1.0 non hanno capocannoniere e miglior giovane: i dati non c\'erano ancora.</p>':''}`
-     :`<p class="empty">Nessuna stagione chiusa finora: la prima riga arriva a fine stagione ${G.season}.</p>`}</section>`; }
+      <td>${alboPl(r.cc, r.cc?r.cc[3]+' gol':'')}</td><td>${alboPl(r.mg, r.mg?t_("home.media_in_partite",{fDec:fDec(r.mg[3]/10),v:r.mg[4]}):'')}</td><td>${ex.length?ex.join('<br>'):'<span class="muted">—</span>'}</td></tr>`; }).join('');
+  return pageHead(t_("home.lega_storia"),t_("home.albo_d_oro"),A.length?`${A.length} ${A.length===1?t_("home.stagione_chiusa"):t_("home.stagioni_chiuse")}`:t_("home.la_prima_riga_arriva"))+`<section class="card ev-panel"><div class="head"><p class="eyebrow">${t_("home.albo_d_oro")}</p><p class="muted">${t_("home.campione_seconda_e_terza")}</p></div>
+   ${A.length?`<div class="tw"><table class="tab albo"><thead><tr><th class="num">${t_("home.stagione_3")}</th><th>${t_("home.campione")}</th><th>${t_("home.seconda")}</th><th>${t_("home.terza")}</th><th>${t_("home.capocannoniere")}</th><th>${t_("home.miglior_giovane")}</th><th>${t_("home.retrocesse_ed_escluse")}</th></tr></thead><tbody>${rows}</tbody></table></div>${A.some(r=>r.rc)?`<p class="muted small">${t_("home.le_stagioni_giocate_prima")}</p>`:''}`
+     :`<p class="empty">${t_("home.nessuna_stagione_chiusa_finora",{season:G.season})}</p>`}</section>`; }
 
 /* ---------- Mercato › Trattative in corso ---------- */
 function openDeals(){ return (G.req||[]).filter(q=>q.team===0 && q.st==='open' && (q.kind==='acquisto'||q.kind==='offerta')); }
-function dealState(q){ const n=q.neg; if(!n) return q.kind==='offerta'?'da valutare':'da iniziare';
-  if(n.st==='stalled') return '<b class="warn-t">aspetta la tua decisione</b>';
-  if(n.st==='open') return q.kind==='acquisto'? (n.ph==='club'?'accordo con il club':'contratto con il giocatore') : 'in trattativa';
+function dealState(q){ const n=q.neg; if(!n) return q.kind==='offerta'?t_("home.da_valutare"):t_("home.da_iniziare");
+  if(n.st==='stalled') return `${t_("home.aspetta_la_tua_decisione")}`;
+  if(n.st==='open') return q.kind==='acquisto'? (n.ph==='club'?t_("home.accordo_con_il_club"):t_("home.contratto_con_il_giocatore")) : t_("home.in_trattativa");
   return esc(n.st); }
 function vTrattative(){
   const D=openDeals(), buy=D.filter(q=>q.kind==='acquisto'), off=D.filter(q=>q.kind==='offerta').sort((a,b)=>a.due-b.due);
   const pl=(q,sub)=>plCell(G.P[q.pid], nameBtn(G.P[q.pid]), sub);
-  const bl=buy.length?`<section class="card ev-panel"><h2 class="ev-ptitle">Acquisti <small>(${buy.length})</small></h2><ul class="rql ev-deals">${buy.map(q=>{ const p=G.P[q.pid]; return `<li class="rq"><div>${pl(q,`${ROLE_NAME[p.r]} · ${p.age} anni · ${q.from!=null?esc(G.T[q.from].n):'svincolato'}`)}<p class="eyebrow">Acquisto · ${dealState(q)}${q.from!=null?' · '+clubLink(q.from):''}</p><p class="muted">Le trattative di acquisto si chiudono con la giornata: se non trovi l'accordo prima di giocare, si ricomincia.</p></div><div class="rq-b"><button class="btn small" data-act="negres" data-id="${q.id}">Riprendi</button></div></li>`; }).join('')}</ul></section>`:'';
-  const ol=off.length?`<section class="card ev-panel"><h2 class="ev-ptitle">Offerte ricevute <small>(${off.length})</small></h2><ul class="rql ev-deals">${off.map(q=>{ const b=buyerOf(q), p=G.P[q.pid]; return `<li class="rq"><div>${pl(q,`${ROLE_NAME[p.r]} · ${p.age} anni · offerta di ${kcr(q.amt)} cr`)}<p class="eyebrow">Offerta ricevuta · ${dealState(q)} · ${reqExpiring(q)?'<b class="warn-t">scade: rispondi prima di giocare la giornata '+(q.due+1)+'</b>':'rispondi entro la giornata '+(q.due+1)}</p><p>${b.foreign?esc(b.n):clubLink(b.id)} offre <b>${kcr(q.amt)} cr</b></p><p class="muted">${reqHint(q)}</p></div><div class="rq-b">${reqBtns(q)}</div></li>`; }).join('')}</ul></section>`:'';
-  return pageHead('Mercato · negoziazione','Trattative in corso',D.length?`${D.length} ${D.length===1?'trattativa aperta':'trattative aperte'} · giornata ${G.md}/14`:'Nessuna trattativa aperta')
-   +kpiHTML([['Aperte',D.length],['Acquisti',buy.length,'chiudono con la giornata'],['Offerte ricevute',off.length,off.some(reqExpiring)?'una scade ora':'',off.some(reqExpiring)?'bad':''],['Cassa',kcr(G.T[0].cash)+' cr']])
-   +(D.length?bl+ol:`<section class="card ev-panel"><h2 class="ev-ptitle">Nessuna trattativa</h2><p class="empty">Nessuna trattativa aperta. Per comprare, apri la scheda di un giocatore in Cerca giocatori e scegli «Apri la trattativa». Per vendere, apri un tuo giocatore dalla Rosa e scegli «Cerca un acquirente». Le offerte degli altri club per i tuoi giocatori arrivano qui.</p></section>`);
+  const bl=buy.length?`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.acquisti",{buy:buy.length})}</h2><ul class="rql ev-deals">${buy.map(q=>{ const p=G.P[q.pid]; return `<li class="rq"><div>${pl(q,`${ROLE_NAME[p.r]} · ${p.age} anni · ${q.from!=null?esc(G.T[q.from].n):'svincolato'}`)}<p class="eyebrow">${t_("home.acquisto",{dealState:dealState(q),v:q.from!=null?' · '+clubLink(q.from):''})}</p><p class="muted">${t_("home.le_trattative_di_acquisto")}</p></div><div class="rq-b"><button class="btn small" data-act="negres" data-id="${q.id}">${t_("home.riprendi")}</button></div></li>`; }).join('')}</ul></section>`:'';
+  const ol=off.length?`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.offerte_ricevute",{off:off.length})}</h2><ul class="rql ev-deals">${off.map(q=>{ const b=buyerOf(q), p=G.P[q.pid]; return `<li class="rq"><div>${pl(q,t_("home.anni_offerta_di_cr",{v:ROLE_NAME[p.r],age:p.age,amt:kcr(q.amt)}))}<p class="eyebrow">${t_("home.offerta_ricevuta",{dealState:dealState(q),v:reqExpiring(q)?`${t_("home.scade_rispondi_prima_di",{due:q.due+1})}`:t_("home.rispondi_entro_la_giornata",{due:q.due+1})})}</p><p>${t_("home.offre_cr",{v:b.foreign?esc(b.n):clubLink(b.id),amt:kcr(q.amt)})}</p><p class="muted">${reqHint(q)}</p></div><div class="rq-b">${reqBtns(q)}</div></li>`; }).join('')}</ul></section>`:'';
+  return pageHead(t_("home.mercato_negoziazione"),t_("home.trattative_in_corso"),D.length?`${D.length} ${D.length===1?t_("home.trattativa_aperta"):t_("home.trattative_aperte")} · giornata ${G.md}/14`:t_("home.nessuna_trattativa_aperta"))
+   +kpiHTML([[t_("home.aperte"),D.length],[t_("home.acquisti_2"),buy.length,t_("home.chiudono_con_la_giornata")],[t_("home.offerte_ricevute_2"),off.length,off.some(reqExpiring)?t_("home.una_scade_ora"):'',off.some(reqExpiring)?'bad':''],[t_("home.cassa"),kcr(G.T[0].cash)+' cr']])
+   +(D.length?bl+ol:`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.nessuna_trattativa")}</h2><p class="empty">${t_("home.nessuna_trattativa_aperta_per")}</p></section>`);
 }
 
 /* ---------- profilo pubblico del club ---------- */
@@ -241,68 +241,68 @@ function vProfile(id){ const C=publicClub(id); if(!C){ clubView=null; return '';
   C.hist.forEach(h=>{ if(!places.some(x=>x.s===h.s)) places.push({s:h.s, pos:h.pos, ex:false, cc:null}); }); places.sort((a,b)=>b.s-a.s);
   const wins=places.filter(h=>h.pos===1&&!h.ex), podi=places.filter(h=>h.pos>1&&h.pos<=3&&!h.ex).length;
   const fx=F.map(x=>{ const me=x.h===id, o=me?x.a:x.h, r=x.r, w=r&&(me?r.gh>r.ga:r.ga>r.gh), d=r&&r.gh===r.ga;
-    return `<li class="${x.md===G.md+1&&G.md<G.sched.length?'now':''}"><span class="md">G${x.md}</span><span>${me?'':'@ '}${clubLink(o)}</span><b class="${r?(w?'good':d?'':'bad'):''}">${r?r.gh+' – '+r.ga:''}</b></li>`; }).join('');
-  const bud=C.bud?`<table class="bil"><tbody><tr><td>Entrate previste</td><td class="num">${kcr(C.bud.ti)}</td></tr><tr><td>Uscite previste</td><td class="num">${kcr(C.bud.te)}</td></tr><tr class="tot"><td>Saldo previsto</td><td class="num">${signK(C.bud.saldo)}</td></tr><tr><td>Budget per gli acquisti</td><td class="num">${kcr(C.bud.acq)}</td></tr><tr><td>Cessioni previste</td><td class="num">${kcr(C.bud.ces)}</td></tr><tr><td>Investimenti nelle strutture</td><td class="num">${kcr(C.bud.inv)}</td></tr><tr><td>Obiettivo in classifica</td><td class="num">${C.bud.pos}°</td></tr></tbody></table><p class="muted small">${C.bud.by==='ufficio'?'Redatto d\'ufficio':'Convalidato dal presidente'}${C.bud.rev?', aggiornato alla revisione':''}.</p>`
-    : '<p class="empty">Il preventivo di questa stagione non è ancora stato presentato.</p>';
+    return `<li class="${x.md===G.md+1&&G.md<G.sched.length?'now':''}"><span class="md">${t_("home.g_2",{md:x.md})}</span><span>${me?'':'@ '}${clubLink(o)}</span><b class="${r?(w?'good':d?'':'bad'):''}">${r?r.gh+' – '+r.ga:''}</b></li>`; }).join('');
+  const bud=C.bud?`<table class="bil"><tbody><tr><td>${t_("home.entrate_previste")}</td><td class="num">${kcr(C.bud.ti)}</td></tr><tr><td>${t_("home.uscite_previste")}</td><td class="num">${kcr(C.bud.te)}</td></tr><tr class="tot"><td>${t_("home.saldo_previsto")}</td><td class="num">${signK(C.bud.saldo)}</td></tr><tr><td>${t_("home.budget_per_gli_acquisti")}</td><td class="num">${kcr(C.bud.acq)}</td></tr><tr><td>${t_("home.cessioni_previste")}</td><td class="num">${kcr(C.bud.ces)}</td></tr><tr><td>${t_("home.investimenti_nelle_strutture")}</td><td class="num">${kcr(C.bud.inv)}</td></tr><tr><td>${t_("home.obiettivo_in_classifica")}</td><td class="num">${C.bud.pos}°</td></tr></tbody></table><p class="muted small">${C.bud.by==='ufficio'?t_("home.redatto_d_ufficio"):t_("home.convalidato_dal_presidente")}${C.bud.rev?t_("home.aggiornato_alla_revisione"):''}.</p>`
+    : `<p class="empty">${t_("home.il_preventivo_di_questa")}</p>`;
   const cons=s=>C.hist.find(h=>h.s===s);
-  const hist=places.length?`<div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th class="num">Posto</th><th class="num">Saldo previsto</th><th class="num">Saldo reale</th><th>Consuntivo</th></tr></thead><tbody>${places.map(x=>{ const h=cons(x.s);
-      return `<tr class="nohov"><td>${x.s}</td><td class="num strong">${x.ex?'<span class="bad">esclusa</span>':x.pos+'°'}${x.pos===1&&!x.ex?' 🏆':''}${x.cc?` <span class="muted small" title="Capocannoniere">⚽ ${esc(x.cc[1])}</span>`:''}</td>${h?`<td class="num">${signK(h.prev)}</td><td class="num">${signK(h.act)}</td><td class="${h.ok?'good':'bad'} strong">${h.ok?'in tolleranza':'fuori tolleranza'}</td>`:'<td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>'}</tr>`; }).join('')}</tbody></table></div>`
-    : '<p class="empty">Nessuna stagione chiusa finora.</p>';
-  const pt=C.pts===1?'1 punto':C.pts+' punti', sub=`Profilo pubblico · ${C.pos}° in classifica · ${pt} · allenatore ${esc(C.coach.n)}`;
-  return `<div class="prof-back"><button class="btn ghost small" data-act="back">‹ Indietro</button></div>
-  ${pageHead('Lega · profilo del club',esc(C.n),sub,{club:id,cls:'ev-clubhead'})}
-  ${kpiHTML([['Posizione',C.excl?'Esclusa':C.pos+'°',pt,'hi'],['Vinte',C.tab.v],['Pareggiate',C.tab.n],['Perse',C.tab.p],['Gol fatti e subiti',C.tab.gf+'–'+C.tab.gs],['Giocatori',S.length]],'ev-kpis6')}
-  <section class="card ev-panel prof-h ev-pubbox" style="--c:${C.c}"><div><p class="ev-kick">Profilo pubblico del club${id===0?' · così vedono il tuo club le altre società':''}</p><h2><span class="chip big" style="--c:${C.c}"></span>${esc(C.n)}</h2>
-    <p class="ev-pubtxt">${C.excl?'<b class="bad">Escluso dal campionato</b> · ':''}${C.pos}° in classifica · ${C.pts} punti${C.pen?` <b class="bad">(−${C.pen} di penalizzazione)</b>`:''}${C.penNext?` · −${C.penNext} punti già maturati per la prossima stagione`:''} · ${C.tab.v} vinte, ${C.tab.n} pareggiate, ${C.tab.p} perse · gol ${C.tab.gf}–${C.tab.gs}</p>
+  const hist=places.length?`<div class="tw"><table class="tab"><thead><tr><th>${t_("home.stagione_3")}</th><th class="num">${t_("home.posto")}</th><th class="num">${t_("home.saldo_previsto")}</th><th class="num">${t_("home.saldo_reale")}</th><th>${t_("home.consuntivo")}</th></tr></thead><tbody>${places.map(x=>{ const h=cons(x.s);
+      return `<tr class="nohov"><td>${x.s}</td><td class="num strong">${x.ex?`<span class="bad">${t_("home.esclusa")}</span>`:x.pos+'°'}${x.pos===1&&!x.ex?' 🏆':''}${x.cc?` <span class="muted small" title="${t_("home.capocannoniere")}">⚽ ${esc(x.cc[1])}</span>`:''}</td>${h?`<td class="num">${signK(h.prev)}</td><td class="num">${signK(h.act)}</td><td class="${h.ok?'good':'bad'} strong">${h.ok?t_("home.in_tolleranza"):t_("home.fuori_tolleranza")}</td>`:'<td class="num muted">—</td><td class="num muted">—</td><td class="muted">—</td>'}</tr>`; }).join('')}</tbody></table></div>`
+    : `<p class="empty">${t_("home.nessuna_stagione_chiusa_finora_2")}</p>`;
+  const pt=C.pts===1?'1 punto':C.pts+' punti', sub=t_("home.profilo_pubblico_in_classifica",{pos:C.pos,pt:pt,n:esc(C.coach.n)});
+  return `<div class="prof-back"><button class="btn ghost small" data-act="back">${t_("home.indietro")}</button></div>
+  ${pageHead(t_("home.lega_profilo_del_club"),esc(C.n),sub,{club:id,cls:'ev-clubhead'})}
+  ${kpiHTML([[t_("home.posizione"),C.excl?t_("home.esclusa_2"):C.pos+'°',pt,'hi'],[t_("home.vinte"),C.tab.v],[t_("home.pareggiate"),C.tab.n],[t_("home.perse"),C.tab.p],[t_("home.gol_fatti_e_subiti"),C.tab.gf+'–'+C.tab.gs],[t_("home.giocatori"),S.length]],'ev-kpis6')}
+  <section class="card ev-panel prof-h ev-pubbox" style="--c:${C.c}"><div><p class="ev-kick">${t_("home.profilo_pubblico_del_club",{v:id===0?t_("home.cosi_vedono_il_tuo"):''})}</p><h2><span class="chip big" style="--c:${C.c}"></span>${esc(C.n)}</h2>
+    <p class="ev-pubtxt">${t_("home.in_classifica_punti_vinte",{v:C.excl?`${t_("home.escluso_dal_campionato")} `:'',pos:C.pos,pts:C.pts,v2:C.pen?` ${t_("home.di_penalizzazione",{pen:C.pen})}`:'',v3:C.penNext?` ${t_("home.punti_gia_maturati_per",{penNext:C.penNext})}`:'',v4:C.tab.v,n:C.tab.n,p:C.tab.p,gf:C.tab.gf,gs:C.tab.gs})}</p>
     ${C.form.length?`<p>${C.form.map(f=>`<span class="fm f${f}">${f}</span>`).join('')}</p>`:''}</div>
-    ${wins.length||podi?`<p class="pal" title="Dall'albo d'oro">${wins.length?`🏆 ${wins.length===1?'Campione nella stagione '+wins[0].s:wins.length+' scudetti (stagioni '+wins.slice().reverse().map(h=>h.s).join(', ')+')'}`:''}${podi?`${wins.length?' · ':''}${podi===1?'un altro podio':podi+' altri podi'}`:''}</p>`:''}</section>
-  ${id===0?'<p class="muted small center">Così vedono il tuo club le altre società: niente cassa, stipendi, debiti, morale o trattative; i giocatori con le valutazioni che conoscono dall\'esterno.</p>':''}
-  <section class="card ev-panel ev-tact"><div class="ev-tact-pic">${formSVG(C.coach.mod,C.c)}</div><div><p class="ev-kick">Identità tattica</p><h2 class="ev-ptitle">Il ${esc(C.coach.mod)} di ${esc(C.coach.n)}</h2><p class="muted">Modulo preferito dall'allenatore, dal profilo pubblico. Le posizioni nel disegno sono illustrative, non una formazione ufficiale: modulo e titolari li sceglie l'allenatore partita per partita.</p>
-   <p class="ev-tags">${C.fac.map(x=>`<span>${x.n} · liv. ${x.l}/5</span>`).join('')}</p></div></section>
+    ${wins.length||podi?`<p class="pal" title="${t_("home.dall_albo_d_oro")}">${wins.length?`🏆 ${wins.length===1?t_("home.campione_nella_stagione",{s:wins[0].s}):wins.length+` ${t_("home.scudetti_stagioni",{join:wins.slice().reverse().map(h=>h.s).join(', ')})}`}`:''}${podi?`${wins.length?' · ':''}${podi===1?t_("home.un_altro_podio"):podi+` ${t_("home.altri_podi")}`}`:''}</p>`:''}</section>
+  ${id===0?`<p class="muted small center">${t_("home.cosi_vedono_il_tuo_2")}</p>`:''}
+  <section class="card ev-panel ev-tact"><div class="ev-tact-pic">${formSVG(C.coach.mod,C.c)}</div><div><p class="ev-kick">${t_("home.identita_tattica")}</p><h2 class="ev-ptitle">${t_("home.il_di",{mod:esc(C.coach.mod),n:esc(C.coach.n)})}</h2><p class="muted">${t_("home.modulo_preferito_dall_allenatore")}</p>
+   <p class="ev-tags">${C.fac.map(x=>`<span>${t_("home.liv_5",{n:x.n,l:x.l})}</span>`).join('')}</p></div></section>
   ${presHTML(id,PR)}
   <section class="grid3s">
-   <div class="card ev-panel"><p class="eyebrow">Allenatore</p><p class="big name">${esc(C.coach.n)}</p><p class="muted">${C.coach.age} anni · modulo preferito ${C.coach.mod}</p></div>
-   <div class="card ev-panel"><p class="eyebrow">Strutture</p><ul class="chk">${C.fac.map(x=>`<li><span>${x.n}</span><span></span><b>liv. ${x.l}/5</b></li>`).join('')}</ul></div>
-   <div class="card ev-panel"><p class="eyebrow">Azionisti</p>${C.bank>0?`<p class="big">${pctTxt(C.bank)}</p><p class="muted">quote della banca${C.bank>=51?': ha la maggioranza':C.bank>=25?': ha il diritto di veto':''}</p>`:'<p class="muted">Tutta del presidente: la banca non ha quote.</p>'}</div>
+   <div class="card ev-panel"><p class="eyebrow">${t_("home.allenatore")}</p><p class="big name">${esc(C.coach.n)}</p><p class="muted">${t_("home.anni_modulo_preferito",{age:C.coach.age,mod:C.coach.mod})}</p></div>
+   <div class="card ev-panel"><p class="eyebrow">${t_("home.strutture")}</p><ul class="chk">${C.fac.map(x=>`<li><span>${x.n}</span><span></span>${t_("home.liv_5_2",{l:x.l})}</li>`).join('')}</ul></div>
+   <div class="card ev-panel"><p class="eyebrow">${t_("home.azionisti")}</p>${C.bank>0?`<p class="big">${pctTxt(C.bank)}</p><p class="muted">${t_("home.quote_della_banca",{v:C.bank>=51?t_("home.ha_la_maggioranza"):C.bank>=25?t_("home.ha_il_diritto_di"):''})}</p>`:`<p class="muted">${t_("home.tutta_del_presidente_la")}</p>`}</div>
   </section>
-  <section class="card ev-panel"><div class="head"><h2 class="ev-ptitle">Rosa <small>· ${S.length} giocatori</small></h2><p class="muted">Valutazione e potenziale come li vedi dall'esterno, con le relazioni del tuo osservatore. Il valore di mercato è pubblico.</p></div>
-   <div class="tw"><table class="ev-ptab"><thead><tr><th>R</th><th>Giocatore</th><th class="num">Età</th><th class="num">Val.</th><th>Potenziale</th><th class="num">Valore</th></tr></thead><tbody>${S.map(p=>`<tr data-act="sheet" data-pid="${p.id}"><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(G.P[p.id], nameBtn(p)+(p.cap?' <span class="badge-s capb" title="Capitano">C</span>':p.vcap?' <span class="badge-s vcapb" title="Vicecapitano">VC</span>':''), ROLE_NAME[p.r]+' · '+p.age+' anni')}</td><td class="num mh">${p.age}</td><td class="num strong mv">${p.ovr}</td><td data-l="Potenziale">${p.stars}</td><td class="num" data-l="Valore">${kcr(p.val)}</td></tr>`).join('')}</tbody></table></div></section>
+  <section class="card ev-panel"><div class="head"><h2 class="ev-ptitle">${t_("home.rosa_giocatori",{S:S.length})}</h2><p class="muted">${t_("home.valutazione_e_potenziale_come")}</p></div>
+   <div class="tw"><table class="ev-ptab"><thead><tr><th>${t_("home.r")}</th><th>${t_("home.giocatore")}</th><th class="num">${t_("home.eta")}</th><th class="num">${t_("home.val")}</th><th>${t_("home.potenziale")}</th><th class="num">${t_("home.valore")}</th></tr></thead><tbody>${S.map(p=>`<tr data-act="sheet" data-pid="${p.id}"><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(G.P[p.id], nameBtn(p)+(p.cap?` <span class="badge-s capb" title="${t_("home.capitano")}">${t_("home.c")}</span>`:p.vcap?` <span class="badge-s vcapb" title="${t_("home.vicecapitano")}">${t_("home.vc")}</span>`:''), ROLE_NAME[p.r]+' · '+p.age+' anni')}</td><td class="num mh">${p.age}</td><td class="num strong mv">${p.ovr}</td><td data-l="${t_("home.potenziale")}">${p.stars}</td><td class="num" data-l="${t_("home.valore")}">${kcr(p.val)}</td></tr>`).join('')}</tbody></table></div></section>
   <section class="ev-grid2">
-   <div class="card ev-panel"><h2 class="ev-ptitle">Risultati e calendario <small>· stagione ${G.season}</small></h2><p class="muted small">@ = in trasferta</p><ol class="cal">${fx}</ol></div>
-   <div class="card ev-panel"><h2 class="ev-ptitle">Preventivo <small>· stagione ${G.season}</small></h2>${bud}</div>
+   <div class="card ev-panel"><h2 class="ev-ptitle">${t_("home.risultati_e_calendario_stagione",{season:G.season})}</h2><p class="muted small">${t_("home.in_trasferta_3")}</p><ol class="cal">${fx}</ol></div>
+   <div class="card ev-panel"><h2 class="ev-ptitle">${t_("home.preventivo_stagione",{season:G.season})}</h2>${bud}</div>
   </section>
-  <section class="card ev-panel"><h2 class="ev-ptitle">Palmarès e stagioni passate</h2>${hist}</section>`;
+  <section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.palmares_e_stagioni_passate")}</h2>${hist}</section>`;
 }
 
 /* riquadro «Presidente» nel profilo: carriera pubblica del presidente umano; i club del computer non hanno un presidente con nome */
 function presHTML(id,PR){
-  if(!PR){ const n=(G.T[id]&&G.T[id].presN)||0; return `<section class="card ev-panel pres"><p class="eyebrow">Presidente</p><p class="muted">Club guidato da un presidente del computer${n?`: la banca l'ha sostituito ${n===1?'una volta':n+' volte'}`:''}.</p></section>`; }
+  if(!PR){ const n=(G.T[id]&&G.T[id].presN)||0; return `<section class="card ev-panel pres"><p class="eyebrow">${t_("home.presidente")}</p><p class="muted">${t_("home.club_guidato_da_un",{v:n?t_("home.la_banca_l_ha",{v:n===1?t_("home.una_volta"):n+' volte'}):''})}</p></section>`; }
   const H=PR.h.slice().reverse(), cur=PR.cur, clubs=[...new Set(PR.h.map(h=>h.c).concat(cur?[cur.c]:[]))], tr=PR.h.reduce((a,h)=>a+h.tr,0), fi=PR.h.filter(h=>h.fired).length, ns=new Set(PR.h.map(h=>h.s).concat(cur?[cur.s]:[])).size;
   const cn=c=>G.T[c]?clubLink(c):'–';
-  return `<section class="card ev-panel pres"><div class="head"><p class="eyebrow">Presidente</p><p class="big name">${esc(PR.n)}</p>
-    <p class="muted">${ns===1?'Una stagione':ns+' stagioni'}${cur&&!PR.h.some(h=>h.s===cur.s&&h.c===cur.c)?' (compresa quella in corso)':''} · ${clubs.length===1?'un club guidato':clubs.length+' club guidati'} · ${tr?(tr===1?'uno scudetto':tr+' scudetti'):'nessuno scudetto'} · ${fi?(fi===1?'licenziato una volta':'licenziato '+fi+' volte'):'mai licenziato'}</p></div>
-    ${H.length||cur?`<div class="tw"><table class="tab"><thead><tr><th>Stagione</th><th>Club</th><th class="num">Posto</th><th>Trofei</th><th>Consuntivo</th><th>Come è finita</th></tr></thead><tbody>${cur?`<tr class="nohov"><td>${cur.s}</td><td>${cn(cur.c)}</td><td class="num">${cur.pos}° <span class="muted small">oggi</span></td><td>—</td><td class="muted">—</td><td class="muted">in corso</td></tr>`:''}${H.map(h=>`<tr class="nohov"><td>${h.s}</td><td>${cn(h.c)}</td><td class="num strong">${h.pos?h.pos+'°':'—'}</td><td>${h.tr?'🏆 Scudetto':'—'}</td><td class="${h.ok==null?'muted':h.ok?'good':'bad'}">${h.ok==null?'—':h.ok?'in tolleranza':'fuori tolleranza'}</td><td class="${h.fired?'bad':''}">${h.fired?(h.fired>14?'licenziato a fine stagione':'licenziato alla giornata '+h.fired):'fine stagione'}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`; }
+  return `<section class="card ev-panel pres"><div class="head"><p class="eyebrow">${t_("home.presidente")}</p><p class="big name">${esc(PR.n)}</p>
+    <p class="muted">${ns===1?t_("home.una_stagione"):ns+' stagioni'}${cur&&!PR.h.some(h=>h.s===cur.s&&h.c===cur.c)?t_("home.compresa_quella_in_corso"):''} · ${clubs.length===1?t_("home.un_club_guidato"):t_('home.n_club_guidati',{n:clubs.length})} · ${tr?(tr===1?t_("home.uno_scudetto"):tr+' scudetti'):t_("home.nessuno_scudetto")} · ${fi?(fi===1?t_("home.licenziato_una_volta"):t_("home.licenziato_volte",{fi:fi})):t_("home.mai_licenziato")}</p></div>
+    ${H.length||cur?`<div class="tw"><table class="tab"><thead><tr><th>${t_("home.stagione_3")}</th><th>${t_("home.club")}</th><th class="num">${t_("home.posto")}</th><th>${t_("home.trofei")}</th><th>${t_("home.consuntivo")}</th><th>${t_("home.come_e_finita")}</th></tr></thead><tbody>${cur?`<tr class="nohov"><td>${cur.s}</td><td>${cn(cur.c)}</td><td class="num">${cur.pos}° <span class="muted small">${t_("home.oggi")}</span></td><td>—</td><td class="muted">—</td><td class="muted">${t_("home.in_corso")}</td></tr>`:''}${H.map(h=>`<tr class="nohov"><td>${h.s}</td><td>${cn(h.c)}</td><td class="num strong">${h.pos?h.pos+'°':'—'}</td><td>${h.tr?t_("home.scudetto"):'—'}</td><td class="${h.ok==null?'muted':h.ok?'good':'bad'}">${h.ok==null?'—':h.ok?t_("home.in_tolleranza"):t_("home.fuori_tolleranza")}</td><td class="${h.fired?'bad':''}">${h.fired?(h.fired>14?t_("home.licenziato_a_fine_stagione"):t_("home.licenziato_alla_giornata",{fired:h.fired})):t_("home.fine_stagione")}</td></tr>`).join('')}</tbody></table></div>`:''}</section>`; }
 
 /* ---------- finestre: menu ⋯, novità, nome della segretaria, avviso prima di giocare ---------- */
 function vModal(){ const nm=secName();
   let h='';
-  if(modal==='menu') h=`<div class="neg-h"><div><p class="eyebrow">Evivora · v${VERSION}</p><h2>Menu</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
-    <div class="menu"><button class="btn ghost" data-act="novita">Novità della versione</button><button class="btn ghost" data-act="secname">Cambia nome della segretaria</button><button class="btn ghost" data-act="expg">Esporta la partita</button><button class="btn ghost" data-act="impg">Importa una partita</button><input type="file" id="imp-file" accept=".json,application/json" hidden>
-    ${confirmReset?`<div class="reset"><span>Ricominciare cancella questa partita.</span><button class="btn danger small" data-act="reset2">Sì, ricomincia</button><button class="btn ghost small" data-act="reset0">Annulla</button></div>`:`<button class="btn ghost danger-t" data-act="reset1">Ricomincia da capo</button>`}</div>`;
-  else if(modal==='novita') h=`<div class="neg-h"><div><p class="eyebrow">Novità · ${esc(CHANGELOG[0][1])}</p><h2>Versione ${VERSION}</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
-    ${CHANGELOG.slice(0,1).map(([v,d,l])=>`<ul class="chg">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')}<div class="row"><button class="btn" data-act="mclose">Chiudi</button></div>`;
-  else if(modal==='secname') h=`<div class="neg-h"><div><p class="eyebrow">Segreteria</p><h2>Nome della segretaria</h2></div><button class="x" data-act="mclose" aria-label="Chiudi">×</button></div>
-    <form id="sec-form" class="secf"><label for="sec-new">Come si chiama?</label><input id="sec-new" maxlength="20" value="${esc(nm)}" autocomplete="off"><div class="row"><button class="btn" type="submit">Salva</button><button class="btn ghost" type="button" data-act="mclose">Annulla</button></div></form>`;
-  else if(modal==='import'){ const I=IMP||{err:'Nessun file scelto.'}, beta=typeof ACC!=='undefined'&&ACC.on;
-    h=`<div class="neg-h"><div><p class="eyebrow">Menu</p><h2>Importa una partita</h2></div><button class="x" data-act="impno" aria-label="Chiudi">×</button></div>
-    ${I.err?`<p class="bad" role="alert">${esc(I.err)}</p><div class="row"><button class="btn" data-act="impno">Chiudi</button></div>`
-      :`<p>Nel file c'è questa partita:</p><ul class="chk imp"><li><span>Club</span><span></span><b>${esc(I.club)}</b></li><li><span>Stagione</span><span></span><b>${I.s}</b></li><li><span>Giornata</span><span></span><b>${I.md}/14</b></li>${I.ver?`<li><span>Versione</span><span></span><b>${esc(I.ver)}</b></li>`:''}${I.data?`<li><span>Esportata il</span><span></span><b>${esc(new Date(I.data).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}))}</b></li>`:''}</ul>
-       <p class="warn-t">Se la carichi, sostituisce la partita di adesso${G?` (${esc(G.T[0].n)}, stagione ${G.season}, giornata ${G.md})`:''}${beta?', anche la copia salvata online nel tuo account':''}. Non si può annullare: se vuoi tenerla, esportala prima.</p>
-       <div class="row"><button class="btn danger" data-act="impok">Sì, carica questa partita</button><button class="btn ghost" data-act="impno">Annulla</button></div>`}`; }
+  if(modal==='menu') h=`<div class="neg-h"><div><p class="eyebrow">${t_("home.evivora_v",{VERSION:VERSION})}</p><h2>${t_("home.menu")}</h2></div><button class="x" data-act="mclose" aria-label="${t_("home.chiudi")}">${t_("home.x")}</button></div>
+    <div class="menu"><button class="btn ghost" data-act="novita">${t_("home.novita_della_versione")}</button><button class="btn ghost" data-act="secname">${t_("home.cambia_nome_della_segretaria")}</button><button class="btn ghost" data-act="expg">${t_("home.esporta_la_partita")}</button><button class="btn ghost" data-act="impg">${t_("home.importa_una_partita")}</button><input type="file" id="imp-file" accept=".json,application/json" hidden>
+    ${confirmReset?`<div class="reset"><span>${t_("home.ricominciare_cancella_questa_par")}</span><button class="btn danger small" data-act="reset2">${t_("home.si_ricomincia")}</button><button class="btn ghost small" data-act="reset0">${t_("home.annulla")}</button></div>`:`<button class="btn ghost danger-t" data-act="reset1">${t_("home.ricomincia_da_capo")}</button>`}</div>`;
+  else if(modal==='novita') h=`<div class="neg-h"><div><p class="eyebrow">${t_("home.novita",{v:esc(CHANGELOG[0][1])})}</p><h2>${t_("home.versione_2",{VERSION:VERSION})}</h2></div><button class="x" data-act="mclose" aria-label="${t_("home.chiudi")}">${t_("home.x")}</button></div>
+    ${CHANGELOG.slice(0,1).map(([v,d,l])=>`<ul class="chg">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('')}<div class="row"><button class="btn" data-act="mclose">${t_("home.chiudi")}</button></div>`;
+  else if(modal==='secname') h=`<div class="neg-h"><div><p class="eyebrow">${t_("home.segreteria")}</p><h2>${t_("home.nome_della_segretaria")}</h2></div><button class="x" data-act="mclose" aria-label="${t_("home.chiudi")}">${t_("home.x")}</button></div>
+    <form id="sec-form" class="secf"><label for="sec-new">${t_("home.come_si_chiama")}</label><input id="sec-new" maxlength="20" value="${esc(nm)}" autocomplete="off"><div class="row"><button class="btn" type="submit">${t_("home.salva")}</button><button class="btn ghost" type="button" data-act="mclose">${t_("home.annulla")}</button></div></form>`;
+  else if(modal==='import'){ const I=IMP||{err:t_("home.nessun_file_scelto")}, beta=typeof ACC!=='undefined'&&ACC.on;
+    h=`<div class="neg-h"><div><p class="eyebrow">${t_("home.menu")}</p><h2>${t_("home.importa_una_partita")}</h2></div><button class="x" data-act="impno" aria-label="${t_("home.chiudi")}">${t_("home.x")}</button></div>
+    ${I.err?`<p class="bad" role="alert">${esc(I.err)}</p><div class="row"><button class="btn" data-act="impno">${t_("home.chiudi")}</button></div>`
+      :`<p>${t_("home.nel_file_c_e")}</p><ul class="chk imp"><li><span>${t_("home.club")}</span><span></span><b>${esc(I.club)}</b></li><li><span>${t_("home.stagione_3")}</span><span></span><b>${I.s}</b></li><li><span>${t_("home.giornata_2")}</span><span></span><b>${I.md}/14</b></li>${I.ver?`<li><span>${t_("home.versione_3")}</span><span></span><b>${esc(I.ver)}</b></li>`:''}${I.data?`<li><span>${t_("home.esportata_il")}</span><span></span><b>${esc(new Date(I.data).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}))}</b></li>`:''}</ul>
+       <p class="warn-t">${t_("home.se_la_carichi_sostituisce",{v:G?` ${t_("home.stagione_giornata",{n:esc(G.T[0].n),season:G.season,md:G.md})}`:'',v2:beta?t_("home.anche_la_copia_salvata"):''})}</p>
+       <div class="row"><button class="btn danger" data-act="impok">${t_("home.si_carica_questa_partita")}</button><button class="btn ghost" data-act="impno">${t_("home.annulla")}</button></div>`}`; }
   else if(modal==='secwarn'){ const u=secItems().filter(x=>x.lv==='urg');
-    h=`<div class="sec-h"><span class="sec-av" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span><div><p class="eyebrow">${esc(nm)} · prima di giocare</p><p class="sec-say">Presidente, ${u.length===1?'c\'è ancora una cosa urgente':'ci sono ancora '+numIt(u.length)+' cose urgenti'}:</p></div></div>
+    h=`<div class="sec-h"><span class="sec-av" aria-hidden="true">${esc(nm.charAt(0).toUpperCase())}</span><div><p class="eyebrow">${t_("home.prima_di_giocare",{nm:esc(nm)})}</p><p class="sec-say">${t_("home.presidente_2",{v:u.length===1?t_("home.c_e_ancora_una"):t_("home.ci_sono_ancora_cose",{numIt:numIt(u.length)})})}</p></div></div>
     <ul class="secw">${u.map(x=>`<li>${esc(x.short)}</li>`).join('')}</ul>
-    <div class="row"><button class="btn" data-act="secplay">Giochiamo lo stesso</button><button class="btn ghost" data-act="secdesk">Andiamo alla Scrivania</button></div>`; }
+    <div class="row"><button class="btn" data-act="secplay">${t_("home.giochiamo_lo_stesso")}</button><button class="btn ghost" data-act="secdesk">${t_("home.andiamo_alla_scrivania")}</button></div>`; }
   else return '';
   return `<div class="modal" id="modal-bg" role="dialog" aria-modal="true"><div class="neg-in modal-in">${h}</div></div>`;
 }
@@ -314,20 +314,20 @@ let IMP=null;
 function exportName(){ const c=String(G.T[0].n||'club').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'club'; return `evivora-${c}-s${G.season}g${G.md}.json`; }
 function exportGame(){ const data={presidente:1, versione:VERSION, data:new Date().toISOString(), G};
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'})); a.download=exportName();
-  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast('Partita esportata nel file '+a.download+'.'); }
-function readImport(txt){ let x; try{ x=JSON.parse(txt); }catch(e){ return {err:'Il file non è una partita di Evivora: non si riesce a leggere.'}; }
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast(t_("home.partita_esportata_nel_file",{download:a.download})); }
+function readImport(txt){ let x; try{ x=JSON.parse(txt); }catch(e){ return {err:t_("home.il_file_non_e")}; }
   const wrap=!!(x&&x.presidente&&x.G), g=wrap?x.G:x, ver=wrap?String(x.versione||''):'';
-  if(!g||typeof g!=='object'||!Array.isArray(g.T)||g.T.length<2||!g.P||typeof g.P!=='object'||!Array.isArray(g.sched)||typeof g.season!=='number'||typeof g.md!=='number'||!g.T[0]||!g.T[0].n) return {err:'Il file non contiene una partita di Evivora valida.'};
-  if(ver && verCmp(ver,VERSION)>0) return {err:`La partita è stata salvata con la versione ${ver}, più nuova di questa (${VERSION}): ricarica la pagina per avere l'ultima versione e riprova.`};
+  if(!g||typeof g!=='object'||!Array.isArray(g.T)||g.T.length<2||!g.P||typeof g.P!=='object'||!Array.isArray(g.sched)||typeof g.season!=='number'||typeof g.md!=='number'||!g.T[0]||!g.T[0].n) return {err:t_("home.il_file_non_contiene")};
+  if(ver && verCmp(ver,VERSION)>0) return {err:t_("home.la_partita_e_stata",{ver:ver,VERSION:VERSION})};
   return {s:g.season, md:g.md, club:g.T[0].n, ver, data:wrap?x.data:null, txt:JSON.stringify(g)}; }
 function importGame(){ const I=IMP; if(!I||I.err) return;
   try{ stopViewer(); }catch(e){} const old=G;
-  if(!loadFrom(I.txt)){ G=old; IMP={err:'La partita del file non si riesce a caricare.'}; render(); return; }
+  if(!loadFrom(I.txt)){ G=old; IMP={err:t_("home.la_partita_del_file")}; render(); return; }
   IMP=null; modal=null; viewer=null; clubView=null; clubBack=null; sheetPid=null; negId=null; bnegOn=false; confirmReset=false; secWarnFor=null; area='scrivania'; sub='home';
   save(); if(typeof ACC!=='undefined'&&ACC.on&&ACC.upload) ACC.upload();
-  render(); window.scrollTo(0,0); toast(`Partita caricata: ${G.T[0].n}, stagione ${G.season}, giornata ${G.md}.`); }
+  render(); window.scrollTo(0,0); toast(t_("home.partita_caricata_stagione_giorna",{n:G.T[0].n,season:G.season,md:G.md})); }
 document.addEventListener('change', e=>{ if(e.target.id!=='imp-file') return; const f=e.target.files&&e.target.files[0]; if(!f) return;
-  const rd=new FileReader(); rd.onload=()=>{ IMP=readImport(String(rd.result||'')); modal='import'; render(); }; rd.onerror=()=>{ IMP={err:'Il file non si riesce a leggere.'}; modal='import'; render(); }; rd.readAsText(f); });
+  const rd=new FileReader(); rd.onload=()=>{ IMP=readImport(String(rd.result||'')); modal='import'; render(); }; rd.onerror=()=>{ IMP={err:t_("home.il_file_non_si")}; modal='import'; render(); }; rd.readAsText(f); });
 
 /* ---------- eventi ---------- */
 document.addEventListener('click', e=>{
@@ -352,6 +352,6 @@ document.addEventListener('click', e=>{
   }
 });
 document.addEventListener('submit', e=>{ if(e.target.id!=='sec-form'||!G) return;
-  const v=($('#sec-new').value||'').trim().slice(0,20); G.sec={n:v||'Giulia'}; save(); modal=null; render(); toast('D\'ora in poi la segretaria si chiama '+secName()+'.'); });
+  const v=($('#sec-new').value||'').trim().slice(0,20); G.sec={n:v||t_("home.giulia")}; save(); modal=null; render(); toast(t_("home.d_ora_in_poi",{secName:secName()})); });
 
 Object.assign(VIEWS,{'scrivania/home':vScrivania,'lega/notizie':vNotizie,'lega/giornata':vGiornata,'lega/marcatori':vMarcatori,'lega/albo':vAlbo,'mercato/trattative':vTrattative});
