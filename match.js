@@ -8,7 +8,8 @@ const FORMATIONS={
   '3-5-2':[['GK',34],['CB',20],['CB',34],['CB',48],['LWB',7],['CM',24],['DM',34],['CM',44],['RWB',61],['ST',28],['ST',40]],
   '5-3-2':[['GK',34],['LWB',7],['CB',21],['CB',34],['CB',47],['RWB',61],['CM',22],['CM',34],['CM',46],['ST',28],['ST',40]],
   '4-5-1':[['GK',34],['LB',8],['CB',26],['CB',42],['RB',60],['LM',9],['CM',24],['DM',34],['CM',44],['RM',59],['ST',34]],
-  '3-4-3':[['GK',34],['CB',20],['CB',34],['CB',48],['LM',8],['CM',27],['CM',41],['RM',60],['LW',14],['ST',34],['RW',54]]
+  '3-4-3':[['GK',34],['CB',20],['CB',34],['CB',48],['LM',8],['CM',27],['CM',41],['RM',60],['LW',14],['ST',34],['RW',54]],
+  '5-4-1':[['GK',34],['LWB',7],['CB',21],['CB',34],['CB',47],['RWB',61],['LM',10],['CM',27],['CM',41],['RM',58],['ST',34]]   /* v0.4.5.0 (R3b) */
 };
 const ROLE_GROUP={GK:'P',CB:'D',LB:'D',RB:'D',LWB:'D',RWB:'D',DM:'C',CM:'C',LM:'C',RM:'C',AM:'C',LW:'A',RW:'A',ST:'A'};
 const SUIT={GK:{par:4,pre:2,usc:2,pos:2,rin:1},CB:{con:3,tes:2,ele:1,pos:3,for:1.5,vel:1,dec:1},LB:{vel:2.5,res:2,con:2,crs:1.5,pas:1},RB:{vel:2.5,res:2,con:2,crs:1.5,pas:1},
@@ -22,10 +23,11 @@ function suit(p,role){ const pen=NAT[p.r][role]; if(pen==null) return -5; const 
 function formNeed(mod){ const n={P:0,D:0,C:0,A:0}; (FORMATIONS[mod]||FORMATIONS['4-4-2']).forEach(([r])=>n[ROLE_GROUP[r]]++); return n; }
 
 /* ---------- l'allenatore sceglie gli 11 per un modulo ---------- */
-function bestXI(players, form){
+function bestXI(players, form, nz){
   const slots=FORMATIONS[form].map(([r,y])=>({r,y}));
   const fit=p=>0.86+0.14*(p.st0/100)+(p.mor-12)*0.004;
-  const pairs=[]; slots.forEach((s,i)=>players.forEach(p=>pairs.push([suit(p,s.r)*fit(p),i,p])));
+  /* nz (v0.4.5.0, R3b): errore di valutazione dell'allenatore (Lettura della squadra), da hash: sempre lo stesso per lo stesso giocatore */
+  const pairs=[]; slots.forEach((s,i)=>players.forEach(p=>pairs.push([suit(p,s.r)*fit(p)+(nz?nz(p,s.r):0),i,p])));
   pairs.sort((a,b)=>b[0]-a[0]);
   const xi=new Array(slots.length).fill(null), used=new Set(); let tot=0;
   for(const [v,i,p] of pairs){ if(xi[i]||used.has(p.id)) continue; xi[i]=p; used.add(p.id); tot+=v; }
@@ -41,17 +43,23 @@ function features(x){
 const midCount=f=>FORMATIONS[f].filter(([r])=>ROLE_GROUP[r]==='C').length;
 
 /* ---------- piano gara: l'AI studia l'avversario ---------- */
+/* v0.4.5.0 (R3b): caratteristica dell'allenatore 0–100 (le 10 efficaci di matchInput; partite salvate senza k: dagli equivalenti 1–20) */
+function coK(c, K){ if(c && c.k && c.k[K]!=null) return c.k[K]; const eq=K==='ITA'||K==='ANA'||K==='ADA'?c&&c.tat:K==='LSQ'||K==='LGA'||K==='RAP'||K==='GES'?c&&c.ges:null; return eq!=null?clamp((eq-1)/0.19,0,100):50; }
 function planMatch(T, O, R){
-  const c=T.coach, noise=(20-c.tat)/20;
+  /* v0.4.5.0 (R3b): il piano dalle 10 caratteristiche (non più coachEq). ITA = rumore sulla scelta del modulo e delle voci del piano;
+     ANA = quanto bene legge l'avversario (rumore sulle sue caratteristiche); ADA = quanto lascia il modulo preferito; LSQ = scelta degli 11 */
+  const c=T.coach, ITA=coK(c,'ITA'), ANA=coK(c,'ANA'), ADA=coK(c,'ADA'), LSQ=coK(c,'LSQ'), noise=(100-ITA)/100;
   const ox=bestXI(O.players, FORMATIONS[O.coach.mod]?O.coach.mod:'4-4-2'), of=features(ox);
+  for(const k of ['att','attSpeed','defSpeed','aerialAtt','aerialDef','mid','def','res']) of[k]+=(R()-0.5)*2*(1-ANA/100)*1.0;
+  const nzT=(p,role)=>(hashU(String(p.id)+'|'+(c.n||''),role.length+role.charCodeAt(0))-0.5)*0.5*(1-LSQ/100);
   let best=null;
   for(const f of Object.keys(FORMATIONS)){
-    const x=bestXI(T.players,f), ft=features(x); let sc=x.score*3; const why=[];
+    const x=bestXI(T.players,f,nzT), ft=features(x); let sc=x.score*3; const why=[];
     const md=of.mid-ft.mid;
     if(md>0.4){ const b=(midCount(f)-midCount(ox.form))*0.22*Math.min(2,md); sc+=b; if(b>0) why.push('mid'); }
     if(of.attSpeed-ft.defSpeed>1.2 && f.startsWith('5')){ sc+=0.6; why.push('slow'); }
     if(ft.attSpeed-of.defSpeed>1.2 && (f==='4-3-3'||f==='3-4-3')){ sc+=0.5; why.push('fast'); }
-    if(f===c.mod){ sc+=0.55; why.push('fam'); }
+    if(f===c.mod){ sc+=0.55*(1.4-0.8*ADA/100); why.push('fam'); }
     sc+=(R()-0.5)*noise*1.6;
     if(!best||sc>best.sc) best={f,x,ft,sc,why};
   }
@@ -59,7 +67,10 @@ function planMatch(T, O, R){
   const ment = diff<-0.9?-1 : diff>0.9?1 : 0;
   const opts=[['possesso',ft.mid-of.mid],['profondità',ft.attSpeed-of.defSpeed-0.6],['cross',ft.aerialAtt-of.aerialDef-1.0],['contropiede',ment<0?ft.attSpeed-9:-9]];
   opts.sort((a,b)=>b[1]-a[1]); const style = opts[0][1]>0.4 ? opts[0][0] : 'equilibrato';
-  const press = ment>=0 && ft.res>=10 ? 2 : 1;
+  /* v0.4.5.0 (R3b): pressing su tre livelli dalla resistenza (non più la soglia assoluta res ≥ 10: dopo S1 nessuno la superava), dalla mentalità e dal centrocampo */
+  const sbaglia=()=>R()<(1-ITA/100)*0.2, LV3=['alto','medio','basso'];   /* R3b: l'allenatore meno intelligente tatticamente sbaglia più spesso le voci del piano */
+  const pS=(ft.res-8.5)+ment*0.8+(ft.mid-of.mid)*0.3; let pressLv=pS>0.3?'alto':pS<-0.6?'basso':'medio'; if(sbaglia()) pressLv=LV3[Math.floor(R()*3)];
+  const press=pressLv==='alto'?2:pressLv==='basso'?0:1;
   const sur=c.n.split(' ').slice(-1)[0], rs=[];
   rs.push(best.f===c.mod?`${sur} conferma il suo ${best.f}.`:`${sur} lascia il solito ${c.mod} e sceglie il ${best.f}.`);
   if(best.why.includes('mid')) rs.push(`Vuole un uomo in più a centrocampo: l'avversario lì è più forte.`);
@@ -67,12 +78,12 @@ function planMatch(T, O, R){
   if(best.why.includes('fast')) rs.push(`Tre davanti per sfruttare la lentezza dei loro centrali.`);
   rs.push(ment>0?`Si sente più forte: baricentro alto e partita da fare.`: ment<0?`Si sente inferiore: squadra corta e bassa, pronta a ripartire.`:`Partita equilibrata: prudenza ma senza rinunciare ad attaccare.`);
   rs.push({possesso:'Stile: possesso palla e passaggi corti.',profondità:'Stile: lanci in profondità per le punte veloci.',cross:'Stile: palle alte in area, ha i saltatori migliori.',contropiede:'Stile: contropiede.',equilibrato:'Stile: equilibrato.'}[style]);
-  if(press===2) rs.push('Pressing alto sul portatore di palla.');
+  if(press===2) rs.push('Pressing alto sul portatore di palla.'); else if(press===0) rs.push('Pressing basso: aspetta l\'avversario nella sua metà campo.');
   /* difesa: altezza della linea, zona o uomo, trappola del fuorigioco */
   const dfs=best.x.xi.map((p,i)=>p?{p,r:best.x.slots[i].r}:null).filter(x=>x&&isDefR(x.r)).map(x=>x.p);
   const dAvg=k=>dfs.length?dfs.reduce((s,p)=>s+p.a[k],0)/dfs.length:10;
   const read=(dAvg('pos')+dAvg('dec'))/2, duel=(dAvg('con')+dAvg('agg')+dAvg('for'))/3;
-  const lineH = (ft.defSpeed-of.attSpeed>0.8 || (press===2 && ft.defSpeed>=of.attSpeed-0.3)) ? 'alta' : (of.attSpeed-ft.defSpeed>0.8 || ment<0) ? 'bassa' : 'media';
+  let lineH = (ft.defSpeed-of.attSpeed>0.8 || (press===2 && ft.defSpeed>=of.attSpeed-0.3)) ? 'alta' : (of.attSpeed-ft.defSpeed>0.8 || ment<0) ? 'bassa' : 'media'; if(sbaglia()) lineH=['alta','media','bassa'][Math.floor(R()*3)];
   const mark = read>=duel+0.6 ? 'zona' : duel>=read+0.6 ? 'uomo' : 'mista';
   const trap = lineH!=='bassa' && mark!=='uomo' && dAvg('dec')>=10;
   rs.push(`Difesa: linea ${lineH}, ${mark==='zona'?'marcatura a zona':mark==='uomo'?'marcatura a uomo':'zona con un marcatore fisso sull\'attaccante più pericoloso'}${trap?', trappola del fuorigioco':''}.`);
@@ -92,7 +103,10 @@ function planMatch(T, O, R){
   else if(sts.length===1){ const s1=sts[0].p; fwd[s1.id]= s1.a.vel>=avgVel+0.8 ? 'linea' : (s1.a.pas+s1.a.vis)/2>=s1.a.tir ? 'tra' : 'spazi'; }
   atts.filter(x=>x.r!=='ST').forEach(x=>{ fwd[x.p.id]= x.p.a.vel>=avgVel+0.5 ? 'linea' : 'spazi'; });
   if(atts.length) rs.push('Attaccanti: '+atts.map(x=>`${x.p.ln} ${FWD_IT[fwd[x.p.id]]}`).join('; ')+'.');
-  return {form:best.f, xi:best.x, ment, style, press, reasons:rs, fwd, lineH, mark, trap, scheme, spec:{pen:spec.pen&&spec.pen.id, fk:spec.fk&&spec.fk.id, cor:spec.cor&&spec.cor.id}};
+  /* v0.4.5.0 (R3b): voci del piano di squadra (t.plan): blocco senza palla, ampiezza, costruzione, transizioni */
+  const blocco=press===0&&lineH==='alta'?'medio':{alta:'alto',media:'medio',bassa:'basso'}[lineH], amp=style==='cross'?'larga':style==='contropiede'?'stretta':'normale',
+    costr=style==='possesso'?'corta':(style==='profondità'||style==='contropiede')?'lunga':'mista', tOff=(style==='contropiede'||ment<0)?'contropiede':'consolida', tDif=press===2?'contropress':'ripiego';
+  return {form:best.f, xi:best.x, ment, style, press, reasons:rs, fwd, lineH, mark, trap, scheme, blocco, amp, costr, tOff, tDif, spec:{pen:spec.pen&&spec.pen.id, fk:spec.fk&&spec.fk.id, cor:spec.cor&&spec.cor.id}};
 }
 
 /* ---------- partita ---------- */
@@ -113,7 +127,15 @@ const STF=0.56;   // ritmo di consumo dell'energia
 const ROLE_RUN={GK:0.3,CB:0.85,LB:1.12,RB:1.12,LWB:1.15,RWB:1.15,DM:1.05,CM:1.12,LM:1.12,RM:1.12,AM:1.0,LW:1.05,RW:1.05,ST:0.95};
 /* morale: effetto moderato sul rendimento (in punti di abilità compressa; il fattore campo vale 0,22) */
 const MOR_K=0.3, CMOR_K=0.08;
+/* v0.4.4.0 (R3a): proteste dell'allenatore (match_arb.js, protest). p0+p1·Carattere = probabilità di protestare a peso 1; g0+g1·Carattere = protesta grave;
+   decisione dell'arbitro: grave → allontanamento gOff (+gOffS per punto di severità sopra 10), ammonizione gYc; lieve → allontanamento lOff,
+   ammonizione lYc (+lYcS); e0+e1·(Errori−10) = probabilità che la decisione sbagli di un gradino. Tarati con tools/r3a.js (parte 8) */
+const PR_K={p0:0.10, p1:0.60, g0:0.10, g1:0.55, gOff:0.25, gOffS:0.03, gYc:0.55, lOff:0.01, lYc:0.55, lYcS:0.02, e0:0.02, e1:0.01};
 function moraleBoost(mor,cmor){ return clamp((mor-12)/8,-1,1)*MOR_K + clamp(((cmor??12)-12)/8,-1,1)*CMOR_K; }
+/* v0.4.5.0 (R3b): tabella delle mosse della panchina (mentalità da −2 a +2 per situazione), misurata con la partita: tools/r3b.js parte 7 */
+const PAN_TAB={sotto_medio:1, sotto_tardi:2, sotto2:2, sopra1_tardi:-1, sopra2:-1, pari_tardi_forte:1, pari_tardi_debole:0};
+/* v0.4.5.0 (R3b): skill tattiche e mentali lette dal codice dell'allenatore e loro medie di riferimento (giocatori dei mondi generati) */
+const SK_TQ=['SM','CL','DE','CO','LE','DT','LG','MA','AN','IN'], SK_TQM={SM:50,CL:47,DE:45,CO:40,LE:48,DT:50,LG:48,MA:46,AN:46,IN:48};
 const FIN=0.45, SKILL_K=0.33, HOME_B=1.5, DAY_F=0.7;   /* v0.4.2.7 (R2b): HOME_B 0,4 → 1,5. Il vantaggio di casa tocca solo le caratteristiche compresse a (decisioni); dalla 0.4.2.0 corpo, tiri, portiere e controllo usano a0 e la velocità vera, quindi serve un valore più alto per lo stesso effetto (vedi docs/PROGRESSI_R2b.md) */
 /* v0.4.2.0: tarature della fisica dei tiri e del ritmo (vedi STATO.md, «Fisica della palla e dei corpi») */
 /* v0.4.2.0: con l'orologio vero i tempi delle decisioni (scritti in secondi della vecchia simulazione) scorrono a TDEC per secondo
@@ -249,33 +271,34 @@ function simMatch(inp, seed, rec){
   /* v0.4.2.2 (T1): contesto condiviso con i moduli match_fis.js, match_all.js, match_gio.js, match_arb.js (vedi MAPPA.md).
      Le fabbriche definiscono soltanto le funzioni (niente numeri casuali); lega() copia in M i valori della preparazione
      e collega le variabili dei moduli agli stessi oggetti. Le variabili riassegnate durante la partita sono campi di M. */
-  const M={link:[], mFis:null, mAll:null, mGio:null, mArb:null, tick:0, half:1, regEnd:0, restart:null, ht2:null, errLeft:0, bsN:0, RC:null, T:null, all:null, rx:null, ry:null, ball:null, ref:null, minNum:null, E:null, R:null, P:null, RA:null, RP:null, SO:null, SX:null, tm:null, op:null, fill2:null, recSub:null, RF:null, cardF:null, refErrs:null, errPlan:null, MIN_T:null};
+  const M={link:[], mFis:null, mAll:null, mGio:null, mArb:null, RB:null, tick:0, half:1, regEnd:0, restart:null, ht2:null, errLeft:0, bsN:0, RC:null, T:null, all:null, rx:null, ry:null, ball:null, ref:null, minNum:null, E:null, R:null, P:null, RA:null, RP:null, SO:null, SX:null, tm:null, op:null, fill2:null, recSub:null, RF:null, cardF:null, refErrs:null, errPlan:null, MIN_T:null};
   M.mFis=matchFis(M); M.mAll=matchAll(M); M.mGio=matchGio(M); M.mArb=matchArb(M);
-  const {fatK, move, separate, buildDist, D2, giveBall, loose, lineCheck, ballTick, ownerBall}=M.mFis, {setForm, specOf, gkOf, endCel, runProb, assignMarks, targets, deconflict, startSub, stepSubs, htSubs, coachThink}=M.mAll, {nearestOpp, handsOk, gkCatch, decide}=M.mGio, {canErr, startKick, pause, refError, moveRefs, foul, injure, keepDistance, restartBall, rsReady, execRestart}=M.mArb;
+  const {fatK, move, separate, buildDist, D2, giveBall, loose, lineCheck, ballTick, ownerBall}=M.mFis, {setForm, specOf, gkOf, endCel, runProb, assignMarks, targets, deconflict, startSub, stepSubs, htSubs, coachBon, coachThink}=M.mAll, {nearestOpp, handsOk, gkCatch, decide}=M.mGio, {canErr, startKick, pause, refError, moveRefs, foul, injure, keepDistance, restartBall, rsReady, execRestart}=M.mArb;
   const lega=o=>{ Object.assign(M,o); for(const f of M.link) f(); };
   /* v0.4.2.0: numeri casuali separati per sottosistema (RICERCA C2): R = giocatori (scelte ed esecuzione), RC = allenatori,
      RA = arbitro e tempi delle riprese, RP = fisica (rimbalzi, deviazioni, infortuni). Così una tappa che cambia un codice non rimescola gli altri */
-  const R=makeRng(seed), P=a=>a[Math.floor(R()*a.length)], RC=makeRng(seed^0x51A3C0DE), RA=makeRng(seed^0x2F6E2B19), RP=makeRng(seed^0x7B3D9E57), PA=a=>a[Math.floor(RA()*a.length)];
+  const R=makeRng(seed), P=a=>a[Math.floor(R()*a.length)], RC=makeRng(seed^0x51A3C0DE), RA=makeRng(seed^0x2F6E2B19), RP=makeRng(seed^0x7B3D9E57), RB=makeRng(seed^0x6C0A7B21), PA=a=>a[Math.floor(RA()*a.length)];
   /* sonde per le misure (v0.4.1.3, tools/misure.js): spente se globalThis.__SONDA non c'è. Leggono soltanto: mai R(), mai scritture, mai nei salvataggi */
   const SO=globalThis.__SONDA||null, SX=SO?{get T(){return T}, get ball(){return ball}, get ref(){return ref}, get restart(){return M.restart}, get tick(){return M.tick}, get half(){return M.half}, get all(){return all}, get ev(){return ev}, get htTick(){return htTick}, PL, PW, DT, TIME_F}:null;
-  const T=[0,1].map(i=>{ const ti=inp.t[i]; return {win:0, qsub:[], coachOut:!!(ti.coach&&ti.coach.absent), pendOff:false, idx:i, dir:i===0?1:-1, inp:ti, coach:ti.coach, players:ti.players, goals:0, subs:5, on:[], bench:[], form:null, slots:null, ment:0, style:'equilibrato', press:1, ch:{att:false,def:false,all:false}, lostT:-99, wonT:-99, counterUntil:-1, pressUntil:-1,
+  const T=[0,1].map(i=>{ const ti=inp.t[i]; return {win:0, qsub:[], coachOut:!!(ti.coach&&ti.coach.absent), pendOff:false, pendYc:false, cyc:0, offY2:false, idx:i, dir:i===0?1:-1, inp:ti, coach:ti.coach, players:ti.players, goals:0, subs:5, on:[], bench:[], form:null, slots:null, ment:0, style:'equilibrato', press:1, ch:{att:false,def:false,all:false}, lostT:-99, wonT:-99, counterUntil:-1, pressUntil:-1,
     st:{poss:0,sh:0,sot:0,xg:0,cor:0,fou:0,yc:0,rc:0,pa:0,pc:0,off:0}}; });
   const all=new Map(), ev=[], frames=rec?[]:null;
   const dayF=[0,1].map(()=>(R()+R()-1)*DAY_F);
-  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, drib:0, shield:0, wall:null, runOff:0, used:false, walkIn:false, leave:0, lw:0, subOut:false, subbed:false, st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
+  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, drib:0, shield:0, bA:null, wall:null, runOff:0, used:false, walkIn:false, leave:0, lw:0, subOut:false, subbed:false, st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
     s:{g:0,as:0,kp:0,sh:0,sot:0,pa:0,pc:0,tk:0,int:0,drw:0,sv:0,err:0,red:0,prog:0,gv:0,av:0,ga:0,svv:0}}); }
   const plans=[0,1].map(i=>planMatch(T[i].inp,T[1-i].inp,RC));
   [0,1].forEach(i=>{ const f=inp.t[i].force; if(f){ Object.assign(plans[i],f); if(f.form) plans[i].xi=bestXI(T[i].inp.players,f.form); } });
   const rx=(t,x)=>t.dir>0?x:PL-x, ry=(t,y)=>t.dir>0?y:PW-y;
   const tm=p=>T[p.t], op=p=>T[1-p.t];
-  lega({RC, T, all, rx, ry, R, P, RA, RP, SO, SX, tm, op});
-  for(const t of T){ const pl=plans[t.idx]; t.ment=pl.ment; t.style=pl.style; t.press=pl.press; t.fwd=pl.fwd||{}; t.lineH=pl.lineH||'media'; t.mark=pl.mark||'zona'; t.trap=!!pl.trap; t.dline=null; t.marks=new Map(); t.scheme=pl.scheme||'centro'; t.spec=pl.spec||{};
+  lega({RC, RB, T, all, rx, ry, R, P, RA, RP, SO, SX, tm, op});
+  for(const t of T){ const pl=plans[t.idx]; t.ment=pl.ment; t.style=pl.style; t.press=pl.press; t.fwd=pl.fwd||{}; t.lineH=pl.lineH||'media'; t.mark=pl.mark||'zona'; t.trap=!!pl.trap; t.dline=null; t.plan={form:pl.form, ment:pl.ment, press:pl.press===2?'alto':pl.press===0?'basso':'medio', blocco:pl.blocco||'medio', linea:t.lineH, trap:t.trap, amp:pl.amp||'normale', costr:pl.costr||'mista', tOff:pl.tOff||'consolida', tDif:pl.tDif||'ripiego', mark:t.mark}; t.planT=0; t.marks=new Map(); t.scheme=pl.scheme||'centro'; t.spec=pl.spec||{};
     { const xi=(pl.xi.xi||[]).filter(Boolean); t.tech=xi.length? xi.reduce((s,p)=>s+(p.a.pas+p.a.ctr+p.a.dec)/3,0)/xi.length : 10; }
     setForm(t, pl.form, pl.xi.xi.filter(Boolean).map(p=>all.get(p.id)));
     const onIds=new Set(t.on.map(p=>p.id)); t.bench=t.players.filter(p=>!onIds.has(p.id)).map(p=>all.get(p.id)).sort((a,b)=>b.ovr0-a.ovr0).slice(0,9);
   }
+  T.forEach(t=>coachBon(t));   /* v0.4.4.0 (R3a): bonus dell'allenatore, dopo la scelta del modulo */
   T.forEach(t=>assignMarks(t));
-  const str0=T.map(t=>t.on.reduce((s,p)=>s+(p.ovr0||10),0)/Math.max(1,t.on.length)); T.forEach(t=>{ t.chg=[]; t.subIn=[]; });
+  const str0=T.map(t=>t.on.reduce((s,p)=>s+(p.ovr0||10),0)/Math.max(1,t.on.length)); T.forEach((t,i)=>{ t.chg=[]; t.subIn=[]; t.str0=str0[i]; });
   const ball={x:52.5,y:34,z:0,vz:0,owner:null,fl:null,vx:0,vy:0,lastT:0,lastP:null,pass:null};
   /* terna arbitrale: caratteristiche (1-20, media 10) */
   const RF=Object.assign({esp:10,car:10,fis:10,err:10}, inp.ref||{});
@@ -336,7 +359,8 @@ function simMatch(inp, seed, rec){
     buildDist();
     if(M.restart && M.restart.type!=='pen' && M.restart.type!=='cel' && M.restart.ticks>3) for(const t of T){
       while(t.qsub.length){ const z=t.qsub.shift(); if((z.noRemove||!z.outP||z.outP.on) && !z.inP.on && !z.inP.walkIn && t.subs>0) startSub(t,z.outP,z.inP,z.slot??z.outP.slot,z.why,z.noRemove); }
-      if(t.pendOff){ t.pendOff=false; t.coachOut=true; coachOff[t.idx]=true; const sur=t.coach.n.split(' ').slice(-1)[0]; E('coachoff',t.idx,[],`L'arbitro ${RF.n||''} va verso la panchina e allontana ${sur}: l'allenatore lascia il campo e salterà la prossima partita.`.replace('  ',' ')); M.restart.coach={side:t.idx,shown:false}; M.restart.ticks=Math.max(M.restart.ticks,30); } }
+      if(t.pendYc){ t.pendYc=false; t.cyc++; const sur=t.coach.n.split(' ').slice(-1)[0]; E('coachyc',t.idx,[],t_('par.coachyc',{sur,rn:RF.n?' '+RF.n:''})); M.restart.coach={side:t.idx,shown:false,k:5}; M.restart.ticks=Math.max(M.restart.ticks,24); }
+      else if(t.pendOff){ t.pendOff=false; t.coachOut=true; t.offT=M.tick; coachOff[t.idx]=true; coachBon(t); const sur=t.coach.n.split(' ').slice(-1)[0]; E('coachoff',t.idx,[],t_(t.offY2?'par.coachoff_y2':'par.coachoff',{sur,rn:RF.n?' '+RF.n:''})); M.restart.coach={side:t.idx,shown:false,k:4}; M.restart.ticks=Math.max(M.restart.ticks,30); } }
     stepSubs(false);
     if(M.restart && M.restart.subs && M.restart.subs.some(z=>z.ph<2) && M.restart.ticks<=3) M.restart.ticks++;
     if(M.restart && ((M.restart.card&&!M.restart.card.shown)||(M.restart.coach&&!M.restart.coach.shown)) && M.restart.ticks<=3 && (M.restart.hold=(M.restart.hold||0)+1)<40) M.restart.ticks++;
@@ -404,7 +428,7 @@ function simMatch(inp, seed, rec){
   const cardsN=T[0].st.yc+T[1].st.yc+T[0].st.rc+T[1].st.rc;
   const rv=clamp(6.4+(RF.esp-10)*0.04+(RA()-0.5)*0.8-refErrs.length*1.1-(cardsN>8?0.3:0)+(refErrs.length===0&&cardsN>=3?0.2:0),4,8.5);
   const refOut={id:RF.id, n:RF.n, voto:Math.round(rv*2)/2, errs:refErrs.slice()};
-  E('refvote',0,[],`Voto alla terna arbitrale ${RF.n?'di '+RF.n:''}: ${String(refOut.voto).replace('.',',')}.${refErrs.length?' Pesano '+(refErrs.length===1?'un errore':'due errori')+' decisiv'+(refErrs.length===1?'o':'i')+'.':''}`.replace('  ',' '),{voto:refOut.voto});
+  E('refvote',0,[],`Voto alla terna arbitrale ${RF.n?'di '+RF.n:''}: ${String(refOut.voto).replace('.',',')}.${refErrs.length?' Pesano '+(refErrs.length===1?'un errore':refErrs.length===2?'due errori':'tre errori')+' decisiv'+(refErrs.length===1?'o':'i')+'.':''}`.replace('  ',' '),{voto:refOut.voto});
   /* voto dell'allenatore */
   const goalT=ev.filter(e=>e.type==='goal'); const coachRt=T.map((t,i)=>{
     if(t.inp.coach && t.inp.coach.absent) return {v:null, why:['squalificato: in panchina il vice']};
@@ -429,7 +453,21 @@ function simMatch(inp, seed, rec){
 
 /* istantanea dei dati che servono alla partita (così si può rivedere identica) */
 function matchInput(t){
-  const avail=teamPlayers(t).filter(p=>!(p.inj>0)&&!(p.sq>0));
-  return {id:t.id, n:t.n, c:t.c, coach:{n:t.coach.n, tat:t.coach.tat, all:t.coach.all, gio:t.coach.gio, ges:t.coach.ges, mod:t.coach.mod, car:t.coach.car??10, mor:Math.round((t.coach.mor??12)*10)/10, absent:(t.coach.squal||0)>0}, capOrder:[t.cap,t.vcap,...capOrder(t).filter(id=>id!==t.cap&&id!==t.vcap)].filter(id=>id!=null).slice(0,6),
-    players:avail.map(p=>({id:p.id, ln:p.ln, r:p.r, age:p.age, a:p.s?skMatchA(p):Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}))};
+  const avail=teamPlayers(t).filter(p=>!(p.inj>0)&&!(p.sq>0)), c=coachMigrate(t.coach), absent=(c.squal||0)>0, eq=coachEq(c);
+  /* v0.4.4.0 (R3a): bonus dell'allenatore solo in partita. Skill 0–100 + (bonus − bonus medio della lega), tra 0 e 100, poi skA22:
+     b = differenza sui 22 attributi (1–20; oggi solo pas, dec, pos), b7 = pos con la Familiarità ridotta (modulo diverso dal preferito).
+     Le 57 salvate non cambiano; simMatch somma b e lo toglie se l'allenatore viene allontanato */
+  const LM=coachLeagueBonus(), wOf=(p,fam)=>{ const v=skOf(p).v, b=coachBonus(t,{fam, ins:coIns(p), sq:absent}), w=Object.assign({},v);
+    for(const s of CO_SK) w[s]=clamp(v[s]+b[s]-LM[s],0,100); return w; }, bonOf=(p,fam)=>skA22(wOf(p,fam),p.r);
+  /* v0.4.5.0 (R3b): le 10 skill tattiche e mentali per il codice dell'allenatore (tq, 0–100 senza bonus), il bonus della squadra (tqb, rispetto alla
+     media della lega) e quello con la Familiarità ridotta (tqb7, solo DT e LG) */
+  const tqOf=p=>{ if(!p.s) return null; const v=skOf(p).v, w=wOf(p,1), w7=wOf(p,CO_PAR.famMod), tq={}, tqb={}, tqb7={}; let nb=0, n7=0;
+    for(const k of SK_TQ){ tq[k]=Math.round(v[k]); const d=Math.round((w[k]-v[k])*10)/10; if(d){ tqb[k]=d; nb++; } if(k==='DT'||k==='LG'){ const d7=Math.round((w7[k]-v[k])*10)/10; if(d7!==d){ tqb7[k]=d7; n7++; } } }
+    const o={tq}; if(nb) o.tqb=tqb; if(n7) o.tqb7=tqb7; return o; };
+  const bOf=p=>{ if(!p.s) return null; const a0=skOf(p).a, a1=bonOf(p,1), o={}; let n=0;
+    for(const k of ATTR){ const d=Math.round((a1[k]-a0[k])*100)/100; if(d){ o[k]=d; n++; } }
+    if(p.r!=='P'){ const d7=Math.round((bonOf(p,CO_PAR.famMod).pos-a0.pos)*100)/100; if(d7!==(o.pos||0)){ o.pos7=d7; n++; } }
+    return n?o:null; };
+  return {id:t.id, n:t.n, c:t.c, coach:{n:c.n, tat:eq.tat, all:c.all, gio:c.gio, ges:eq.ges, mod:c.mod, car:eq.car, k:Object.assign({},eq.x), coll:Object.assign({},collOf(t)), rt:Math.round(coachRating(c)), mor:Math.round((c.mor??12)*10)/10, absent}, capOrder:[t.cap,t.vcap,...capOrder(t).filter(id=>id!==t.cap&&id!==t.vcap)].filter(id=>id!=null).slice(0,6),
+    players:avail.map(p=>{ const q={id:p.id, ln:p.ln, r:p.r, age:p.age, a:p.s?skMatchA(p):Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}; const b=bOf(p); if(b) q.b=b; const tq=tqOf(p); if(tq) Object.assign(q,tq); return q; })};
 }

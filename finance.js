@@ -249,7 +249,7 @@ function makeOffers(){ const cand=G.T.filter(t=>t.id!==0).sort((a,b)=>clubAppeal
 function firePending(){ if(!G.pendFire) return; G.fired={why:G.pendFire.why, s:G.season, md:G.md, club:G.T[0].n, offers:makeOffers()}; G.pendFire=null; }
 /* il presidente passa a un'altra società: si scambiano gli indici delle squadre, così il club scelto diventa il numero 0 */
 function swapTeams(a,b){ const A=G.T[a], B=G.T[b]; G.T[a]=B; G.T[b]=A; B.id=a; A.id=b; const sw=x=>x===a?b:x===b?a:x;
-  Object.values(G.P).forEach(p=>{ if(p.team===a||p.team===b) p.team=sw(p.team); });
+  Object.values(G.P).forEach(p=>{ if(p.team===a||p.team===b) p.team=sw(p.team); if(p.jt===a||p.jt===b) p.jt=sw(p.jt); });   /* v0.4.4.0: anche la squadra d'arrivo */
   G.sched=G.sched.map(r=>r.map(([h,x])=>[sw(h),sw(x)])); G.res=G.res.map(r=>r.map(m=>({...m,h:sw(m.h),a:sw(m.a)})));
   (G.req||[]).forEach(r=>{ if(r.st==='open' && (r.team===a||r.team===b)) r.st='exp'; r.team=sw(r.team); if(r.buyer!=null&&r.buyer>=0) r.buyer=sw(r.buyer); if(r.opp!=null) r.opp=sw(r.opp); if(r.from!=null) r.from=sw(r.from); });
   G.T.forEach(t=>(t.miss||[]).forEach(m=>{ if(m.opp!=null) m.opp=sw(m.opp); }));

@@ -50,7 +50,7 @@ function matchFis(M){
     fisCorpo(p, Vx, Vy, sDes, face, vmax, p.amax*(p.stun>0?0.5:1), 5.8, DT);
     energy(p, hyp(p.vx,p.vy)); timers(p);
   }
-  function energy(p, sp){ const r=sp/7, tt=tm(p); p.st-=1.9*(0.006+0.03*r*r)*(1.5-p.a0.res/20)*0.35/TIME_F*STF*(ROLE_RUN[p.role]||1)*(tt.press===2?1.12:1)*(M.half===1?0.82:1.22); if(p.st<15) p.st=15; }
+  function energy(p, sp){ const r=sp/7, tt=tm(p); p.st-=1.9*(0.006+0.03*r*r)*(1.5-p.a0.res/20)*0.35/TIME_F*STF*(ROLE_RUN[p.role]||1)*(tt.press===2?1.12:tt.press===0?0.95:1)*(M.half===1?0.82:1.22); if(p.st<15) p.st=15; }
   function timers(p){ if(p.stun>0) p.stun-=DT; if(p.runT>0) p.runT-=DT*TDEC; if(p.drib>0) p.drib-=DT*TDEC; if(p.shield>0) p.shield-=DT*TDEC; }
   /* distanza minima tra i corpi: 1,05 m, 0,5 nei duelli per la palla e nelle barriere, 0,6 tra avversari in area sui calci piazzati */
   function sepMin(a,b){
@@ -211,7 +211,7 @@ function matchFis(M){
           else {
             if(f.el>0.12*f.tA && f.el<0.97*f.tA && ball.z<2.2){ const o=T[1-f.t], rr=f.first?1.9:1.1;
               for(const qq of o.on){ if(qq.k<0 || (f.tried&(1<<qq.k))) continue; if(segPt(qq.x,qq.y,px,py,ball.x,ball.y)>=rr) continue; f.tried|=(1<<qq.k);
-                if(R()<((rx(T[qq.t],ball.x)<22?0.3:0.08)+qq.a.pos*(f.first?0.016:0.009))*(1-0.35*fatK(qq))){ qq.s.int++; if(f.type!=='clear'&&f.from.s) f.from.s.err+=(rx(tm(f.from),ball.x)<30)?1:0;
+                if(R()<((rx(T[qq.t],ball.x)<22?0.3:0.08)+qq.a.pos*(f.first?0.016:0.009))*(1-0.35*fatK(qq))*(qq.te?clamp(1+(qq.te.IN-SK_TQM.IN)/100*0.4,0.8,1.2):1)){   /* R3b: Intercettazione */ qq.s.int++; if(f.type!=='clear'&&f.from.s) f.from.s.err+=(rx(tm(f.from),ball.x)<30)?1:0;
                   if(ball.z<1.1) giveBall(qq,0.5); else { const tx=rx(T[qq.t],clamp(rx(T[qq.t],ball.x)+15,0,100)); ball.fl=null; fly('clear',qq,tx,clamp(ball.y+(R()-0.5)*20,3,65),16,5); } break; } } }
             if(ball.fl===f && f.type==='pass' && f.recv && f.recv.on && !f.bad && f.el>0.3*f.tA && ball.z<1.6 && hyp(f.recv.x-ball.x,f.recv.y-ball.y)<1.4) arrive();
             else if(ball.fl===f && f.el>=f.tA) arrive(); } }

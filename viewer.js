@@ -46,7 +46,7 @@ function teamColor(v,ti){ return G.T[ti===0?v.m.h:v.m.a].c; }
 function vViewerHTML(){
   const v=viewer, m=v.m, sim=v.sim;
   const planCol=ti=>{ const p=sim.plans[ti], c=m.inp.t[ti].coach;
-    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?t_("vis.all_e_squalificato_in",{n:esc(c.n)}):t_("vis.all_tattica",{n:esc(c.n),tat:c.tat})}</p>
+    return `<div class="pl"><p class="pl-team"><span class="chip" style="--c:${teamColor(v,ti)}"></span>${esc(vTeamName(v,ti))}</p><p class="pl-coach">${c.absent?t_("vis.all_e_squalificato_in",{n:esc(c.n)}):(c.rt!=null?t_("vis.all_valutazione",{n:esc(c.n),rt:c.rt}):t_("vis.all_tattica",{n:esc(c.n),tat:c.tat}))}</p>
       <p class="pl-form">${p.form}</p><p class="pl-meta">${t_("vis.mentalita",{v:MENT[p.ment+1],v2:p.press===2?t_('vis.pressing_alto'):t_('vis.pressing_basso')})}</p><ul>${p.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></div>`; };
   /* 0.4.2.3 (R6a): grafica della 019 — barra del punteggio con gli stemmi, comandi, riquadro 1050×600 (1,75:1) uguale in 2D e 3D */
   const side=ti=>{ const n=`<span class="vtn">${esc(vTeamName(v,ti))}</span>`, c=`<span class="vcrest" aria-hidden="true">${vCrest(v,ti)}</span>`; return `<div class="vside${ti?' away':''}">${ti?n+c:c+n}</div>`; };
@@ -140,7 +140,7 @@ function handleEvent(e, live, idx){
       if(go) v.wins.push({kind:'sp', t0:Math.max(e.t, go.t-(go.kind==='pen'?10:8)), t1:Math.min(v.nT-1, go.t+(go.kind==='pen'?7:go.kind==='fk'?8:11)), e, go, fresh:true}); }
     /* cartellini, cambi e allontanamento dell'allenatore: si passa al 3D dal vivo */
     if(e.type==='yc'||e.type==='rc'){ const tc=cardShownAt(e.t); v.wins.push({kind:'card', t0:e.t, t1:Math.min(v.nT-1,(tc??e.t+12)+6), e, fresh:true}); }
-    if(e.type==='coachoff'){ const tc=cardShownAt(e.t,true)??e.t+12; v.wins.push({kind:'coach', t0:Math.max(e.t,tc-9), t1:Math.min(v.nT-1,tc+12), e, fresh:true}); }
+    if(e.type==='coachoff'||e.type==='coachyc'){ const tc=cardShownAt(e.t,true)??e.t+12; v.wins.push({kind:'coach', t0:Math.max(e.t,tc-9), t1:Math.min(v.nT-1,tc+12), e, fresh:true}); }
     if(e.type==='subcall'){ const s=v.sim.ev.find(x=>x.type==='sub'&&x.t>=e.t&&x.p[0]===e.p[0]); v.wins.push({kind:'sub', t0:e.t, t1:Math.min(v.nT-1,(s?s.t:e.t+20)+5), e, fresh:true}); }
   }
   const inSp = v.wins.some(w=>e.t>=w.t0 && e.t<=w.t1+2);
@@ -155,8 +155,8 @@ function handleEvent(e, live, idx){
 }
 function logEvent(e){
   const v=viewer, fl=(e.flash||[]).map(id=>v.info[id]).filter(Boolean);
-  const cls=e.type==='goal'?'gl':fl.length?'fl':(e.type==='yc'||e.type==='rc'||e.type==='coachoff')?'cd':e.type==='sub'||e.type==='form'?'tc':e.type==='refj'||e.type==='refvote'?'rf':'';
-  const ic={goal:'⚽',yc:'🟨',rc:'🟥',coachoff:'🟥',sub:'⇄',inj:'✚',form:'▦',pen:'!',protest:'!',refj:'⚑',refvote:'⚑',ht:'',ft:''}[e.type]||'';
+  const cls=e.type==='goal'?'gl':fl.length?'fl':(e.type==='yc'||e.type==='rc'||e.type==='coachoff'||e.type==='coachyc')?'cd':e.type==='sub'||e.type==='form'?'tc':e.type==='refj'||e.type==='refvote'?'rf':'';
+  const ic={goal:'⚽',yc:'🟨',rc:'🟥',coachoff:'🟥',coachyc:'🟨',sub:'⇄',inj:'✚',form:'▦',pen:'!',protest:'!',refj:'⚑',refvote:'⚑',ht:'',ft:''}[e.type]||'';
   const li=`<li class="${cls}"><span class="min">${e.min}</span><span>${ic?`<b class="ic ic-${e.type}">${ic}</b> `:''}${esc(e.text)}${fl.map(p=>` <button class="tagbtn" data-act="sheet" data-pid="${p.id}">★ ${esc(p.ln)}</button>`).join('')}</span></li>`;
   v.log.unshift(li); const log=$('#v-log'); if(log) log.insertAdjacentHTML('afterbegin',li);
 }
@@ -203,13 +203,13 @@ function endReplay(){ const v=viewer; if(v&&v.phase==='scene') return endScene()
 
 const WIN_PRI={coach:3,card:3,sub:2,sp:1};
 function activeWin(v){ let w=null; for(const x of v.wins) if(v.t>=x.t0 && v.t<=x.t1 && (!w || WIN_PRI[x.kind]>WIN_PRI[w.kind] || (WIN_PRI[x.kind]===WIN_PRI[w.kind] && x.t0>=w.t0))) w=x; if(w && w.kind==='sp' && w.go && w.fresh===false && !w.started){} return w; }
-function cardShownAt(t0,coach){ const fr=viewer.sim.frames, n=viewer.sim.cols.length*2+12+6; for(let k=t0;k<Math.min(fr.length,t0+80);k++){ const c=fr[k][n]; if(coach? c===4 : (c>0&&c!==4)) return k; } return null; }
+function cardShownAt(t0,coach){ const fr=viewer.sim.frames, n=viewer.sim.cols.length*2+12+6; for(let k=t0;k<Math.min(fr.length,t0+80);k++){ const c=fr[k][n]; if(coach? (c===4||c===5) : (c>0&&c<4)) return k; } return null; }
 
 /* ---------- 0.4.1.1: dati letti dai frame registrati (solo disegno, la simulazione non cambia) ----------
    stops: momenti in cui la palla si ferma (falli, fuorigioco, gol, angoli, rigori, punizioni, cambi, palla fuori);
    rest[i]: fino a quale tick la palla resta ferma dopo stops[i]; dives: tuffi del portiere sui rigori;
    cards: a chi l'arbitro mostra il cartellino (per girarlo verso il giocatore) */
-const STOP_EV=new Set(['fo','off','goal','cor','pen','fkset','sub','inj','ht','yc','rc','coachoff']);
+const STOP_EV=new Set(['fo','off','goal','cor','pen','fkset','sub','inj','ht','yc','rc','coachoff','coachyc']);
 function vPrep(v){
   const sim=v.sim, fr=sim.frames, nT=v.nT, n=sim.cols.length, nb=n*2;
   const bx=k=>frV(fr[k],nb), by=k=>frV(fr[k],nb+1);
@@ -226,8 +226,8 @@ function vPrep(v){
   v.dives=[];
   /* cartellini: tick in cui l'arbitro mostra il cartellino e destinatario */
   const nc=nb+18; v.cards=[];
-  sim.ev.forEach(e=>{ if(e.type!=='yc'&&e.type!=='rc'&&e.type!=='coachoff') return; const coach=e.type==='coachoff';
-    let tc=null; for(let k=e.t;k<Math.min(nT,e.t+80);k++){ const c=fr[k][nc]; if(coach? c===4 : (c>0&&c!==4)){ tc=k; break; } }
+  sim.ev.forEach(e=>{ if(e.type!=='yc'&&e.type!=='rc'&&e.type!=='coachoff'&&e.type!=='coachyc') return; const coach=e.type==='coachoff'||e.type==='coachyc';
+    let tc=null; for(let k=e.t;k<Math.min(nT,e.t+80);k++){ const c=fr[k][nc]; if(coach? (c===4||c===5) : (c>0&&c<4)){ tc=k; break; } }
     if(tc==null) return; let t1=tc; while(t1+1<nT && fr[t1+1][nc]>0) t1++;
     v.cards.push({t0:e.t, tc, t1, coach:coach?e.side:null, k:coach?-1:sim.cols.indexOf(e.p&&e.p[0])}); });
   vPrepPause(v); vPrepKits(v); vPrepVig(v);   /* 0.4.2.3 (R6a) */
@@ -251,7 +251,7 @@ function cardAt(t){ const v=viewer; if(!v||!v.cards) return null; let c=null; fo
    1,5 m dietro la palla, dalla parte opposta alla direzione della battuta, poi prende la rincorsa (solo disegno, dai frame).
    Il cronometro resta quello della partita; «Avanti» salta come prima. Nessun numero casuale. */
 const PZ_MIN=4, WT_RUN=2, WT_BACK=1.5;   /* pausa più corta considerata; tick della rincorsa; metri dietro la palla */
-const PZ_RANK={goal:3, fo:2, yc:2, rc:2, coachoff:2, inj:2, sub:2, subcall:2};
+const PZ_RANK={goal:3, fo:2, yc:2, rc:2, coachoff:2, coachyc:2, inj:2, sub:2, subcall:2};
 function vPrepPause(v){
   const sim=v.sim, ht=sim.htTick, fr=sim.frames, n=sim.cols.length, nb=n*2, sp=[];
   const B=k=>{ const f=vFr(v,k); return [f[nb],f[nb+1],f[nb+2]]; };
@@ -402,7 +402,7 @@ const VIG_FRASI=[
   {id:'u03',se:'morale_su'},
   {id:'u04',se:'morale_su'}
 ];
-const VIG_EV=new Set(['goal','fo','yc','rc','coachoff','inj','sub','subcall']);
+const VIG_EV=new Set(['goal','fo','yc','rc','coachoff','coachyc','inj','sub','subcall']);
 function vHash(v,t,side,k){ return hashU(v.key+'|'+t+'|'+side,k); }
 function vMinute(v,t){ const ht=v.sim.htTick; return t<ht ? t*DT/TIME_F/60 : 45+(t-ht)*DT/TIME_F/60; }
 function vVigTags(v,side,p,main){
@@ -417,16 +417,20 @@ function vVigTags(v,side,p,main){
   T.add(my>th?'vince':my<th?'perde':'pari'); if(mn<20) T.add('presto'); if(mn>=75) T.add('tardi'); if(mn>=38 && p.s<sim.htTick) T.add('fine1');
   if(car>=14) T.add('caldo'); if(car<=7) T.add('calmo'); if(mor>=14) T.add('morale_su'); if(mor<=9) T.add('morale_giu');
   if(ty==='goal') T.add(mine?'gol_fatto':'gol_subito');
-  if(ty==='yc'||ty==='rc'||ty==='coachoff') T.add(mine?'cart_nostro':'cart_loro');
+  if(ty==='yc'||ty==='rc'||ty==='coachoff'||ty==='coachyc') T.add(mine?'cart_nostro':'cart_loro');
   if(yc>=2) T.add('ammoniti'); if(rc>0) T.add('dieci'); if(rcO>0) T.add('loro10');
   if(ty==='inj' && mine) T.add('inf'); if((ty==='sub'||ty==='subcall') && mine) T.add('cambio');
   if(ty==='fo') T.add(mine?'fallo_nostro':'fallo_loro');
   return {T, form};
 }
 /* aggancio per R3: cambio di piano vero registrato dalla simulazione durante la pausa */
+/* v0.4.5.0 (R3b): l'evento 'plan' (cambio di piano dalla panchina: mentalità, pressing, blocco) può arrivare anche a gioco in corso:
+   la vignetta della pausa successiva lo dice, se è degli ultimi 4 minuti e non è già stato detto (v.vigPlT, per squadra) */
 function vVigPiano(v,side,p){
-  const e=v.sim.ev.find(x=>(x.type==='plan'||x.type==='form') && x.side===side && x.t>=p.s-4 && x.t<=p.r); if(!e) return null;
-  if(e.type==='plan') return e.vig||e.text||null;
+  const pt=v.vigPlT||(v.vigPlT=[-1e9,-1e9]), lo=Math.max(pt[side], p.s-Math.round(240*TIME_F/DT));
+  let e=null; for(const x of v.sim.ev){ if(x.t>p.r) break; if((x.type==='plan'||(x.type==='form'&&x.kind!=='in10')) && x.side===side && x.t>lo) e=x; } if(!e) return null;
+  pt[side]=e.t;
+  if(e.type==='plan') return e.vig ? t_(e.vig,{form:v.sim.ev.filter(x=>x.type==='form'&&x.side===side&&x.t<=e.t).map(x=>x.form).pop()||''}) : (e.text||null);
   return /attacco/.test(e.form) ? t_("vis.tutti_all_attacco_ci") : t_("vis.cambiamo",{form:e.form}); }
 function vVigFrase(v,side,p,main){
   const {T, form}=vVigTags(v,side,p,main);
@@ -435,10 +439,10 @@ function vVigFrase(v,side,p,main){
   let x=vHash(v,p.s,side,5)*tot, i=0; while(i<ok.length-1 && x>=w[i]){ x-=w[i]; i++; }
   const f=ok[i]; return f ? {id:f.id, t:t_('vig.'+f.id,{form})} : null; }   /* testo in testi_it.js (vig.<id>) */
 function vPrepVig(v){
-  v.vig=[]; v.vigI=0; v.vigOn=null; const last=[-1e9,-1e9], gap=VIG_GAP*TIME_F/DT;
+  v.vig=[]; v.vigI=0; v.vigOn=null; v.vigPlT=[-1e9,-1e9]; const last=[-1e9,-1e9], gap=VIG_GAP*TIME_F/DT;
   const pick=(p,ty)=>p.evs.find(e=>ty.includes(e.type));
   for(const p of v.pz){ if(p.kind==='out') continue;
-    const main=pick(p,['goal'])||pick(p,['rc','coachoff'])||pick(p,['yc'])||pick(p,['inj'])||pick(p,['sub','subcall'])||pick(p,['fo']);
+    const main=pick(p,['goal'])||pick(p,['rc','coachoff'])||pick(p,['yc','coachyc'])||pick(p,['inj'])||pick(p,['sub','subcall'])||pick(p,['fo']);
     if(!main || !VIG_EV.has(main.type)) continue;
     if(main.type==='fo' && vHash(v,p.s,9,3)>=0.45) continue;   /* non a ogni fallo */
     const first=vHash(v,p.s,9,1)<0.5?0:1;
@@ -600,6 +604,7 @@ const VW=1050, VH=600, VS=8, VX0=(VW-105*VS)/2, VY0=(VH-68*VS)/2;
 /* tipo di corsa dalla simulazione: velocità (frame) rispetto all'orientamento del corpo (p.o) */
 function vRunType(vx,vy,o){ const sp=Math.hypot(vx,vy); if(!(sp>=1.2) || !isFinite(o)) return 'fermo';
   const fw=vx*Math.cos(o)+vy*Math.sin(o), lt=-vx*Math.sin(o)+vy*Math.cos(o); return Math.abs(fw)>=Math.abs(lt) ? (fw>0?'avanti':'indietro') : 'lato'; }
+const VFORMA=(()=>{ try{ return /[?&]forma\b/.test(location.search); }catch(_){ return false; } })();   /* v0.4.5.0 (R3b): prova della forma per modulo */
 function draw2D(t, ivOn){
   const v=viewer, cv=$('#pitch'); if(!cv) return;
   const W=cv.clientWidth, H=cv.clientHeight, dpr=window.devicePixelRatio||1; if(W<60||H<30) return;   /* campo nascosto (pagelle sul telefono) */
@@ -625,6 +630,10 @@ function draw2D(t, ivOn){
   if(!ivOn && f.own>=0){ const atk=v.team[f.own], def=1-atk, second=t>=v.sim.htTick, gx=((def===0)!==second)?0:105;
     if(Math.abs(f.bx-gx)<52.5){ const xs=[]; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(p && v.team[kk]===def) xs.push(Math.abs(p.x-gx)); }); xs.sort((a,b)=>a-b);
       if(xs.length>1){ const lx=gx===0?xs[1]:105-xs[1]; c.save(); c.setLineDash([6,5]); c.strokeStyle=v.kit[def].fill; c.globalAlpha=0.8; c.lineWidth=Math.max(2,1.5*px); c.beginPath(); c.moveTo(X(lx),Y(0)); c.lineTo(X(lx),Y(68)); c.stroke(); c.restore(); } } }
+  /* v0.4.5.0 (R3b, risposta 8A): solo per le prove, con ?forma nell'indirizzo: rettangolo dei 10 di movimento di ogni squadra con lunghezza e larghezza */
+  if(!ivOn && VFORMA){ for(const tm of [0,1]){ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,n=0; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(!p || v.team[kk]!==tm || v.info[id].gk) return; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); n++; });
+    if(n<9) continue; c.save(); c.setLineDash([3,4]); c.strokeStyle=v.kit[tm].fill; c.lineWidth=Math.max(1.5,px); c.strokeRect(X(x0),Y(y0),(x1-x0)*S,(y1-y0)*S);
+    c.fillStyle=v.kit[tm].fill; c.font=`${Math.max(10,8*px)}px ${font}`; c.textAlign='left'; c.textBaseline='bottom'; c.fillText(`L ${Math.round(x1-x0)} · W ${Math.round(y1-y0)}`,X(x0),Y(y0)-2); c.restore(); } }
   const ev=ivOn?null:activeEvent(t), named=new Set(ev?ev.p:[]), flashed=new Set(ev&&ev.flash?ev.flash:[]);
   const ownId = f.own>=0 ? v.sim.cols[f.own] : null, dbg=v.d2=[];
   c.textAlign='center'; c.textBaseline='middle';
@@ -657,7 +666,7 @@ function draw2D(t, ivOn){
         const up=f.flag===i; c.fillStyle=up?'#f0d64a':'#e4572e'; const fx=qx+rr*0.6, fy=qy-(up?rr*2.4:rr*0.2); c.fillRect(fx,fy,rr*1.1,rr*0.8); c.fillStyle=chalk; c.fillRect(fx-1,fy,1.6,rr*(up?2.2:1.2)); }
       else { c.beginPath(); c.arc(qx,qy,rr,0,Math.PI*2); c.fillStyle=dark; c.fill(); c.lineWidth=2; c.strokeStyle=goldL; c.stroke();
         c.beginPath(); c.moveTo(qx-rr*0.5,qy-rr*0.5); c.lineTo(qx+rr*0.5,qy+rr*0.5); c.moveTo(qx+rr*0.5,qy-rr*0.5); c.lineTo(qx-rr*0.5,qy+rr*0.5); c.lineWidth=1.6; c.strokeStyle=chalk; c.stroke(); } });
-    if(f.card>0){ const q=f.RF[0]; c.fillStyle=f.card===1?'#f5d020':'#d8262c'; c.strokeStyle=dark; c.lineWidth=1.2; const w=R*1.2, h=R*1.6;
+    if(f.card>0){ const q=f.RF[0]; c.fillStyle=(f.card===1||f.card===5)?'#f5d020':'#d8262c'; c.strokeStyle=dark; c.lineWidth=1.2; const w=R*1.2, h=R*1.6;
       const tg=cardTarget(f,t), cx=(tg && tg.x<q.x) ? X(q.x)-R*0.4-w : X(q.x)+R*0.4; c.fillRect(cx,Y(q.y)-R*2.7,w,h); c.strokeRect(cx,Y(q.y)-R*2.7,w,h); } }
   if(!ivOn){ const bz=Math.max(0,f.bz); c.beginPath(); c.ellipse(X(f.bx)+bz*S*0.25,Y(f.by)+bz*S*0.15,bR,bR*0.72,0,0,Math.PI*2); c.fillStyle=dark; c.globalAlpha=0.5; c.fill(); c.globalAlpha=1;
     c.beginPath(); c.arc(X(f.bx),Y(f.by)-bz*S*0.6,bR*(1+bz*0.05),0,Math.PI*2); c.fillStyle=chalk; c.fill(); c.lineWidth=Math.max(1.2,0.8*px); c.strokeStyle=dark; c.stroke(); }
@@ -878,7 +887,7 @@ function draw3D(t, ivOn, sp){
       const u=g.userData; u.ph+=sp*dt*1.7; const amp=Math.min(0.75,sp*0.09), s=Math.sin(u.ph)*amp;
       u.legs[0].rotation.x=k?s*0.5:s; u.legs[1].rotation.x=k?-s*0.5:-s; u.legs[0].rotation.z=k?Math.abs(s)*0.35:0; u.legs[1].rotation.z=k?-Math.abs(s)*0.35:0;
       u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[1].rotation.z=0;
-      if(k===0){ u.prop.visible=f.card>0; if(f.card>0){ u.prop.material.color.copy(lin(f.card===1?'#f5d020':'#d8262c')); u.arms[1].rotation.x=Math.PI*0.92; u.arms[1].rotation.z=0.12; } }
+      if(k===0){ u.prop.visible=f.card>0; if(f.card>0){ u.prop.material.color.copy(lin((f.card===1||f.card===5)?'#f5d020':'#d8262c')); u.arms[1].rotation.x=Math.PI*0.92; u.arms[1].rotation.z=0.12; } }
       else if(f.flag===k){ u.arms[1].rotation.x=Math.PI*0.9; } }); }
   if(V3.mgr){ V3.mgr.forEach((g,s)=>{ let call=null; if(!ivOn && v.phase!=='scene') for(const c of v.sim.ev){ if(c.type!=='subcall'||c.side!==s) continue; if(c.subT==null){ const z=v.sim.ev.find(x=>x.type==='sub'&&x.t>=c.t&&x.p[0]===c.p[0]); c.subT=z?z.t:c.t+20; } if(t>=c.t+3 && t<=c.subT+3){ call=c; break; } if(c.t>t) break; }
       g.visible=!!call; if(!call) return; g.position.set(s===0?-2.9:2.9,0,-35.9); g.rotation.y=0; const u=g.userData; u.arms[0].rotation.x=Math.PI*0.88; u.arms[1].rotation.x=Math.PI*0.88; u.arms[0].rotation.z=-0.25; u.arms[1].rotation.z=0.25; u.legs[0].rotation.x=0; u.legs[1].rotation.x=0;

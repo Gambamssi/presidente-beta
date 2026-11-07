@@ -96,6 +96,12 @@ p{margin:0}
 .num{font-variant-numeric:tabular-nums;text-align:right}
 .cands{display:grid;gap:8px;border-top:1px solid var(--ev-border);padding-top:10px}
 .cand{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+/* allenatore a 10 caratteristiche (0.4.4.0, R3a): divario dei bonus dalla media della lega */
+.co-pos{color:var(--ev-success)}.co-neg{color:var(--ev-danger)}
+.coach .eyebrow{margin-top:14px}.coach>.eyebrow:first-child{margin-top:0}
+.coach .attrs{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.ev-table th.num{text-align:right}
+@media (max-width:640px){.co-bon{font-size:13px}.co-bon th,.co-bon td{padding:6px 4px}.co-bon th{letter-spacing:0}.co-bon td:first-child{white-space:normal}}
 .news{list-style:none;margin:0;padding:0;display:grid;gap:0}
 .news li{padding:7px 0;border-top:1px solid var(--ev-border);display:flex;gap:10px}
 .news li:first-child{border-top:0}

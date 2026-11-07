@@ -4,7 +4,7 @@
    Il motore non sa che gli account esistono: qui si legge e si scrive G solo come salvataggio, e non si usa mai rnd().
    Funzioni del gioco "avvolte" in modalità beta: render, save, load, startScreen, vModal (stessi nomi, comportamento in più).
    Server: Supabase (auth + tabelle profili, partite, segnalazioni; funzioni iscrizioni_aperte, completa_profilo, cancella_account). */
-const AVVISO_VER='2026-10-29', PRIVACY_VER='2026-10-29', BETA_MAIL='presidente.gioco@gmail.com';
+const AVVISO_VER='2026-10-29', PRIVACY_VER='2026-10-29', BETA_MAIL='info@evivora.it';
 const AVVISO_TESTO={
   intro:[t_("acc.evivora_e_un_gioco")],
   lead:t_("acc.partecipando_accetti_che"),

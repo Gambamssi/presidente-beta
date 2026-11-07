@@ -31,7 +31,11 @@ const PROFILES = {
   A:[[t_("eng.bomber_d_area"),{tir:2,fre:2,pos:2,dri:-1,pas:-1}],[t_("eng.attaccante_rapido"),{vel:3,dri:1,tes:-1,for:-1}],[t_("eng.ariete"),{tes:2,ele:2,for:2,vel:-2,dri:-1}],[t_("eng.seconda_punta"),{pas:2,vis:2,dri:1,tes:-1}],[t_("eng.ala"),{dri:2,vel:2,crs:1,tes:-2}]]
 };
 const ROLE_NAME = {P:t_("eng.portiere"),D:t_("eng.difensore"),C:t_("eng.centrocampista"),A:t_("eng.attaccante")};
-const COACH_MODS = ['4-4-2','4-3-3','4-2-3-1','3-5-2','4-5-1'];
+const COACH_MODS = ['4-4-2','4-3-3','4-2-3-1','3-5-2','4-5-1'];   /* fino alla 0.4.4.0 (scelta uniforme); dalla 0.4.5.0 i nuovi allenatori usano COACH_MODS_W */
+/* v0.4.5.0 (R3b, decisione di Max del 7/11): moduli preferiti degli allenatori nuovi come la Serie A 2023/24 (Evivora-scambio 024). Scelta pesata
+   con un solo rnd(), come pick(): il resto del mondo generato non si sposta. Gli allenatori dei salvataggi tengono il loro modulo */
+const COACH_MODS_W = [['3-4-3',0.20],['4-2-3-1',0.20],['3-5-2',0.18],['4-3-3',0.16],['4-4-2',0.10],['4-5-1',0.06],['5-3-2',0.06],['5-4-1',0.04]];
+function pickW(arr, R=rnd){ const u=R(); let c=0; for(const [v,w] of arr){ c+=w; if(u<c) return v; } return arr[arr.length-1][0]; }
 const FIRST = ['Luca','Marco','Andrea','Matteo','Davide','Simone','Federico','Lorenzo','Alessandro','Riccardo','Tommaso','Gabriele','Edoardo','Nicolò','Pietro','Giacomo','Filippo','Daniele','Emanuele','Stefano','Michele','Samuele','Leonardo','Christian','Diego','Elia','Mattia','Jacopo','Ivan','Kevin','Omar','Yusuf','Mamadou','Ibrahim','Nikola','Luka','Tiago','Rafael','Ismael','Bruno'];
 const LAST = ['Bertoli','Ferraresi','Gualtieri','Mancuso','Pellegatti','Rinaldelli','Castagnoli','Zanella','Morosini','Caputi','Belloni','Sartorello','Ferrucci','Lombardini','Testa','Bonvicini','Marangon','Pavan','Scarpa','Vianello','Toffolo','Bortolin','Zennaro','Gasparini','Carraro','Nardelli','Calò','Ruggeri','Spada','Fontanive','Callegaro','Dal Bello','Trevisan','Polesel','Furlan','Baldan','Cecchetto','Rizzato','Sambo','Diallo','Koné','Petrović','Mendes','Haddad','Novak','Okafor','Lindqvist','Moretto'];
 const CLUBS = [
@@ -104,11 +108,90 @@ function migratePlayer(p){
 function hashU(s,k){ let h=2166136261^k; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return ((h>>>0)%10007)/10007; }
 function coachTemper(c){ const g=(hashU(c.n,1)+hashU(c.n,2)+hashU(c.n,3)+hashU(c.n,4)-2)*1.73; return clamp(Math.round(10+g*3.5),2,20); }
 function mkCoach(L){
-  const mods = COACH_MODS;
   const c={n:pick(FIRST)+' '+pick(LAST), tat:clamp(Math.round(L+gauss()*1.5),3,20), all:clamp(Math.round(L+gauss()*1.5),3,20),
-    gio:clamp(Math.round(10+gauss()*2.5),3,20), ges:clamp(Math.round(L+gauss()*1.5),3,20), mod:pick(mods), age:ri(38,64), squal:0};
-  c.car=coachTemper(c); return c;
+    gio:clamp(Math.round(10+gauss()*2.5),3,20), ges:clamp(Math.round(L+gauss()*1.5),3,20), mod:pickW(COACH_MODS_W), age:ri(38,64), squal:0};
+  c.car=coachTemper(c); return coachMigrate(c);   /* v0.4.4.0 (R3a): stessi rnd() di prima, poi le 10 caratteristiche da hash */
 }
+/* ================= ALLENATORE A 10 CARATTERISTICHE (v0.4.4.0, R3a) =================
+   Specifica: docs/proposte/EVIVORA_ALLENATORE_GIOCO_DI_SQUADRA_PER_CLAUDE.md; decisioni di Max (6/11, 12 risposte «A») e formule in docs/PROGRESSI_R3a.md.
+   Si salvano: c.k = 10 caratteristiche 0–100 (CO_K), c.all e c.gio 0–100 (fuori dal campo, fino a M10b/M10), t.coll = 5 valori collettivi
+   0–100 (CO_COLL), p.jt/p.jn (squadra e giornata d'arrivo, per l'inserimento dei nuovi). Il morale (c.mor, 1–20) cambia solo l'efficacia
+   temporanea (coachEff), mai i valori salvati. I bonus valgono solo in partita (coachBonus → matchInput) e non toccano le 57 dei giocatori. */
+const CO_K=['COM','LSQ','ANA','ITA','LGA','RAP','ADA','LEA','GES','CAR'];
+const CO_9=CO_K.slice(0,9);
+const CO_COLL=['INT','AFF','FAM','AUT','CIC'];
+/* pesi 9 → 5 (righe con somma 1) */
+const CO_W={INT:{COM:0.25,LSQ:0.35,ITA:0.10,LEA:0.10,GES:0.20}, AFF:{COM:0.20,LSQ:0.10,LEA:0.35,GES:0.35}, FAM:{COM:0.25,LSQ:0.20,ITA:0.40,ADA:0.15},
+  AUT:{COM:0.20,LSQ:0.25,ITA:0.35,LEA:0.10,GES:0.10}, CIC:{COM:0.45,ANA:0.10,LGA:0.15,RAP:0.10,LEA:0.20}};
+/* valori collettivi → skill dei giocatori: bonus massimo e skill interessate (14 distinte, massimo +20 per skill) */
+const CO_BON={INT:{max:20,sk:['PC','SM']}, AFF:{max:15,sk:['CL','DE','CO','LE']}, FAM:{max:20,sk:['DT','LG','OF','DF']}, AUT:{max:20,sk:['MA','AN','IN','SM']}, CIC:{max:15,sk:['DM','CL','CO','AN']}};
+const CO_SK=['PC','SM','CL','DE','CO','LE','DT','LG','OF','DF','MA','AN','IN','DM'];
+/* parametri: kappa = coefficiente unico dei massimi (taratura, domanda 2A); evo = avvicinamento al potenziale a giornata;
+   cambio di allenatore (FAM ×0,5, ×0,85 con lo stesso modulo; CIC ×0,6); modulo diverso dal preferito FAM ×0,9 (×0,7 nella proposta: con multi.js creava dinastie, vedi PROGRESSI_R3a); inserimento in 6 giornate;
+   squalifica: bonus al 50% e CIC a zero; morale: efficacia da 1−morDn a 1+morUp, Carattere +carDn con morale minimo, −carUp con morale massimo */
+const CO_PAR={kappa:1, evo:0.12, famNew:0.5, famSame:0.85, cicNew:0.6, famMod:0.9, ins:6, squal:0.5, cap:20, morUp:0.08, morDn:0.20, carDn:25, carUp:5, sp:12, tal:15, talP:0.10};
+const coG=(key,j)=>(hashU(key,j)+hashU(key,j+1)+hashU(key,j+2)+hashU(key,j+3)-2)*1.73;
+const coS=x=>(x-1)/0.19;
+const co20=x=>1+0.19*x;
+/* da 5 valori su 1–20 (tat, all, gio, ges, car) a 10 su 0–100 con un hash del nome e dell'età: mai rnd(), così la generazione del campionato
+   resta identica. Differenze più ampie di prima (domanda 5A): ±12 di hash per caratteristica e, per il 10% degli allenatori, un talento (+15) */
+function coachMigrate(c){
+  if(!c || c.k) return c;
+  const key=c.n+'|'+c.age, g=j=>coG(key,10+j*4), N=(j,sd)=>50+sd*g(j);
+  const tat=c.tat??10, ges=c.ges??10, car=c.car??coachTemper(c), T=coS(tat), Gs=coS(ges);
+  const b={COM:0.4*Gs+0.6*N(7,18), LSQ:0.5*Gs+0.3*T+0.2*N(5,25), ANA:0.7*T+0.3*N(1,25), ITA:T, LGA:0.6*T+0.2*Gs+0.2*N(4,25),
+    RAP:0.5*T+0.5*N(3,25), ADA:0.4*T+0.6*N(2,25), LEA:0.5*Gs+0.5*N(6,25), GES:Gs};
+  const tal=hashU(key+'#tal',1)<CO_PAR.talP?CO_PAR.tal:0, k={};
+  CO_9.forEach((s,i)=>{ k[s]=clamp(Math.round(b[s]+CO_PAR.sp*g(20+i)+tal),0,100); });
+  k.CAR=clamp(Math.round(coS(car)),0,100);
+  c.k=k; c.all=clamp(Math.round(coS(c.all??10)),0,100); c.gio=clamp(Math.round(coS(c.gio??10)),0,100);
+  delete c.tat; delete c.ges; delete c.car; return c;
+}
+/* valutazione dell'allenatore: media delle 9 caratteristiche professionali (Carattere escluso: è un temperamento) */
+function coachRating(c){ let s=0; for(const k of CO_9) s+=c.k[k]; return s/9; }
+/* morale (1–20, 12 neutro) → m da −1 a 1, come moraleBoost */
+function coachMorM(c){ return clamp(((c.mor??12)-12)/8,-1,1); }
+/* efficacia temporanea: e moltiplica le 9 (da 0,80 a 1,08); Carattere sale con il morale basso (più nervoso), scende un po' con quello alto */
+function coachEff(c){ const m=coachMorM(c), e=m>=0?1+CO_PAR.morUp*m:1+CO_PAR.morDn*m, o={e};
+  for(const s of CO_9) o[s]=Math.min(100,Math.round(c.k[s]*e));
+  o.CAR=clamp(Math.round(c.k.CAR+CO_PAR.carDn*Math.max(0,-m)-CO_PAR.carUp*Math.max(0,m)),0,100); return o; }
+/* potenziale dei 5 valori collettivi dalle caratteristiche di base (il morale non consuma il lavoro fatto) */
+function coachPot(c){ const o={}; for(const v of CO_COLL){ let s=0; const w=CO_W[v]; for(const k in w) s+=w[k]*c.k[k]; o[v]=Math.round(s*10)/10; } return o; }
+function collOf(t){ if(!t.coll) t.coll=coachPot(t.coach); return t.coll; }
+/* a ogni giornata i valori si avvicinano al potenziale dell'allenatore */
+function collEvolve(t){ const P=coachPot(t.coach), V=collOf(t); for(const v of CO_COLL) V[v]=Math.round((V[v]+(P[v]-V[v])*CO_PAR.evo)*10)/10; }
+/* cambio di allenatore: Intesa, Affiatamento e Automatismi restano (sono tra i giocatori); la Familiarità con il modulo e la Comunicazione in campo calano */
+function collNewCoach(t, oldC, newC){ const V=collOf(t); V.FAM=Math.round(V.FAM*(oldC&&oldC.mod===newC.mod?CO_PAR.famSame:CO_PAR.famNew)*10)/10; V.CIC=Math.round(V.CIC*CO_PAR.cicNew*10)/10; }
+/* indice assoluto della giornata e giornate passate in squadra (per l'inserimento dei nuovi arrivati) */
+const coDay=()=>(G.season-1)*Math.max(1,(G.sched||[]).length||14)+G.md;
+/* arrivi: p.jt = squadra in cui è stato visto l'ultima volta; se cambia, p.jn = giornata d'arrivo. Al primo controllo (partita nuova o
+   salvataggio di prima della 0.4.4.0, G.coV assente) tutti sono «in squadra da sempre». p.jn si toglie quando l'inserimento è finito */
+function coachSync(){ const d=coDay(), first=!G.coV;
+  for(const t of G.T) for(const id of t.pl){ const p=G.P[id]; if(!p) continue;
+    if(p.jt!==t.id){ if(!first) p.jn=d; else delete p.jn; p.jt=t.id; }
+    else if(p.jn!=null && d-p.jn>=CO_PAR.ins) delete p.jn; }
+  G.coV=1; }
+function coIns(p){ return p.jn==null ? 1 : clamp((coDay()-p.jn)/CO_PAR.ins,0,1); }
+/* bonus di squadra per le 14 skill: parziali per valore collettivo (con morale e opzioni), poi somma limitata a +20 per skill.
+   o: {fam: fattore della Familiarità (0,7 con un altro modulo), ins: inserimento (Intesa, Automatismi, Comunicazione in campo), sq: squalificato} */
+function coachBonus(t, o){
+  o=o||{}; const c=t.coach, V=collOf(t), e=coachEff(c).e, K=CO_PAR.kappa, ins=o.ins??1, out={};
+  for(const s of CO_SK) out[s]=0;
+  for(const v of CO_COLL){ let f=V[v]/100*CO_BON[v].max*K*e;
+    if(v==='FAM') f*=o.fam??1; if(v==='INT'||v==='AUT'||v==='CIC') f*=ins; if(o.sq){ f*= v==='CIC'?0:CO_PAR.squal; }
+    for(const s of CO_BON[v].sk) out[s]+=f; }
+  for(const s of CO_SK) out[s]=Math.min(CO_PAR.cap*K, out[s]);
+  return out;
+}
+/* bonus medio della lega per skill (domanda 3A): conta il divario, così un allenatore medio vale zero e uno scarso è negativo */
+function coachLeagueBonus(){ const out={}; for(const s of CO_SK) out[s]=0; const ts=G.T.filter(t=>t.coach&&t.coach.k); if(!ts.length) return out;
+  for(const t of ts){ const b=coachBonus(t); for(const s of CO_SK) out[s]+=b[s]/ts.length; } return out; }
+/* equivalenti 1–20 per le decisioni di oggi (planMatch, coachThink, protesta; fino a R3b) dai valori efficaci */
+function coachEq(c){ const x=coachEff(c); return {tat:Math.round(co20(0.5*x.ITA+0.3*x.ANA+0.2*x.ADA)*10)/10, ges:Math.round(co20(0.5*x.LSQ+0.25*x.LGA+0.25*x.RAP)*10)/10, car:Math.round(co20(x.CAR)*10)/10, x}; }
+/* costo di un allenatore (ingaggio, più la buonuscita in hireCoach): cresce più che in proporzione con la valutazione */
+function coachCost(c){ return Math.round(200000*Math.pow(Math.max(5,coachRating(c))/45,1.6)/1000)*1000; }
+/* salvataggi e partita nuova: 10 caratteristiche, valori collettivi, arrivi in squadra */
+function coachEnsure(){ (G.T||[]).forEach(t=>{ if(t.coach){ coachMigrate(t.coach); t.coach.squal=t.coach.squal||0; collOf(t); } }); (G.cands||[]).forEach(coachMigrate); coachSync(); }
 /* terne arbitrali: arbitro e due assistenti, con le caratteristiche della terna */
 function mkRefTrio(i){
   const nm=()=>pick(FIRST)+' '+pick(LAST);
@@ -120,7 +203,7 @@ function ensureRefs(){
   const need=Math.floor(G.T.length/2);
   if(!G.refs) G.refs=[]; while(G.refs.length<need) G.refs.push(mkRefTrio(G.refs.length));
   G.T.forEach(t=>ensureCaptains(t,true));
-  G.T.forEach(t=>{ if(t.coach && t.coach.car==null){ t.coach.car=coachTemper(t.coach); t.coach.squal=t.coach.squal||0; } });
+  coachEnsure();   /* v0.4.4.0 (R3a): prima qui si aggiungeva solo il temperamento */
 }
 /* capitano e vice: carisma = professionalità, anzianità, qualità; scelti dall'allenatore */
 function capScore(p){ return p.prof*0.45+Math.min(Math.max(p.age-19,0),12)*0.35+ovr(p)*0.45+(p.r==='A'?-0.4:0)+(p.apps||0)*0.01; }
@@ -190,7 +273,7 @@ function grow(p, t){
   const o=ovr(p);
   const c = p.age<=19?0.17: p.age<=21?0.13: p.age<=24?0.07: p.age<=28?0.03: p.age<=30?0: -0.04;
   const gap = clamp((p.pot-o)/4,0,1.5);
-  const q = t ? 0.85+0.08*(t.fac.cs-1)+(t.coach.all-10)*0.015 : 0.7;
+  const q = t ? 0.85+0.08*(t.fac.cs-1)+(co20(t.coach.all)-10)*0.015 : 0.7;   /* v0.4.4.0: Allenamento su 0–100 */
   const pr = 0.7+p.prof/40, m = 0.6+0.6*p.min, S=p.s, key=SK_GROW.key[p.r];
   /* v0.4.3.0 (S1): crescono solo le 6 allenabili (PA solo i portieri); le derivate seguono dalle formule, che aggiungono anche il calo per età */
   for(const k of SK_ALL){
@@ -226,7 +309,7 @@ function playMatchday(){
     const pl=teamPlayers(t);
     const m = out.find(x=>x.h===t.id||x.a===t.id), side=m.h===t.id?0:1;
     const played=new Set(m.played[side]);
-    updMorale(t,m,side);
+    updMorale(t,m,side); collEvolve(t);   /* v0.4.4.0 (R3a): valori collettivi verso il potenziale dell'allenatore */
     for(const p of pl){
       const mins=m.mins[p.id]||0;
       p.min = 0.7*(p.min??0.5) + 0.3*Math.min(1,mins/90);
