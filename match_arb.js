@@ -4,9 +4,9 @@
    si leggono e scrivono come M.x (tick, half, regEnd, restart, ht2, errLeft, bsN); gli altri valori di simMatch e le funzioni degli altri moduli
    arrivano nelle variabili qui sotto con M.link (stessi oggetti, nessuna copia). Script classico: nessun import/export. */
 function matchArb(M){
-  let R, P, RC, RA, RP, SO, SX, T, all, rx, ry, tm, ball, RF, cardF, ref, refErrs, errPlan, MIN_T, E, fill2, recSub, kickoffPos, specOf, gkOf, cornerPts, subW, startSub, benchX, reshape10, bestSub, D2, stopBall, giveBall, loose, fly, moveTo, collide, toss, cross, shoot, throwIn;
-  M.link.push(()=>{ ({R, P, RC, RA, RP, SO, SX, T, all, rx, ry, tm, ball, RF, cardF, ref, refErrs, errPlan, MIN_T, E, fill2, recSub}=M); ({kickoffPos, specOf, gkOf, cornerPts, subW, startSub, benchX, reshape10, bestSub}=M.mAll); ({D2, stopBall, giveBall, loose, fly, moveTo, collide, toss}=M.mFis); ({cross, shoot, throwIn}=M.mGio); });
-  const canErr=k=>M.errLeft>0 && errPlan[refErrs.length]===k;
+  let R, P, RC, RA, RP, RB, minNum, SO, SX, T, all, rx, ry, tm, ball, RF, cardF, ref, refErrs, errPlan, MIN_T, E, fill2, recSub, kickoffPos, specOf, gkOf, cornerPts, subW, startSub, benchX, reshape10, bestSub, D2, stopBall, giveBall, loose, fly, moveTo, collide, toss, cross, shoot, throwIn;
+  M.link.push(()=>{ ({R, P, RC, RA, RP, RB, minNum, SO, SX, T, all, rx, ry, tm, ball, RF, cardF, ref, refErrs, errPlan, MIN_T, E, fill2, recSub}=M); ({kickoffPos, specOf, gkOf, cornerPts, subW, startSub, benchX, reshape10, bestSub}=M.mAll); ({D2, stopBall, giveBall, loose, fly, moveTo, collide, toss}=M.mFis); ({cross, shoot, throwIn}=M.mGio); });
+  const canErr=k=>M.errLeft>0 && errPlan[refErrs.filter(x=>x!=='allSi').length]===k;   /* v0.4.4.0: gli allontanamenti ingiusti (allSi) non spostano gli errori pianificati */
   /* v0.4.2.0: solo il primo calcio d'inizio mette i giocatori al loro posto; nel secondo tempo ci vanno camminando e la palla
      la porta a centrocampo un giocatore (bs: 'fetch' → 'toss' → 'ready'), il gioco aspetta che siano tutti in posizione */
   function startKick(ti, tele){ kickoffPos(T[0],ti===0,tele); kickoffPos(T[1],ti===1,tele); ball.owner=null; ball.fl=null; ball.sh=null;
@@ -38,12 +38,26 @@ function matchArb(M){
   }
 
   /* errore arbitrale: evento con il commento del giornalista, poi la protesta dell'allenatore danneggiato */
-  function refError(kind, victimSide, ids, txt, cm){ M.errLeft--; refErrs.push(kind); E('referr',victimSide,ids,txt,{kind,cm}); protest(T[victimSide], true); }
-  function protest(t, strong){
-    if(t.coachOut || t.pendOff) return; const car=(t.coach&&t.coach.car)||10, sur=t.coach.n.split(' ').slice(-1)[0];
-    if(RC()>=(strong?0.4:0.05)+(car-10)*(strong?0.045:0.01)) return;
-    if(RC()<(strong?0.2:0.06)+(car-10)*0.035){ t.pendOff=true; E('protest',t.idx,[],`${sur} perde la testa: urla contro l'arbitro ${RF.n||''} e scaglia via la giacca.`.replace('  ',' ')); }
-    else E('protest',t.idx,[],`${sur} protesta a lungo con il quarto uomo.`);
+  function refError(kind, victimSide, ids, txt, cm){ M.errLeft--; refErrs.push(kind); E('referr',victimSide,ids,txt,{kind,cm}); protest(T[victimSide], 1); }
+  /* v0.4.4.0 (R3a): protesta dell'allenatore e decisione dell'arbitro (docs/PROGRESSI_R3a.md § 3.5). w = peso dell'episodio
+     (errore contro 1, rosso 0,6, rigore 0,5, giallo 0,12), aumentato se la squadra perde o dopo il 75'. Il Carattere efficace (con il morale)
+     decide se protesta e quanto: l'arbitro (severità RF.car) lascia correre, ammonisce o allontana; Errori (RF.err) può sbagliare di un gradino.
+     Numeri casuali RB (panchina): il resto della partita non si rimescola */
+  function protest(t, w){
+    if(t.coachOut || t.pendOff || t.pendYc) return;
+    const c=t.coach, ci=(c.k&&c.k.CAR!=null?c.k.CAR:coS(c.car||10))/100, sur=c.n.split(' ').slice(-1)[0], rn=RF.n?' '+RF.n:'', o=T[1-t.idx];
+    const ctx=(t.goals<o.goals?1.25:1)*(minNum(M.tick)>=75?1.15:1);
+    if(RB()>=Math.min(1,w*ctx)*(PR_K.p0+PR_K.p1*ci)) return;
+    const grave=RB()<PR_K.g0+PR_K.g1*ci, sev=(RF.car||10)-10, u=RB();
+    let d = grave ? (u<PR_K.gOff+PR_K.gOffS*sev?2 : u<PR_K.gOff+PR_K.gOffS*sev+PR_K.gYc?1:0) : (u<PR_K.lOff?2 : u<PR_K.lOff+PR_K.lYc+PR_K.lYcS*sev?1:0);
+    let wrong=false;
+    if(RB()<Math.max(0,PR_K.e0+PR_K.e1*((RF.err||10)-10))){ if(!grave){ if(d===1&&!t.cyc) d=2, wrong=true; else if(d===0) d=1; } else if(d>0) d--; }
+    const y2 = d===1 && t.cyc>=1; if(y2) d=2;
+    if(d===2){ t.pendOff=true; t.offY2=y2;
+      if(wrong){ refErrs.push('allSi'); E('referr',t.idx,[],t_('par.prot_ingiusta',{sur,rn}),{kind:'allSi',cm:t_('par.prot_ingiusta_cm',{sur})}); }
+      else E('protest',t.idx,[],y2?t_('par.prot_y2',{sur,rn}):t_('par.prot_off',{sur,rn}),{d}); }
+    else if(d===1){ t.pendYc=true; E('protest',t.idx,[],t_('par.prot_yc',{sur,rn}),{d}); }
+    else E('protest',t.idx,[],grave?t_('par.prot_grave_no',{sur,rn}):t_('par.prot_lieve',{sur}),{d});
   }
   function moveRefs(){
     const r=M.restart, bx=ball.x, by=ball.y, yd=x=>58-(x-16)*(48/73);
@@ -51,7 +65,7 @@ function matchArb(M){
     const cardP = r&&r.card&&!r.card.shown ? all.get(r.card.pid) : null;
     if(cardP){ const s=cardP.x<ref.x?1:-1; tx=cardP.x+s*1.4; ty=cardP.y+0.6; vmax=3.6;
       if(hyp(ref.x-cardP.x,ref.y-cardP.y)<2.4){ r.card.shown=true; ref.cardK=r.card.k; ref.cardT=M.tick; } }
-    else if(r&&r.coach&&!r.coach.shown){ tx=benchX(r.coach.side); ty=1.6; vmax=3.6; if(hyp(ref.x-tx,ref.y-ty)<2.2){ r.coach.shown=true; ref.cardK=4; ref.cardT=M.tick; } }
+    else if(r&&r.coach&&!r.coach.shown){ tx=benchX(r.coach.side); ty=1.6; vmax=3.6; if(hyp(ref.x-tx,ref.y-ty)<2.2){ r.coach.shown=true; ref.cardK=r.coach.k||4; ref.cardT=M.tick; } }
     else if(r&&(r.type==='cel'||r.type==='kick')){ tx=52.5+(r.type==='cel'?0:-3); ty=yd(52.5)+4; vmax=2.4; }
     else if(r&&r.type==='pen'){ const gx=r.x>52.5?PL:0; tx=gx+(gx?-14:14); ty=gx?34-14:34+14; }
     else { const pt=ball.owner?tm(ball.owner):ball.fl?T[ball.fl.t]:null, dir=pt?pt.dir:0;
@@ -88,7 +102,7 @@ function matchArb(M){
       else if(dgx<=40 && dgx>=14){ const tk=specOf(o,'cor',q=>q.a0.cpz*0.5+q.a0.crs*0.5); pause('fk',o.idx,v.x,v.y,40+Math.floor(RA()*16),{taker:tk,crossFk:true}); E('fkx',o.idx,[tk.id],`Punizione dalla trequarti per ${o.inp.n}: la batte ${tk.ln}.`); }
       else pause('fk',o.idx,v.x,v.y,14+Math.floor(RA()*12),{taker:v}); }
     if(card && M.restart){ M.restart.card={pid:f.id,k:card==='yc'?1:card==='y2'?3:2,shown:false}; M.restart.ticks=Math.max(M.restart.ticks,16); if(card!=='yc'){ f.leave=44; f.lw=10; } }
-    if(card && card!=='yc') protest(t,false); else if(inBox) protest(t,false);
+    { const w=Math.max(card&&card!=='yc'?0.6:card==='yc'?0.12:0, inBox?0.5:0); if(w) protest(t,w); }   /* v0.4.4.0: anche sui gialli, con peso basso */
   }
   function injure(p){ if(p.inj||p.out) return; p.inj=true; p.leave=50; p.lw=12; p.dv=null; if(!M.restart) pause('drop',1-p.t,ball.x,ball.y,80); E('inj',p.t,[p.id],fill2(P(MTX.inj),{p})); forcedOut(p,'inj'); }
   function sendOff(p){ forcedOut(p,'red'); }

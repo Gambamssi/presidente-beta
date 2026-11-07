@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.3.1';
+const VERSION = '0.4.5.1';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,22 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.5.1','7 novembre 2026',[
+    'L\'indirizzo per scriverci è cambiato: ora è info@evivora.it (accesso, avviso del progetto, informativa sulla privacy, segnalazioni e messaggi di errore). Il gioco e le partite non cambiano.',
+  ]],
+  ['0.4.5.0','7 novembre 2026',[
+    'Tattica di squadra: ogni modulo ha la sua forma in possesso, senza palla e nelle transizioni. Con la palla la squadra si allarga sul lato del pallone e tiene almeno tre uomini dietro; il portiere fa il libero quando si attacca.',
+    'Pressing su tre livelli (alto, medio, basso) con zone e momenti diversi per aggredire, e contropressing dopo una palla persa per chi lo sceglie.',
+    'Il piano arriva ai giocatori secondo la Comunicazione dell\'allenatore e l\'intelligenza tattica di ognuno: chi lo capisce sta meglio al suo posto. In partita contano anche Smarcamento, Marcatura, Anticipazione, Intercettazione, Collaborazione, Concentrazione, Determinazione e Leadership.',
+    'La panchina decide con le dieci caratteristiche dell\'allenatore: piano iniziale, mosse quando si perde o si vince, cambi di modulo con i giocatori adatti, e cambi in al massimo tre finestre come nella Serie A (circa 4–5 a squadra, alcuni all\'intervallo).',
+    'Le vignette della panchina dicono i cambi di piano veri dell\'allenatore. I nuovi allenatori preferiscono i moduli più usati oggi (3-4-3, 4-2-3-1, 3-5-2…); arriva anche il 5-4-1.',
+    'Le partite giocate prima di questa versione si rivedono diverse da come erano.']],
+  ['0.4.4.0','6 novembre 2026',[
+    'Allenatore nuovo: dieci caratteristiche su 100 (Comunicazione, Lettura della squadra, Analisi degli avversari, Intelligenza tattica, Lettura della gara, Rapidità decisionale, Adattabilità, Leadership, Gestione del gruppo e Carattere). Gli allenatori che avevi le ricevono dalle loro qualità di prima; Allenamento e Giovani restano a parte, fuori dal campo.',
+    'Gioco di squadra: l\'allenatore costruisce cinque valori (Intesa, Affiatamento, Familiarità con il modulo, Automatismi di reparto, Comunicazione in campo) che in partita danno fino a +20 punti a 14 skill dei giocatori. Conta il divario dalla media della lega; le skill salvate non cambiano mai.',
+    'Il morale dell\'allenatore pesa: giù di morale rende meno e diventa più nervoso. Con un allenatore nuovo la squadra deve riprendere confidenza con il modulo, e chi arriva da poco si inserisce in sei giornate.',
+    'Proteste: l\'arbitro ora decide se lasciar correre, ammonire l\'allenatore o allontanarlo, e può sbagliare. Se l\'allenatore viene allontanato i bonus si perdono per il resto della partita.',
+    'Squadra › Allenatore mostra le dieci caratteristiche, il gioco di squadra e i bonus di ogni skill rispetto alla media della lega; sul mercato gli allenatori sono più diversi tra loro e i migliori costano di più.']],
   ['0.4.3.1','6 novembre 2026',[
     'La pagina iniziale si chiama Ufficio: stesso posto, stesse cose, nel menu e in tutti i testi. L\'indirizzo è #/ufficio; i preferiti salvati con il vecchio indirizzo funzionano ancora.',
     'Dopo il fischio finale le pagelle compaiono da sole dopo qualche secondo e l\'intervista va avanti da sola: domanda, risposta scritta lettera per lettera, domanda dopo. I tasti «Risposta» e «Domanda dopo» restano per andare più veloce.',

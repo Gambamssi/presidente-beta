@@ -169,12 +169,12 @@ function findBuyer(pid){
 /* ---------- strutture e allenatore ---------- */
 const FAC = FACS;
 function build(k){ const m=startBuild(G.T[0],k); if(m){ toast(m); return; } save(); render(); }
-const coachCost = c=>(c.tat+c.all+c.gio+c.ges)*5000;
+/* coachCost (costo dell'allenatore) è in engine.js dalla 0.4.4.0 */
 function showCands(){ G.cands=[0,1,2].map(()=>mkCoach(8.5+rnd()*3.5)); save(); render(); }
 function hireCoach(i){
   const t=G.T[0], c=G.cands[i], cost=coachCost(c)+120000;
   if(t.cash<cost){ toast(t_("ui.servono_cr_tra_buonuscita",{cost:kcr(cost)})); return; }
-  spend(t,'allenatore',cost); news(t_("ui.esonerato_il_nuovo_allenatore",{n:t.coach.n,n2:c.n,mod:c.mod}),'coach',true,0); t.coach=c; G.cands=null; save(); render();
+  spend(t,'allenatore',cost); news(t_("ui.esonerato_il_nuovo_allenatore",{n:t.coach.n,n2:c.n,mod:c.mod}),'coach',true,0); coachMigrate(c); collNewCoach(t,t.coach,c); t.coach=c; G.cands=null; save(); render();
 }
 
 /* ---------- avanzamento ---------- */
@@ -201,13 +201,25 @@ function nameBtn(p){ return `<button class="link" data-act="sheet" data-pid="${p
 /* media voto in decimi (seaStat/carStat) → testo con la virgola */
 const v10 = v=>v==null?'–':fDec((v/10).toFixed(1));
 
-/* Squadra › Allenatore: chi è, cosa sa fare, valutazione dell'esonero */
+/* Squadra › Allenatore: chi è, cosa sa fare, gioco di squadra e bonus in partita, valutazione dell'esonero (v0.4.4.0, R3a: 10 caratteristiche) */
+const coNum=v=>fDec((Math.round(v*10)/10).toFixed(1)), coSgn=v=>(v>0.05?'+':v<-0.05?'−':'±')+coNum(Math.abs(v));
+function coachKHTML(c, eff){ return `<dl class="attrs">${CO_K.map(k=>{ const v=c.k[k], e=eff?eff[k]:v;
+  return `<div title="${esc(t_('co.h.'+k))}"><dt>${t_('co.k.'+k)}</dt><dd>${bar(v,100,k==='CAR'&&v>=65?'warn':'')}<span class="num">${v}${e!==v?` <small class="muted">${t_("co.oggi",{v:e})}</small>`:''}</span></dd></div>`; }).join('')}</dl>`; }
 function vAllenatore(){
-  const t=G.T[0], c=t.coach;
-  const cands = G.cands? `<div class="cands"><p class="eyebrow">${t_("ui.allenatori_liberi_costo_con")}</p>${G.cands.map((x,i)=>`<div class="cand"><div>${t_("ui.anni",{n:esc(x.n),age:x.age,mod:x.mod})}<p class="muted">${t_("ui.tattica_allenamento_giovani_grup",{tat:x.tat,all:x.all,gio:x.gio,ges:x.ges})}</p></div><button class="btn small" data-act="hire" data-i="${i}">${t_("ui.ingaggia",{coachCost:kcr(coachCost(x)+120000)})}</button></div>`).join('')}<button class="btn ghost small" data-act="nocands">${t_("ui.tieni",{n:esc(c.n)})}</button></div>` : `<button class="btn ghost small" data-act="cands">${t_("ui.valuta_un_esonero")}</button>`;
-  return pageHead(t_("ui.squadra_staff_tecnico"),esc(c.n),t_("ui.allenatore_anni_modulo_preferito",{age:c.age,mod:c.mod}),{right:`<span class="ev-tbface" aria-hidden="true">${faceHTML(Math.floor(hashU(c.n,9)*1e6)+1,{eta:c.age,ruolo:'allenatore',colori:{primario:clubArt(0).primario,secondario:clubArt(0).secondario}})}</span>`})+`<section class="card coach ev-panel"><p class="eyebrow">${t_("ui.allenatore")}</p><div class="coachrow"><div><p class="big name">${esc(c.n)}</p><p class="muted">${t_("ui.anni_modulo_preferito",{age:c.age,mod:c.mod,v:c.squal>0?` ${t_("ui.squalificato_per_la_prossima")}`:''})}</p></div>
-   <dl class="attrs">${[[t_("ui.tattica"),c.tat],[t_("ui.allenamento"),c.all],[t_("ui.giovani"),c.gio],[t_("ui.gestione_gruppo"),c.ges],[t_("ui.temperamento"),c.car??10]].map(([k,v])=>`<div><dt>${k}</dt><dd>${bar(v)}<span class="num">${v}</span></dd></div>`).join('')}</dl></div>
-   <p class="muted">${t_("ui.sceglie_lui_modulo_e")}</p>${cands}</section>`;
+  const t=G.T[0], c=coachMigrate(t.coach), eff=coachEff(c), V=collOf(t), P=coachPot(c), rt=Math.round(coachRating(c));
+  const B=coachBonus(t), LM=coachLeagueBonus(), inGara=new Set(['PC','DM','OF','DF']);
+  const cands = G.cands? `<div class="cands"><p class="eyebrow">${t_("ui.allenatori_liberi_costo_con")}</p>${G.cands.map((x,i)=>{ coachMigrate(x); const top=CO_9.slice().sort((a,b)=>x.k[b]-x.k[a]).slice(0,3);
+    return `<div class="cand"><div>${t_("ui.anni",{n:esc(x.n),age:x.age,mod:x.mod})}<p class="muted">${t_("co.cand",{rt:Math.round(coachRating(x)),top:top.map(k=>t_('co.k.'+k)+' '+x.k[k]).join(' · '),car:x.k.CAR})}</p></div><button class="btn small" data-act="hire" data-i="${i}">${t_("ui.ingaggia",{coachCost:kcr(coachCost(x)+120000)})}</button></div>`; }).join('')}<button class="btn ghost small" data-act="nocands">${t_("ui.tieni",{n:esc(c.n)})}</button></div>` : `<button class="btn ghost small" data-act="cands">${t_("ui.valuta_un_esonero")}</button>`;
+  const coll=`<dl class="attrs">${CO_COLL.map(v=>`<div title="${esc(t_('co.ch.'+v))}"><dt>${t_('co.c.'+v)}</dt><dd>${bar(V[v],100)}<span class="num">${Math.round(V[v])}${Math.abs(P[v]-V[v])>=1?` <small class="muted">→ ${Math.round(P[v])}</small>`:''}</span></dd></div>`).join('')}</dl>`;
+  const rows=CO_SK.map(k=>{ const d=B[k]-LM[k]; return `<tr><td>${t_('sk.'+k)}${inGara.has(k)?' <span class="muted" title="'+esc(t_("co.in_gara_h"))+'">●</span>':''}</td><td class="num">+${coNum(B[k])}</td><td class="num">+${coNum(LM[k])}</td><td class="num"><b class="${d<-0.05?'co-neg':d>0.05?'co-pos':''}">${coSgn(d)}</b></td></tr>`; }).join('');
+  return pageHead(t_("ui.squadra_staff_tecnico"),esc(c.n),t_("ui.allenatore_anni_modulo_preferito",{age:c.age,mod:c.mod}),{right:`<span class="ev-tbface" aria-hidden="true">${faceHTML(Math.floor(hashU(c.n,9)*1e6)+1,{eta:c.age,ruolo:'allenatore',colori:{primario:clubArt(0).primario,secondario:clubArt(0).secondario}})}</span>`})+`<section class="card coach ev-panel"><p class="eyebrow">${t_("ui.allenatore")}</p><div class="coachrow"><div><p class="big name">${esc(c.n)}</p><p class="muted">${t_("ui.anni_modulo_preferito",{age:c.age,mod:c.mod,v:c.squal>0?` ${t_("ui.squalificato_per_la_prossima")}`:''})}</p>
+   <p>${t_("co.valutazione",{rt})}</p><p class="muted">${t_("co.morale",{lv:morLevel(c.mor??12),e:Math.round(eff.e*100)})}</p></div></div>
+   <p class="eyebrow">${t_("co.caratteristiche")}</p>${coachKHTML(c,eff)}
+   <p class="eyebrow">${t_("co.fuori")}</p><dl class="attrs"><div title="${esc(t_('co.h.all'))}"><dt>${t_("ui.allenamento")}</dt><dd>${bar(c.all,100)}<span class="num">${c.all}</span></dd></div><div title="${esc(t_('co.h.gio'))}"><dt>${t_("ui.giovani")}</dt><dd>${bar(c.gio,100)}<span class="num">${c.gio}</span></dd></div></dl>
+   <p class="muted">${t_("co.spiega")}</p>${cands}</section>
+   <section class="card ev-panel"><p class="eyebrow">${t_("co.gioco")}</p>${coll}<p class="muted">${t_("co.gioco_spiega")}</p></section>
+   <section class="card ev-panel"><p class="eyebrow">${t_("co.bonus")}</p><div class="ev-table-wrap"><table class="ev-table co-bon"><thead><tr><th>${t_("co.th_skill")}</th><th class="num">${t_("co.th_squadra")}</th><th class="num">${t_("co.th_media")}</th><th class="num">${t_("co.th_divario")}</th></tr></thead><tbody>${rows}</tbody></table></div>
+   <p class="muted">${t_("co.bonus_spiega")}</p></section>`;
 }
 /* Squadra › Spogliatoio: clima, morale dell'allenatore, capitano e vice, il più carico e il più scontento */
 function vSpogliatoio(){
