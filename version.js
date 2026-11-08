@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.5.1';
+const VERSION = '0.4.5.2';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,10 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.5.2','8 novembre 2026',[
+    'Il risultato non si vede più prima della partita: dopo «Gioca» né il punteggio della tua partita né quelli delle altre della giornata compaiono finché non hai visto la partita (o premuto «Chiudi»); classifica, notizie, Ufficio e club restano come prima della giornata. Anche se ricarichi la pagina a metà.',
+    'Il 3D è solo per il computer: su telefono e tablet il visore resta in 2D e non scarica nulla di più.'
+  ]],
   ['0.4.5.1','7 novembre 2026',[
     'L\'indirizzo per scriverci è cambiato: ora è info@evivora.it (accesso, avviso del progetto, informativa sulla privacy, segnalazioni e messaggi di errore). Il gioco e le partite non cambiano.',
   ]],

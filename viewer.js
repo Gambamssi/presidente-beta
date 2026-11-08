@@ -182,6 +182,7 @@ function minuteOf(t){ const sim=viewer.sim, s=t*DT/TIME_F; if(t<sim.htTick){ con
 function finishViewer(reattach, post){
   const v=viewer;
   if(!reattach){ processEvents(v.phase==='live'); vFlush();
+    hidReveal();   /* V0b: fischio finale = partita vista, da qui i risultati della giornata si possono mostrare */
     v.t=v.nT-1; v.phase='done'; v.playing=false; v.pq=[]; v.wins=[]; v.post=post||'whistle'; v.postT=performance.now(); const rb=$('#v-rpl'); if(rb) rb.hidden=true; }
   v.sc=[v.m.gh,v.m.ga]; const s=$('#v-score'); if(s) s.textContent=v.sc[0]+' – '+v.sc[1];
   const b=$('#v-play'); if(b) b.textContent=t_("vis.rivedi"); const pre=$('#v-pre'); if(pre) pre.remove();
@@ -675,6 +676,11 @@ function draw2D(t, ivOn){
 /* ---------- 3D ---------- */
 const V3 = {pref:true, ok:null, load:false, lt:0, r:null, sc:null, cam:null, ball:null, men:new Map(), rings:[], mats:{}, camMode:'tv', cp:null, cl:null, last:0, w:0, h:0};
 try{ if(localStorage.getItem('presidente-vista')==='2d') V3.pref=false; }catch(e){}
+/* 3D solo sul computer (0.4.5.2, V0b): se il puntatore principale è grossolano (dito: telefono e tablet) il 3D è escluso del tutto:
+   V3.ok=false → nessun pulsante «Replay 3D», three.js mai scaricato (loadThree e use3D si fermano), la preferenza salvata resta ma viene
+   ignorata. Riconoscimento con il tipo di puntatore e non con la larghezza della finestra. */
+const V3_TOUCH = (()=>{ try{ return matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } })();
+if(V3_TOUCH) V3.ok=false;
 /* three.js a richiesta (0.4.2.1, N2): la pagina non lo carica più all'avvio; arriva solo quando serve il 3D (visore aperto con il 3D
    acceso, o «Replay 3D: sì»). Indirizzo in window.THREE_SRC (shell.html: cdnjs; beta: vendor/three.min.js). Mentre arriva il visore
    resta in 2D con «Carico il 3D…»; se non arriva (errore o 20 s) resta il 2D. Solo disegno: la partita non cambia. */
