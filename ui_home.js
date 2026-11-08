@@ -24,13 +24,13 @@ function isPublicNews(n){ if(!n) return false; if(typeof n.pub==='boolean') retu
 const pubNewsText = n=>String(n.t||'').replace(/\s*Il tuo club chiude \d+°\.?/,'');
 
 /* ---------- letture pubbliche ---------- */
-function publicNews(){ return G.news.filter(isPublicNews); }
+function publicNews(){ const h=hidNow(); return G.news.filter(n=>isPublicNews(n) && !(h && n.k==='match' && n.s===G.season && n.md===G.md)); }
 /* valutazione come la vedono gli altri: lo scouting di chi guarda, mai il valore vero (anche per i tuoi giocatori) */
 function pubOvrTxt(p){ const n=obsN(p), [a,b]=rangeOf(ovr(p), p.s?skScarto(p,'ovr'):(p.e.pos||0), n? Math.max(0,5-2*n) : 6); return a===b? String(a) : a+'–'+b; }
 function publicSquad(id){ const t=G.T[id];
   return teamPlayers(t).filter(p=>!p.retired).sort((a,b)=>'PDCA'.indexOf(a.r)-'PDCA'.indexOf(b.r) || value(b)-value(a))
     .map(p=>({id:p.id, fn:p.fn, ln:p.ln, r:p.r, age:p.age, ovr:pubOvrTxt(p), stars:starsHTML(p), val:value(p), cap:t.cap===p.id, vcap:t.vcap===p.id})); }
-function publicFixtures(id){ return G.sched.map((fx,i)=>{ const f=fx.find(x=>x.includes(id)); const r=G.res[i]&&G.res[i].find(x=>x.h===id||x.a===id); return {md:i+1, h:f[0], a:f[1], r:r?{gh:r.gh,ga:r.ga}:null}; }); }
+function publicFixtures(id){ return G.sched.map((fx,i)=>{ const f=fx.find(x=>x.includes(id)); const r=G.res[i]&&!(hidNow()&&i===G.md-1)&&G.res[i].find(x=>x.h===id||x.a===id); return {md:i+1, h:f[0], a:f[1], r:r?{gh:r.gh,ga:r.ga}:null}; }); }
 function publicClub(id){ const t=G.T[id]; if(!t) return null; const st=standings(), f=t.fin||{}, b=f.bud&&f.bud.s===G.season?f.bud:null;
   return { id, n:t.n, c:t.c, pos:st.indexOf(t)+1, pts:teamPts(t), pen:f.pen||0, penNext:f.penNext||0, excl:!!f.excluded, tab:t.tab, form:t.form||[],
     coach:{n:t.coach.n, age:t.coach.age, mod:t.coach.mod},
@@ -39,7 +39,7 @@ function publicClub(id){ const t=G.T[id]; if(!t) return null; const st=standings
     bud: b?{ti:b.ti, te:b.te, saldo:b.saldo, acq:b.lev.acq, ces:b.lev.ces, inv:b.lev.inv, pos:b.lev.pos, by:b.by, rev:!!b.revUsed}:null,
     hist:(f.budH||[]).map(h=>({s:h.s, pos:h.pos, objPos:h.objPos, objOk:h.objOk, prev:h.prev.saldo, act:h.act.saldo, ok:h.ok, scost:h.scost})) }; }
 /* marcatori della stagione in corso (gol e presenze sono pubblici) */
-function publicScorers(){ return Object.values(G.P).filter(p=>p.ss&&p.ss[1]>0).map(p=>({p, g:p.ss[1], a:p.ss[0]})).sort((x,y)=>y.g-x.g || x.a-y.a || x.p.id-y.p.id).slice(0,15); }
+function publicScorers(){ if(hidNow()) return []; return Object.values(G.P).filter(p=>p.ss&&p.ss[1]>0).map(p=>({p, g:p.ss[1], a:p.ss[0]})).sort((x,y)=>y.g-x.g || x.a-y.a || x.p.id-y.p.id).slice(0,15); }
 /* albo d'oro (pubblico): righe dalla più recente; i nomi dei giocatori sono nella riga, così l'albo può vivere separato dallo stato */
 function publicAlbo(){ return (G.albo||[]).slice().reverse(); }
 /* presidente umano di un club e la sua carriera pubblica (niente cassa, debiti, quote, trattative, reputazione) */
@@ -184,12 +184,12 @@ function vNotizie(){ const L=publicNews().slice(0,30);
    <ul class="news">${L.map(n=>`<li class="k-${n.k}"><span class="md">${t_("home.g",{v:n.s>1?'S'+n.s+' ':'',md:n.md})}</span><span>${linkClubs(pubNewsText(n))}</span></li>`).join('')||`<li class="muted">${t_("home.ancora_nessuna_notizia")}</li>`}</ul></section></div>`; }
 function vGiornata(){
   const v=viewer? vViewerHTML() : '', st=standings(), P=id=>st.findIndex(x=>x.id===id)+1;
-  let res='', mine=G.last&&G.last.find(m=>m.h===0||m.a===0);
-  const head=mine?`<section class="ev-titleband ev-score"><div class="ev-sc-top"><p class="ev-eyebrow">${t_("home.lega_giornata_risultato_finale",{md:G.md})}</p><span>${t_("home.stagione_2",{season:G.season})}</span></div>
-     <div class="ev-sc-mid"><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.h)}</span><b>${clubLink(mine.h)}</b></div><div class="ev-sc-res"><b>${mine.gh}<i>:</i>${mine.ga}</b><small>${mine.forfeit?t_("home.a_tavolino"):t_("home.fine_partita")}</small></div><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.a)}</span><b>${clubLink(mine.a)}</b></div></div>
+  let res='', mine=G.last&&G.last.find(m=>m.h===0||m.a===0); const hid=hidNow();
+  const head=mine?`<section class="ev-titleband ev-score"><div class="ev-sc-top"><p class="ev-eyebrow">${hid?t_("home.lega_giornata_n",{md:G.md}):t_("home.lega_giornata_risultato_finale",{md:G.md})}</p><span>${t_("home.stagione_2",{season:G.season})}</span></div>
+     <div class="ev-sc-mid"><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.h)}</span><b>${clubLink(mine.h)}</b></div><div class="ev-sc-res"><b>${hid?`–<i>:</i>–`:`${mine.gh}<i>:</i>${mine.ga}`}</b><small>${hid?t_("home.risultato_dopo_la_visione"):mine.forfeit?t_("home.a_tavolino"):t_("home.fine_partita")}</small></div><div class="ev-sc-t"><span class="ev-sc-crest" aria-hidden="true">${crestHTML(mine.a)}</span><b>${clubLink(mine.a)}</b></div></div>
      <div class="ev-sc-top"><span>${t_("home.classifica_posto",{P:P(0)})}</span><span>${t_("home.giornata_di_14_2",{md:G.md})}</span></div></section>`
     : pageHead(t_("home.lega_partita"),t_("home.giornata",{md:G.md}),G.md===0?t_("home.la_stagione_comincia_con"):t_("home.risultati_replay_prossimo_turno"));
-  if(G.last) res=`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.giornata_risultati",{md:G.md})}</h2><ul class="results">${G.last.map((m,i)=>`<li class="${m.h===0||m.a===0?'me':''}"><span>${clubLink(m.h)}</span><b>${m.gh} – ${m.ga}</b><span>${clubLink(m.a)}${m.ref&&G.refs&&G.refs[m.refId]?`${t_("home.arbitro_voto",{n:esc(G.refs[m.refId].n),fDec:fDec(m.ref.voto)})}`:''}${(m.h===0||m.a===0)&&m.att?`${t_("home.spettatori_possesso",{att:fmt(m.att),poss:m.poss,v:100-m.poss})}`:''}</span>${m.forfeit?`<span class="muted">${t_("home.a_tavolino")}</span>`:`<button class="btn ghost small" data-act="watch" data-i="${i}">${G.wm&&G.wm[mkey(m)]!=null?t_("home.riguarda"):t_("home.guarda")}</button>`}</li>`).join('')}</ul><p class="muted">${t_("home.puoi_guardare_tutte_le")}</p></section>`;
+  if(G.last) res=`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.giornata_risultati",{md:G.md})}</h2><ul class="results">${G.last.map((m,i)=>`<li class="${m.h===0||m.a===0?'me':''}"><span>${clubLink(m.h)}</span><b>${hid?"– : –":`${m.gh} – ${m.ga}`}</b><span>${clubLink(m.a)}${!hid&&m.ref&&G.refs&&G.refs[m.refId]?`${t_("home.arbitro_voto",{n:esc(G.refs[m.refId].n),fDec:fDec(m.ref.voto)})}`:''}${!hid&&(m.h===0||m.a===0)&&m.att?`${t_("home.spettatori_possesso",{att:fmt(m.att),poss:m.poss,v:100-m.poss})}`:''}</span>${hid&&!(m.h===0||m.a===0)?'':m.forfeit?`<span class="muted">${t_("home.a_tavolino")}</span>`:hid?(viewer?'':`<button class="btn ghost small" data-act="watch" data-i="${i}">${t_("home.guarda_la_partita")}</button>`):`<button class="btn ghost small" data-act="watch" data-i="${i}">${G.wm&&G.wm[mkey(m)]!=null?t_("home.riguarda"):t_("home.guarda")}</button>`}</li>`).join('')}</ul><p class="muted">${t_(hid?"home.punteggi_dopo_la_visione":"home.puoi_guardare_tutte_le")}</p></section>`;
   const R=publicRound();
   const next=R.length?`<section class="card ev-panel"><h2 class="ev-ptitle">${t_("home.prossimo_turno_giornata",{md:G.md+1})}</h2><ul class="results nx">${R.map(({h,a})=>{ const me=h===0||a===0, o=G.T[h===0?a:h];
       return `<li class="${me?'me':''}"><span>${clubLink(h)} <small class="muted">${P(h)}°</small></span><b class="vs">–</b><span>${clubLink(a)} <small class="muted">${P(a)}°</small>${me?`${t_("home.allenatore_2",{v:h===0?t_("home.in_casa_2"):t_("home.in_trasferta_2"),n:esc(o.coach.n),mod:o.coach.mod})}`:''}</span></li>`; }).join('')}</ul></section>`
@@ -199,7 +199,7 @@ function vGiornata(){
 function vMarcatori(){ const L=publicScorers();
   return pageHead(t_("home.lega_gol"),t_("home.classifica_marcatori"),t_("home.gol_e_presenze_stagione",{season:G.season,md:G.md}))+`<section class="card ev-panel"><div class="head"><p class="eyebrow">${t_("home.marcatori_stagione",{season:G.season})}</p><p class="muted">${t_("home.i_primi_15_per")}</p></div>
    ${L.length?`<div class="tw"><table class="tab ev-ptab ev-scorers"><thead><tr><th class="num">#</th><th>${t_("home.r")}</th><th>${t_("home.giocatore")}</th><th>${t_("home.squadra")}</th><th class="num">${t_("home.gol")}</th><th class="num">${t_("home.pres")}</th></tr></thead><tbody>${L.map(({p,g,a},i)=>`<tr data-act="sheet" data-pid="${p.id}" class="${p.team===0?'me':''}"><td class="num rk">${i+1}</td><td class="mh">${roleTag(p.r)}</td><td class="nm pc">${plCell(p)}</td><td class="tm">${p.team==null?`<span class="muted">${t_("home.svincolato")}</span>`:clubCell(p.team)}</td><td class="num strong mv" data-l="${t_("home.gol")}">${g}</td><td class="num" data-l="${t_("home.presenze")}">${a}</td></tr>`).join('')}</tbody></table></div>`
-     :`<p class="empty">${t_("home.ancora_nessun_gol_la")}</p>`}</section>`; }
+     :`<p class="empty">${t_(hidNow()?"home.marcatori_dopo_la_visione":"home.ancora_nessun_gol_la")}</p>`}</section>`; }
 
 /* Lega › Albo d'oro: una riga per stagione chiusa */
 function alboPl(x,txt){ const p=x&&G.P[x[0]]; if(!x) return '<span class="muted">—</span>';

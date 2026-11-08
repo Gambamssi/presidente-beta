@@ -106,7 +106,8 @@ window.addEventListener('popstate', e=>{
 });
 let filt={r:'',age:'40',src:'all',sort:'val'};
 
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(G)); }catch(e){} }
+let HIDSW=false, HIDSAVE=false;   /* durante la vista «prima della giornata» (render) non si salva: lo stato è provvisorio */
+function save(){ if(HIDSW){ HIDSAVE=true; return; } try{ localStorage.setItem(KEY, JSON.stringify(G)); }catch(e){} }
 function load(){ try{ return loadFrom(localStorage.getItem(KEY)); }catch(e){} return false; }
 /* (v0.037) carica una partita da un testo JSON con le migrazioni dei vecchi salvataggi; la usano load() e gli account della beta (account.js) */
 function loadFrom(s){ try{ if(s){ G=JSON.parse(s); if(G && G.P) Object.values(G.P).forEach(p=>{ migratePlayer(p); s1Migrate(p); });   /* v0.4.3.0 (S1): 22 → 57 */ if(G && G.T){ m1Migrate(); ensureRefs(); if(G.rep==null) G.rep=50; if(!G.sec||!G.sec.n) G.sec={n:t_("ui.giulia")}; G.T.forEach(t=>{ finInit(t); ensureBudget(t); }); G.T.forEach(t=>{ if(t.promise && !(t.miss||[]).some(m=>m.kind==='rinforzo'&&m.st==='on')) addMission(t,{kind:'rinforzo',role:t.promise.role,roleN:({D:'difensore',C:'centrocampista',A:'attaccante'})[t.promise.role],thr:t.promise.thr,due:t.promise.due,title:t_("ui.rinforzo_per",{n:t.coach.n})}); if(t.obj && t.obj.s===G.season && !(t.miss||[]).some(m=>m.kind==='obiettivo'&&m.st==='on')) addMission(t,{kind:'obiettivo',amt:t.obj.amt,lim:t.obj.lim,goal:t.obj.goal,due:14,title:t_("ui.obiettivo",{goal:t.obj.goal})}); }); } return !!(G && G.T); } }catch(e){} return false; }
@@ -188,7 +189,7 @@ function advance(force){
   if(G.md>=G.sched.length){ endSeason(); save(); viewer=null; go('scrivania'); toast(t_("ui.inizia_la_stagione",{season:G.season})); return; }
   const b=document.querySelector('[data-act=advance]'); if(b){ b.disabled=true; b.textContent=t_("ui.si_gioca_la_giornata"); }
   setTimeout(()=>{
-    const out=playMatchday(); save();
+    const out=playMatchday(); G.hid=G.season+'-'+G.md; save();
     const um=out.find(m=>m.h===0||m.a===0);
     viewer=null; area='lega'; sub='giornata'; lastSub.lega='giornata'; clubView=null; clubBack=null; render(); window.scrollTo(0,0); openViewer(out.indexOf(um));
   }, 40);
@@ -279,7 +280,7 @@ function vArbitri(){
     return `<tr><td class="nm"><b>${esc(r.n)}</b><div class="muted small">${t_("ui.assistenti_anni",{a1:esc(r.a1),a2:esc(r.a2),age:r.age})}</div></td>
       ${[r.esp,r.car,r.fis,r.err].map((v,i)=>`<td>${bar(v,20,i===3?'warn':'')}<span class="num">${v}</span></td>`).join('')}
       <td class="num">${r.g}</td><td class="num strong">${avg}</td><td class="num">${r.er}</td><td class="num">${r.g?fDec(((r.yc)/r.g).toFixed(1)):'–'}</td><td class="num">${r.rc}</td><td class="num">${r.pen}</td></tr>`; }).join('');
-  const last=G.last? `<ul class="refl">${G.last.map(m=>{ const r=G.refs[m.refId]; return r?`<li><span>${clubLink(m.h)} – ${clubLink(m.a)} <b>${m.gh}-${m.ga}</b></span><span>${esc(r.n)}</span><span class="num strong">${fDec(m.ref.voto)}</span><span class="muted">${m.ref.errs.length?m.ref.errs.length+(m.ref.errs.length===1?' errore':' errori'):t_("ui.nessun_errore")}</span></li>`:''; }).join('')}</ul>` : `<p class="empty">${t_("ui.le_designazioni_arrivano_con")}</p>`;
+  const last=G.last&&!hidNow()? `<ul class="refl">${G.last.map(m=>{ const r=G.refs[m.refId]; return r?`<li><span>${clubLink(m.h)} – ${clubLink(m.a)} <b>${m.gh}-${m.ga}</b></span><span>${esc(r.n)}</span><span class="num strong">${fDec(m.ref.voto)}</span><span class="muted">${m.ref.errs.length?m.ref.errs.length+(m.ref.errs.length===1?' errore':' errori'):t_("ui.nessun_errore")}</span></li>`:''; }).join('')}</ul>` : `<p class="empty">${t_(hidNow()?"ui.voti_dopo_la_visione":"ui.le_designazioni_arrivano_con")}</p>`;
   return pageHead(t_("ui.lega_arbitri"),t_("ui.terne_arbitrali"),t_("ui.stagione_terne_una_per",{season:G.season,refs:G.refs.length}))+`<section class="card ev-panel"><div class="head"><p class="eyebrow">${t_("ui.terne_arbitrali_stagione",{season:G.season})}</p><p class="muted">${t_("ui.una_terna_per_ogni")}</p></div>
   <div class="tw"><table class="tab"><thead><tr><th>${t_("ui.terna")}</th><th>${t_("ui.esperienza")}</th><th>${t_("ui.cartellini")}</th><th>${t_("ui.fischio_facile")}</th><th>${t_("ui.errori")}</th><th class="num">${t_("ui.gare")}</th><th class="num">${t_("ui.voto_medio")}</th><th class="num">${t_("ui.errori_fatti")}</th><th class="num">${t_("ui.gialli_gara")}</th><th class="num">${t_("ui.rossi")}</th><th class="num">${t_("ui.rigori")}</th></tr></thead><tbody>${rows}</tbody></table></div></section>
   <section class="card ev-panel"><p class="eyebrow">${t_("ui.ultima_giornata_designazioni_e")}</p>${last}</section>`;
@@ -490,7 +491,8 @@ function vSheet(){
 }
 
 /* scheda del giocatore: stagione in corso, carriera e stagioni passate (presenze e gol sono pubblici; i voti si vedono nelle pagelle) */
-function statsHTML(p){ const S=seaStat(p), C=carStat(p), H=(p.sh||[]).slice().reverse(), vt=(p.rts||[]).filter(x=>x!=null);
+function statsHTML(p){ if(hidNow()) return `<p class="muted small">${t_("ui.statistiche_dopo_la_visione")}</p>`;
+  const S=seaStat(p), C=carStat(p), H=(p.sh||[]).slice().reverse(), vt=(p.rts||[]).filter(x=>x!=null);
   const club=c=>c==null?`<span class="muted">${t_("ui.svincolato_2")}</span>`:G.T[c]?clubLink(c):'–';
   return `<div class="stx"><div><p class="eyebrow">${t_("ui.stagione",{season:G.season})}</p><p>${t_("ui.presenze_gol_media_voto",{a:S.a,g:S.g,v10:v10(S.v)})}</p></div><div><p class="eyebrow">${t_("ui.carriera")}</p><p>${t_("ui.presenze_gol_media_voto",{a:C.a,g:C.g,v10:v10(C.v)})}</p></div></div>
    <p class="muted small">${t_("ui.ultimi_voti",{v:vt.length?vt.map(x=>fDec(x)).join(' · '):'–'})}</p>
@@ -571,7 +573,27 @@ function themeToggle(){ const t=themeNow()==='dark'?'light':'dark'; document.doc
 /* pulsante principale (testata e Scrivania): gioca la giornata, oppure prima convalida il preventivo o scegli la nuova società */
 function playBtn(cls){ const t=G.T[0], end=G.md>=G.sched.length, c='btn go'+(cls?' '+cls:'');
   return G.fired?`<button class="${c}" disabled>${t_("ui.scegli_la_nuova_societa")}</button>`:G.md===0&&needBudget(t)?`<button class="${c}" data-act="go" data-a="societa" data-s="bilancio">${t_("ui.convalida_il_preventivo")}</button>`:`<button class="${c}" data-act="advance">${end?t_("ui.chiudi_la_stagione"):t_("ui.gioca_la_giornata",{md:G.md+1})}</button>`; }
+/* ---------- risultato nascosto fino alla visione (0.4.5.2, V0b, PROBLEMI_NOTI n. 24) ----------
+   playMatchday() scrive subito tutto nello stato; G.hid = 'stagione-giornata' segna che la giornata appena giocata non è ancora stata vista.
+   Finché è così render() mostra la situazione di PRIMA della giornata (tabella e forma ricalcolate togliendo G.last) e le pagine
+   che leggono i risultati (notizie, calendari, marcatori, arbitri, statistiche) li nascondono. */
+const hidNow = ()=>!!(G && G.hid && G.last && G.hid===G.season+'-'+G.md);
+function hidReveal(){ if(G && G.hid){ G.hid=null; save(); } }
+function hidFormBefore(t){
+  if(!G.res || G.res.length!==G.md) return (t.form||[]).slice(0,-1);
+  const f=[]; G.res.slice(0,-1).forEach(day=>{ const m=day.find(x=>x.h===t.id||x.a===t.id); if(!m) return; const gf=m.h===t.id?m.gh:m.ga, gs=m.h===t.id?m.ga:m.gh; f.push(gf>gs?'V':gf<gs?'P':'N'); });
+  return f.slice(-5); }
+function hidSwap(){
+  const sv=G.T.map(t=>[t,t.tab,t.form]);
+  G.T.forEach(t=>{ const m=G.last.find(x=>x.h===t.id||x.a===t.id); if(!m) return;
+    const gf=m.h===t.id?m.gh:m.ga, gs=m.h===t.id?m.ga:m.gh, r=Object.assign({},t.tab);
+    r.g--; r.gf-=gf; r.gs-=gs; if(gf>gs){ r.v--; r.pt-=3; } else if(gf<gs) r.p--; else { r.n--; r.pt-=1; }
+    t.form=hidFormBefore(t); t.tab=r; });
+  return ()=>sv.forEach(([t,tab,form])=>{ t.tab=tab; t.form=form; }); }
 function render(){
+  if(!hidNow()) return renderBase();
+  const undo=hidSwap(); HIDSW=true; try{ renderBase(); } finally{ HIDSW=false; undo(); if(HIDSAVE){ HIDSAVE=false; save(); } } }
+function renderBase(){
   const on=!!G; $('#top').hidden=!on; $('#tabs').hidden=!on; $('#subtabs').hidden=!on; document.body.classList.toggle('ingame',on);
   if(!G){ $('#view').innerHTML = startScreen(); $('#sheet').hidden=true; ['#negov','#modal'].forEach(s=>{ const x=$(s); if(x) x.remove(); }); return; }
   if(NAV.first) navStart();
@@ -638,7 +660,7 @@ document.addEventListener('click', e=>{
     case 'vkick': kickoff(); break;
     case 'vspd': vSpeed(+el.dataset.s, el); break;
     case 'vnext': vNext(); break;
-    case 'vclose': stopViewer(); viewer=null; render(); break;
+    case 'vclose': stopViewer(); viewer=null; hidReveal(); render(); break;
     case 'ivnext': nextIV(); break;
     case 'ivagain': againIV(); break;
     case 'vcam': vCam(el); break;
