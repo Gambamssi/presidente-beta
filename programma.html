@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Scopri le tappe già concluse e il percorso di EVIVORA verso la versione 1.0 e oltre.">
+<title>Il programma di sviluppo · EVIVORA</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#07452f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101a16" media="(prefers-color-scheme: dark)">
+<script>/* tema scelto nel gioco (stessa chiave del gioco: presidente-pref-tema), applicato prima dello stile: niente lampo del tema sbagliato */ try{var t=localStorage.getItem('presidente-pref-tema');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="stylesheet" href="base.css">
+<script src="programma_dati.js"></script>
+<style>
+/* Solo variabili cromatiche, carattere e componenti di riferimenti/base.css.
+   I selettori data-ui aggiungono esclusivamente impaginazione e comportamenti della pagina. */
+html { scroll-behavior:smooth; }
+body { min-width:320px; }
+a { color:inherit; }
+button, summary { -webkit-tap-highlight-color:transparent; }
+[data-ui="masthead"] { border-bottom:1px solid var(--ev-border); background:var(--ev-surface); }
+[data-ui="head-inner"] { min-height:66px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+[data-ui="brand"] { display:flex; align-items:center; gap:11px; text-decoration:none; }
+[data-ui="brand"] .logo { width:38px; height:38px; display:block; flex:none; }
+[data-ui="brand-name"] { font-size:19px; letter-spacing:.11em; font-weight:900; color:var(--ev-heading); line-height:1.05; }
+[data-ui="brand-sub"] { font-size:10px; font-weight:800; letter-spacing:.16em; color:var(--ev-muted); text-transform:uppercase; margin-top:3px; }
+[data-ui="header-actions"] { display:flex; gap:10px; align-items:center; }
+[data-ui="header-chip"] { color:var(--ev-muted); font-size:12px; font-weight:700; letter-spacing:.07em; }
+[data-ui="theme-switch"] { min-width:40px; padding:9px 12px; font-size:13px; }
+[data-ui="hero-outer"] { padding-top:26px; }
+[data-ui="hero"] { position:relative; overflow:hidden; border-radius:18px; background:linear-gradient(118deg,var(--ev-sidebar-top),var(--ev-sidebar-mid) 65%,var(--ev-sidebar-end)); padding:48px 50px; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(230px,.8fr); gap:28px; align-items:center; }
+[data-ui="hero"]::before { content:""; position:absolute; width:460px; height:460px; border:1px solid var(--ev-sidebar-rule); border-radius:50%; right:-100px; top:-240px; pointer-events:none; }
+[data-ui="hero"]::after { content:""; position:absolute; width:360px; height:360px; border:1px solid var(--ev-sidebar-rule); border-radius:50%; right:15px; top:-195px; pointer-events:none; }
+[data-ui="eyebrow"] { display:flex; align-items:center; gap:9px; color:var(--ev-sidebar-gold); font-size:11px; letter-spacing:.18em; font-weight:900; text-transform:uppercase; }
+[data-ui="eyebrow"]::before { content:""; display:block; width:21px; height:2px; background:var(--ev-sidebar-gold); }
+[data-ui="hero"] h1 { font-size:clamp(30px,3.4vw,45px); max-width:630px; letter-spacing:-.042em; line-height:1.09; color:var(--ev-sidebar-strong); margin:15px 0 17px; }
+[data-ui="hero-lead"] { max-width:630px; color:var(--ev-sidebar-text); font-size:16px; line-height:1.65; margin:0; }
+[data-ui="hero-note"] { max-width:630px; color:var(--ev-sidebar-muted); font-size:13px; margin:15px 0 0; }
+[data-ui="hero-callout"] { position:relative; z-index:1; border:1px solid var(--ev-sidebar-active-line); background:var(--ev-sidebar-active); border-radius:16px; padding:23px 24px; }
+[data-ui="callout-big"] { display:flex; align-items:baseline; gap:9px; font-size:50px; font-weight:900; line-height:1; color:var(--ev-sidebar-gold); letter-spacing:-.065em; }
+[data-ui="callout-big"] span { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.12em; color:var(--ev-sidebar-muted); }
+[data-ui="callout-head"] { color:var(--ev-sidebar-strong); font-weight:800; margin:13px 0 6px; font-size:16px; }
+[data-ui="callout-text"] { color:var(--ev-sidebar-text); font-size:13px; line-height:1.55; margin:0; }
+[data-ui="stats"] { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin:16px 0 0; }
+[data-ui="stat"] { padding:17px 20px; background:var(--ev-surface); border:1px solid var(--ev-border); border-radius:10px; display:flex; align-items:center; gap:12px; }
+[data-ui="stat-number"] { font-size:27px; line-height:1; font-weight:900; color:var(--ev-heading); }
+[data-ui="stat-label"] { color:var(--ev-muted); line-height:1.35; font-size:12px; }
+[data-ui="section"] { margin-top:43px; }
+[data-ui="section-title-line"] { display:flex; gap:16px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+[data-ui="section-kicker"] { font-size:11px; color:var(--ev-gold-text); font-weight:900; text-transform:uppercase; letter-spacing:.18em; margin:0 0 6px; }
+[data-ui="section-title"] { font-size:26px; letter-spacing:-.03em; margin:0 0 6px; }
+[data-ui="section-desc"] { margin:0; font-size:13px; color:var(--ev-muted); max-width:640px; }
+[data-ui="legend"] { display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--ev-muted); }
+[data-ui="legend"] strong { color:var(--ev-heading); }
+[data-ui="legend-item"] { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+[data-ui="legend-dot"] { display:block; width:8px; height:8px; border-radius:50%; background:var(--ev-brand-green); }
+[data-ui="legend-line"] { width:2px; height:15px; background:var(--ev-brand-gold); }
+[data-ui="progress-board"] { padding:12px 27px 18px; }
+[data-ui="progress-row"] { padding:17px 0 26px; border-bottom:1px solid var(--ev-border-subtle); }
+[data-ui="progress-row"]:last-child { border:0; padding-bottom:16px; }
+[data-ui="progress-top"] { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+[data-ui="area-name"] { font-weight:800; color:var(--ev-heading); font-size:15px; }
+[data-ui="area-description"] { color:var(--ev-muted); font-size:12px; margin:3px 0 0; }
+[data-ui="percent"] { font-size:23px; font-weight:900; color:var(--ev-heading); white-space:nowrap; letter-spacing:-.04em; }
+[data-ui="percent"] small { font-size:11px; color:var(--ev-muted); letter-spacing:0; margin-left:4px; font-weight:700; }
+[data-ui="barwrap"] { position:relative; margin-top:32px; }
+[data-ui="track"] { width:100%; height:13px; background:var(--ev-border); border-radius:999px; position:relative; }
+[data-ui="fill"] { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--ev-brand-green),var(--ev-brand-green-hover)); display:block; min-width:0; }
+[data-ui="threshold"] { position:absolute; top:-9px; height:31px; width:2px; background:var(--ev-brand-gold); transform:translateX(-50%); }
+[data-ui="threshold"][data-edge="right"] { transform:translateX(-100%); }
+[data-ui="threshold-tag"] { position:absolute; bottom:34px; left:50%; transform:translateX(-50%); border-radius:5px; background:var(--ev-gold-soft); color:var(--ev-gold-text); border:1px solid var(--ev-gold-line); font-size:10px; line-height:1; font-weight:900; padding:4px 6px; white-space:nowrap; }
+[data-ui="threshold"][data-edge="right"] [data-ui="threshold-tag"] { left:auto; right:0; transform:none; }
+[data-ui="intro-row"] { display:flex; justify-content:space-between; gap:14px; align-items:center; flex-wrap:wrap; }
+[data-ui="jump-links"] { display:flex; flex-wrap:wrap; gap:7px; }
+[data-ui="jump-links"] a { text-decoration:none; border:1px solid var(--ev-border); border-radius:999px; font-weight:750; font-size:12px; padding:7px 12px; background:var(--ev-surface); }
+[data-ui="jump-links"] a:hover { background:var(--ev-surface-selected); }
+[data-ui="roadmap"] { display:grid; gap:15px; }
+[data-ui="done-card"] { padding:0; overflow:hidden; }
+[data-ui="done-card"] summary { list-style:none; cursor:pointer; padding:20px 24px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+[data-ui="done-card"] summary::-webkit-details-marker { display:none; }
+[data-ui="done-header"] { display:flex; gap:15px; align-items:center; }
+[data-ui="done-icon"] { display:grid; place-items:center; width:39px; height:39px; border-radius:11px; background:var(--ev-success-bg); color:var(--ev-success); font-weight:900; font-size:20px; }
+[data-ui="group-title"] { font-size:18px; font-weight:850; color:var(--ev-heading); margin:0; }
+[data-ui="group-subtitle"] { margin:3px 0 0; color:var(--ev-muted); font-size:12px; }
+[data-ui="expand-link"] { color:var(--ev-brand-green); font-size:12px; font-weight:800; white-space:nowrap; }
+[data-ui="done-card"][open] [data-ui="expand-link"]::after { content:" ↑"; }
+[data-ui="done-card"]:not([open]) [data-ui="expand-link"]::after { content:" ↓"; }
+[data-ui="done-list-wrap"] { padding:0 24px 23px; border-top:1px solid var(--ev-border); }
+[data-ui="phase-card"] { padding:25px 25px 11px; }
+[data-ui="phase-card"][data-highlight="true"] { border-top:3px solid var(--ev-brand-gold); }
+[data-ui="phase-head"] { display:flex; gap:16px; align-items:flex-start; margin-bottom:4px; }
+[data-ui="phase-num"] { width:48px; height:48px; border-radius:12px; background:var(--ev-surface-selected); color:var(--ev-brand-green); display:grid; place-items:center; font-size:18px; font-weight:900; flex:none; }
+[data-ui="phase-label"] { font-size:10px; letter-spacing:.17em; text-transform:uppercase; color:var(--ev-gold-text); font-weight:900; margin:1px 0 5px; }
+[data-ui="phase-card"] h3 { margin:0 0 5px; font-size:19px; letter-spacing:-.02em; }
+[data-ui="phase-card"] p { margin:0; color:var(--ev-muted); font-size:13px; }
+[data-ui="steps"] { list-style:none; margin:15px 0 0; padding:0; }
+[data-ui="step"] { display:grid; grid-template-columns:32px minmax(0,1fr) auto; gap:12px; padding:14px 1px; border-bottom:1px solid var(--ev-border-subtle); align-items:start; }
+[data-ui="step"]:last-child { border:0; }
+[data-ui="step-icon"] { display:grid; place-items:center; width:30px; height:30px; border:1px solid var(--ev-border); border-radius:9px; font-size:17px; color:var(--ev-muted); background:var(--ev-surface-subtle); font-weight:900; }
+[data-ui="step"][data-state="done"] [data-ui="step-icon"] { color:var(--ev-success); background:var(--ev-success-bg); border-color:var(--ev-success-bg); }
+[data-ui="step"][data-state="doing"] [data-ui="step-icon"] { color:var(--ev-warning); background:var(--ev-warning-bg); border-color:var(--ev-warning-bg); }
+[data-ui="step-name"] { margin:0; color:var(--ev-heading); font-size:14px; font-weight:800; line-height:1.35; }
+[data-ui="step-description"] { font-size:12px; line-height:1.55; color:var(--ev-muted); margin:4px 0 0; }
+[data-ui="step-meta"] { margin:6px 0 0; font-size:11px; color:var(--ev-muted); }
+[data-ui="step-status"] { flex:none; padding-top:2px; }
+[data-ui="step-status"] .ev-badge { white-space:nowrap; font-size:10px; }
+[data-ui="milestone"] { background:var(--ev-gold-soft); border:1px solid var(--ev-gold-line); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:14px; margin:6px 0 16px; }
+[data-ui="milestone-emblem"] { background:var(--ev-brand-gold); color:var(--ev-on-gold); font-size:16px; font-weight:900; padding:9px 11px; border-radius:8px; white-space:nowrap; }
+[data-ui="milestone"] strong { display:block; color:var(--ev-heading); font-size:14px; }
+[data-ui="milestone"] p { color:var(--ev-muted); margin:3px 0 0; font-size:12px; }
+[data-ui="after-card"] { padding:25px; }
+[data-ui="after-heading"] { display:flex; gap:14px; align-items:center; margin-bottom:10px; }
+[data-ui="after-icon"] { background:var(--ev-gold-soft); color:var(--ev-gold-text); border:1px solid var(--ev-gold-line); padding:10px; border-radius:10px; font-weight:900; }
+[data-ui="after-grid"] { display:block; }
+[data-ui="after-grid"] [data-ui="steps"] { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:22px; }
+[data-ui="after-grid"] [data-ui="step"] { grid-template-columns:30px minmax(0,1fr) auto; }
+[data-ui="after-grid"] [data-ui="step-status"] { display:block; }
+[data-ui="after-grid"] [data-ui="step"]:nth-last-child(2) { border-bottom:0; }
+[data-ui="endnote"] { margin:25px 0 44px; padding:17px 20px; border-left:3px solid var(--ev-brand-gold); background:var(--ev-surface-subtle); color:var(--ev-muted); font-size:12px; line-height:1.6; }
+[data-ui="footer"] { border-top:1px solid var(--ev-border); padding:19px 0 28px; color:var(--ev-muted); font-size:12px; }
+[data-ui="footer-inner"] { display:flex; justify-content:space-between; gap:14px; align-items:center; }
+[data-ui="footer"] strong { color:var(--ev-heading); }
+@media(max-width:760px){
+ [data-ui="head-inner"] { min-height:62px; }
+ [data-ui="header-chip"] { display:none; }
+ [data-ui="hero-outer"] { padding-top:13px; }
+ [data-ui="hero"] { border-radius:13px; grid-template-columns:1fr; padding:29px 23px; gap:21px; }
+ [data-ui="hero"] h1 { font-size:33px; margin:14px 0 13px; }
+ [data-ui="hero-lead"] { font-size:14px; line-height:1.6; }
+ [data-ui="hero-note"] { font-size:12px; }
+ [data-ui="hero-callout"] { padding:16px; }
+ [data-ui="callout-big"] { font-size:39px; }
+ [data-ui="stats"] { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:10px; }
+ [data-ui="stat"] { padding:12px 7px; display:block; text-align:center; }
+ [data-ui="stat-number"] { font-size:25px; }
+ [data-ui="stat-label"] { font-size:10px; margin-top:5px; }
+ [data-ui="section"] { margin-top:31px; }
+ [data-ui="section-title-line"] { display:block; }
+ [data-ui="section-title"] { font-size:23px; }
+ [data-ui="legend"] { margin-top:16px; }
+ [data-ui="progress-board"] { padding:6px 16px 10px; }
+ [data-ui="progress-row"] { padding:16px 0 22px; }
+ [data-ui="area-name"] { font-size:13px; }
+ [data-ui="area-description"] { font-size:11px; }
+ [data-ui="percent"] { font-size:21px; }
+ [data-ui="percent"] small { display:block; text-align:right; font-size:10px; }
+ [data-ui="barwrap"] { margin-top:34px; }
+ [data-ui="done-card"] summary { padding:17px 15px; }
+ [data-ui="done-list-wrap"] { padding:0 15px 14px; }
+ [data-ui="done-header"] { gap:10px; }
+ [data-ui="done-icon"] { width:34px; height:34px; }
+ [data-ui="group-title"] { font-size:16px; }
+ [data-ui="expand-link"] { font-size:10px; }
+ [data-ui="phase-card"] { padding:18px 15px 4px; }
+ [data-ui="phase-head"] { gap:11px; }
+ [data-ui="phase-num"] { height:41px; width:41px; font-size:16px; }
+ [data-ui="phase-card"] h3 { font-size:17px; }
+ [data-ui="step"] { grid-template-columns:28px minmax(0,1fr); gap:9px; padding:14px 0; }
+ [data-ui="step-icon"] { width:27px; height:27px; font-size:16px; }
+ [data-ui="step-status"] { grid-column:2; padding-top:0; }
+ [data-ui="step-status"] .ev-badge { font-size:10px; }
+ [data-ui="step-name"] { font-size:13px; }
+ [data-ui="step-description"] { font-size:12px; }
+ [data-ui="milestone"] { padding:14px; }
+ [data-ui="after-card"] { padding:19px 15px 10px; }
+ [data-ui="after-grid"] [data-ui="steps"] { grid-template-columns:1fr; }
+ [data-ui="after-grid"] [data-ui="step"] { grid-template-columns:28px minmax(0,1fr); }
+ [data-ui="after-grid"] [data-ui="step"]:nth-last-child(2) { border-bottom:1px solid var(--ev-border-subtle); }
+ [data-ui="endnote"] { margin-bottom:28px; }
+ [data-ui="footer-inner"] { display:block; }
+}
+</style>
+</head>
+<body>
+<header data-ui="masthead">
+  <div class="ev-col" data-ui="head-inner">
+    <a href="index.html" data-ui="brand" id="logoGioco" aria-label="EVIVORA, torna al gioco">
+      <svg class="logo" viewBox="0 0 80 80" aria-hidden="true"><rect x="1" y="1" width="78" height="78" rx="18" fill="var(--ev-sidebar-end)"/><path d="M11 43 8 21 24 31 40 12 56 31 72 21 69 43Z" fill="var(--ev-brand-gold)" stroke="var(--ev-gold-text)" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 47h54v9H13z" fill="var(--ev-brand-gold)"/><circle cx="40" cy="35" r="4" fill="var(--ev-sidebar-end)"/><path d="M18 63H62" stroke="var(--ev-brand-gold)" stroke-width="5" stroke-linecap="round"/></svg>
+      <span><span data-ui="brand-name" style="display:block">EVIVORA</span><span data-ui="brand-sub" style="display:block">Sei il presidente</span></span>
+    </a>
+    <div data-ui="header-actions"><span data-ui="header-chip">PERCORSO DI SVILUPPO</span><button type="button" class="ev-btn" data-ui="theme-switch" id="themeSwitch" aria-label="Attiva tema scuro">◐ Tema</button></div>
+  </div>
+</header>
+<main class="ev-col" id="inizio">
+  <div data-ui="hero-outer"><section data-ui="hero" aria-labelledby="main-heading">
+    <div>
+      <div data-ui="eyebrow">Il futuro di EVIVORA</div>
+      <h1 id="main-heading">Ogni tappa ci avvicina al fischio d'inizio.</h1>
+      <p data-ui="hero-lead">La <strong>versione 1.0</strong> sarà il gioco con campionati condivisi e più presidenti pronti a sfidarsi nello stesso mondo calcistico.</p>
+      <p data-ui="hero-note">Qui trovi ciò che è stato fatto, quello che manca e le idee per dopo. Il programma può cambiare: non è un calendario di uscita.</p>
+    </div>
+    <aside data-ui="hero-callout" aria-label="Traguardo 1.0">
+      <div data-ui="callout-big">1.0 <span>il traguardo</span></div>
+      <div data-ui="callout-head">Il calcio diventa condiviso</div>
+      <p data-ui="callout-text">Dalla gestione del tuo club a un campionato contro altri presidenti. Dopo la 1.0, EVIVORA continuerà a crescere.</p>
+    </aside>
+  </section></div>
+  <div id="stats" data-ui="stats" aria-label="Riepilogo delle tappe"></div>
+  <section data-ui="section" id="avanzamento" aria-labelledby="progress-heading">
+    <div data-ui="section-title-line">
+      <div><p data-ui="section-kicker">Uno sguardo d'insieme</p><h2 data-ui="section-title" id="progress-heading">A che punto siamo</h2><p data-ui="section-desc">Cinque aree, cinque barre. Il segno <strong>1.0</strong> indica il livello previsto per la prima versione del gioco.</p></div>
+      <div data-ui="legend"><span data-ui="legend-item"><i data-ui="legend-dot" aria-hidden="true"></i> Parte realizzata</span><span data-ui="legend-item"><i data-ui="legend-line" aria-hidden="true"></i> Segno 1.0</span></div>
+    </div>
+    <div class="ev-card" data-ui="progress-board" id="bars"></div>
+    <p class="ev-muted" style="font-size:11px; margin:10px 0 0" id="nota-barre"></p>
+  </section>
+  <section data-ui="section" id="percorso" aria-labelledby="roadmap-heading">
+    <div data-ui="section-title-line">
+      <div><p data-ui="section-kicker">Il percorso di sviluppo</p><h2 data-ui="section-title" id="roadmap-heading">Dove siamo e cosa viene dopo</h2><p data-ui="section-desc">Le tappe sono in ordine di percorso, senza scadenze previste.</p></div>
+    </div>
+    <nav data-ui="jump-links" aria-label="Vai alle tappe"><a href="#fatto">Già fatto</a><a href="#fase-1">Fase 1</a><a href="#fase-2">Fase 2</a><a href="#fase-3">Fase 3</a><a href="#dopo">Dopo la 1.0</a></nav>
+    <div data-ui="roadmap" id="roadmap" style="margin-top:16px"></div>
+  </section>
+  <div data-ui="endnote">Questa pagina racconta un percorso in costruzione. Alcune tappe possono essere riviste, unite o spostate. Una funzione indicata come “da fare” non è ancora disponibile nel gioco.</div>
+</main>
+<footer data-ui="footer"><div class="ev-col" data-ui="footer-inner"><span><strong>EVIVORA</strong> · Il percorso verso la versione 1.0</span><span><a href="index.html">Torna al gioco</a> · Il gioco cresce, un passo alla volta.</span></div></footer>
+<script>
+(() => {
+  'use strict';
+  const $ = (s,root=document) => root.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const P = PROGRAMMA, barre = programmaBarre(P);
+  const fatte = P.tappe.filter(t => t.stato === 'fatto');
+  const verso = P.tappe.filter(t => t.fase !== 'dopo' && t.stato !== 'fatto');
+  const dopo = P.tappe.filter(t => t.fase === 'dopo');
+  const dataIt = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ''); if (!m) return ''; try { return new Intl.DateTimeFormat('it-IT', {day:'numeric', month:'long', year:'numeric'}).format(new Date(+m[1], +m[2]-1, +m[3])); } catch (e) { return d; } };
+  $('#stats').innerHTML = [
+    [fatte.length, 'tappe già concluse'],
+    [verso.length, 'tappe ancora da fare verso la 1.0'],
+    [dopo.length, 'tappe previste dopo la 1.0'],
+  ].map(([n,label]) => `<div data-ui="stat"><div data-ui="stat-number">${n}</div><div data-ui="stat-label">${label}</div></div>`).join('');
+  $('#bars').innerHTML = P.aree.map(a => {
+    const b = barre.find(x => x.id === a.id), pct = b.pct, goal = b.segno;
+    return `<div data-ui="progress-row" data-area="${esc(a.id)}">
+      <div data-ui="progress-top"><div><div data-ui="area-name">${esc(a.nome)}</div><p data-ui="area-description">${esc(a.descrizione)}</p></div><div data-ui="percent">${pct}%<small>realizzato</small></div></div>
+      <div data-ui="barwrap"><div data-ui="track" role="progressbar" aria-label="${esc(a.nome)}: ${pct}% realizzato, traguardo versione 1.0: ${goal}%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span data-ui="fill" style="width:${pct}%"></span><span data-ui="threshold" data-goal="${goal}" style="left:${goal}%" ${goal>=100?'data-edge="right"':''}><span data-ui="threshold-tag">1.0</span></span></div></div>
+    </div>`;
+  }).join('');
+  $('#nota-barre').textContent = 'Ogni barra si riempie in base al peso delle tappe concluse: piccola 1, media 2, grande 3. Le promozioni della versione di prova non contano.';
+  const stato = {'fatto':{icon:'✓',text:'Fatto',cls:'ev-badge--success',key:'done'}, 'in corso':{icon:'⏳',text:'In corso',cls:'ev-badge--warning',key:'doing'}, 'da fare':{icon:'○',text:'Da fare',cls:'ev-badge--info',key:'todo'}};
+  const areaNome = id => (P.aree.find(a => a.id === id) || {}).nome || '';
+  const steps = (items, group) => `<ul data-ui="steps" ${group==='after'?'data-after="true"':''}>${items.map(m => {
+    const st = stato[m.stato] || stato['da fare'];
+    const meta = m.stato === 'fatto' ? `<div data-ui="step-meta">${[m.versione ? 'Versione ' + esc(m.versione) : '', dataIt(m.data)].filter(Boolean).join(' · ')}</div>` : '';
+    return `<li data-ui="step" data-state="${st.key}"><div data-ui="step-icon" aria-hidden="true">${st.icon}</div><div><div data-ui="step-name">${esc(m.titolo)}</div><p data-ui="step-description">${esc(m.spiegazione)}</p>${m.area ? `<div data-ui="step-meta">${esc(areaNome(m.area))}</div>` : ''}${meta}</div><div data-ui="step-status"><span class="ev-badge ${st.cls}">${st.text}</span></div></li>`;
+  }).join('')}</ul>`;
+  /* già fatto: dalla più recente */
+  const fatteOrd = fatte.map((t,i) => [t,i]).sort((a,b) => (b[0].data || '').localeCompare(a[0].data || '') || b[1] - a[1]).map(x => x[0]);
+  const doneHtml = `<details class="ev-card" data-ui="done-card" id="fatto"><summary aria-label="Mostra o nascondi le tappe già completate"><div data-ui="done-header"><span data-ui="done-icon">✓</span><span><span data-ui="group-title" style="display:block">Già fatto · ${fatte.length} tappe</span><span data-ui="group-subtitle" style="display:block">Le basi da cui nasce EVIVORA</span></span></div><span data-ui="expand-link">Apri elenco</span></summary><div data-ui="done-list-wrap">${steps(fatteOrd,'done')}</div></details>`;
+  const phasesHtml = P.fasi.map((ph,i) => {
+    const t = P.tappe.filter(x => x.fase === ph.n && x.stato !== 'fatto');
+    return `<article class="ev-card" data-ui="phase-card" data-highlight="${i===0}" id="fase-${ph.n}">
+    <div data-ui="phase-head"><span data-ui="phase-num">0${ph.n}</span><div><div data-ui="phase-label">Verso la 1.0 · Fase ${ph.n}</div><h3>${esc(ph.titolo)}</h3><p>${esc(ph.sottotitolo)}</p></div></div>${t.length ? steps(t,'phase') : '<p style="margin:14px 0 14px">Tutte le tappe di questa fase sono fatte.</p>'}
+  </article>`; }).join('');
+  const afterHtml = `<article class="ev-card" data-ui="after-card" id="dopo"><div data-ui="after-heading"><span data-ui="after-icon">✦</span><div><p data-ui="phase-label">Dopo la versione 1.0</p><h3 data-ui="group-title">Il mondo di EVIVORA continua a crescere</h3><p data-ui="group-subtitle">Idee e sviluppi successivi alla prima versione condivisa.</p></div></div><div data-ui="after-grid">${steps(dopo,'after')}</div></article>`;
+  $('#roadmap').innerHTML = doneHtml + phasesHtml + `<div data-ui="milestone"><span data-ui="milestone-emblem">1.0</span><div><strong>Il primo grande traguardo</strong><p>Un mondo calcistico con campionati condivisi e più presidenti.</p></div></div>` + afterHtml;
+  const doneSection = $('#fatto'), doneAction = $('[data-ui=expand-link]', doneSection);
+  doneSection.addEventListener('toggle', () => { doneAction.textContent = doneSection.open ? 'Chiudi elenco' : 'Apri elenco'; });
+  /* tema: stessa chiave del gioco (presidente-pref-tema), così la scelta fatta nel gioco vale qui e viceversa */
+  const THEME_KEY = 'presidente-pref-tema', root = document.documentElement, themeButton = $('#themeSwitch');
+  const isDark = () => root.getAttribute('data-theme') === 'dark' || (!root.hasAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+  function labelTheme() { const d = isDark(); themeButton.textContent = d ? '☼ Tema chiaro' : '◐ Tema scuro'; themeButton.setAttribute('aria-label', d ? 'Attiva tema chiaro' : 'Attiva tema scuro'); }
+  themeButton.addEventListener('click', () => { const t = isDark() ? 'light' : 'dark'; root.setAttribute('data-theme', t); try { localStorage.setItem(THEME_KEY, t); } catch (e) {} labelTheme(); });
+  window.addEventListener('storage', e => { if (e.key === THEME_KEY) { if (e.newValue === 'light' || e.newValue === 'dark') root.setAttribute('data-theme', e.newValue); else root.removeAttribute('data-theme'); labelTheme(); } });
+  labelTheme();
+})();
+</script>
+</body>
+</html>

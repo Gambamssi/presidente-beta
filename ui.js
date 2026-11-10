@@ -310,6 +310,8 @@ function missionsHTML(t, compact){
 function negHead(p, over, title, sub, rl, rv, tags){
   return `<div class="neg-h ev-nhead"><span class="ev-nface" aria-hidden="true">${p?plFace(p):crestHTML(0)}</span><div class="ev-ntext"><p class="ev-eyebrow">${over}</p><h2>${title}</h2><p class="ev-nsub">${sub}</p>${tags&&tags.length?`<p class="ev-ntags">${tags.map(x=>`<span>${x}</span>`).join('')}</p>`:''}</div>${rv!=null?`<div class="ev-nval"><small>${rl}</small><b>${rv}</b></div>`:''}<button class="x" data-act="negclose" aria-label="${t_("ui.chiudi")}">${t_("ui.x")}</button></div>`; }
 let negId=null;
+/* 0.4.5.3 (V0c, n. 25): la scritta del valore mostra sempre quello del cursore (all'apertura, mentre si trascina, a fine gesto); solo DOM, nessuno stato */
+function negSyncLbl(){ const s=$('#neg-v'), o=$('#neg-vt'); if(!s||!o) return; const q=(G.req||[]).find(x=>x.id===negId); if(q) o.textContent=negVal(q,+s.value); }
 function negVal(r,v){ if(r.kind==='offerta') return kcr(v)+' cr'; if(r.kind==='acquisto') return r.neg&&r.neg.ph==='club'?kcr(v)+' cr':fmt(v)+` ${t_("ui.cr_a_giornata")}`; return r.kind==='rinforzo'?t_("ui.un_giocatore_di_valore",{fDec:fDec(v.toFixed(1))}):r.kind==='rinnovo'||r.kind==='aumento'?fmt(v)+` ${t_("ui.cr_a_giornata")}`:kcr(v)+' cr'; }
 function vNeg(){
   const r=(G.req||[]).find(q=>q.id===negId); if(!r||!r.neg) return '';
@@ -611,7 +613,7 @@ function renderBase(){
   st.hidden=subs.length<2;
   st.innerHTML = subs.length<2?'':subs.map(([k,l])=>`<button class="${sub===k&&clubView==null?'on':''}" data-act="go" data-a="${area}" data-s="${k}"${sub===k&&clubView==null?' aria-current="page"':''}>${l}${area==='mercato'&&k==='trattative'&&openDeals().length?` <span class="tabn n">${openDeals().length}</span>`:''}</button>`).join('');
   $('#view').innerHTML = clubView!=null ? vProfile(clubView) : VIEWS[area+'/'+sub]();
-  { let ov=$('#negov'); const h=(G.fired&&clubView==null)?vFired():(bnegOn&&G.bneg)?vBankNeg():negId?vNeg():''; if(h){ if(!ov){ ov=document.createElement('div'); ov.id='negov'; document.body.appendChild(ov); } ov.innerHTML=h; const ch=ov.querySelector('.neg-chat'); if(ch) ch.scrollTop=ch.scrollHeight; } else if(ov) ov.remove(); }
+  { let ov=$('#negov'); const h=(G.fired&&clubView==null)?vFired():(bnegOn&&G.bneg)?vBankNeg():negId?vNeg():''; if(h){ if(!ov){ ov=document.createElement('div'); ov.id='negov'; document.body.appendChild(ov); } ov.innerHTML=h; const ch=ov.querySelector('.neg-chat'); if(ch) ch.scrollTop=ch.scrollHeight; negSyncLbl(); } else if(ov) ov.remove(); }
   { let mo=$('#modal'); const h=modal?vModal():''; if(h){ if(!mo){ mo=document.createElement('div'); mo.id='modal'; document.body.appendChild(mo); } mo.innerHTML=h; } else if(mo) mo.remove(); }
   const sh=$('#sheet'); if(sheetPid!=null){ sh.innerHTML=vSheet(); sh.hidden=false; } else { sh.hidden=true; sh.innerHTML=''; }
   if(viewer && onMatchPage()) attachViewer();
