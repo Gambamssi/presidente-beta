@@ -180,11 +180,14 @@ document.addEventListener('click', e=>{
     case 'offeracc': { acceptOffer(+el.dataset.k); budDraft=null; negId=null; sheetPid=null; stopViewer(); viewer=null; clubView=null; area='scrivania'; sub='home'; save(); render(); toast(t_("fin.benvenuto_nella_nuova_societa")); break; }
   }
 });
+/* 0.4.5.3 (V0c, n. 25): tasso e rata mostrati sono sempre quelli del cursore (apertura, trascinamento, fine gesto) */
+function bankSyncLbl(){ const s=$('#bank-v'), o=$('#bank-vt'); if(s&&o&&G.bneg) o.textContent=`${fmtV(+s.value)}% · rata ${fmt(Math.round(annuity(G.bneg.amt,G.bneg.n,+s.value)))}`; }
 document.addEventListener('input', e=>{ const id=e.target&&e.target.id; if(!id||!G) return;
-  if(id==='bank-v'&&G.bneg){ const o=$('#bank-vt'); if(o) o.textContent=`${fmtV(+e.target.value)}% · rata ${fmt(Math.round(annuity(G.bneg.amt,G.bneg.n,+e.target.value)))}`; }
+  if(id==='bank-v') bankSyncLbl();
   if(id==='fin-amt'){ loanForm.amt=+e.target.value; const o=$('#fin-amt-t'); if(o) o.textContent=kcr(loanForm.amt)+' cr';
     const pl=$('#fin-peg-l'); if(pl && loanForm.peg==='car'){ const pv=pickPledge(G.T[0],loanForm.amt,loanForm.n); pl.textContent=pv.map(p=>p.fn+' '+p.ln+' ('+kcr(value(p))+')').join(', '); } }
   if(id.startsWith('bud-')) budRefresh(); });
 document.addEventListener('change', e=>{ const id=e.target&&e.target.id; if(!id||!G) return;
+  if(id==='bank-v') bankSyncLbl();
   if(id==='fin-peg'){ loanForm.peg=e.target.value; render(); } if(id==='fin-n'){ loanForm.n=+e.target.value; render(); } if(id==='fin-amt') render(); });
 Object.assign(VIEWS,{'societa/bilancio':vBilancio,'societa/banca':vBancaPage,'societa/strutture':vStrutture});

@@ -930,3 +930,12 @@ table.ev-standings tr.me td:first-child{box-shadow:inset 4px 0 0 var(--ev-brand-
   .tabs .ev-ico{width:17px;height:17px}
   .tabs .tabn{top:1px}
 }
+
+/* Finestre della trattativa sul telefono (0.4.5.3, V0c, PROBLEMI_NOTI n. 25): mai più larghe dello schermo, cursore trascinabile col dito.
+   Causa: la griglia di .neg-in aveva la colonna «auto», quindi il menu «Motivazione» (opzioni lunghe) la allargava oltre la finestra
+   (483 px in 358) e il gesto orizzontale faceva scorrere il riquadro di lato invece di muovere il cursore. */
+#negov .neg{overflow-x:hidden;overscroll-behavior:contain}
+.neg-in{min-width:0;grid-template-columns:minmax(0,1fr);overflow-x:hidden;overflow-wrap:break-word}
+.neg-in>*,.neg-form label,.neg-no label{min-width:0}
+.neg-form select,.neg-no select{max-width:100%}
+.neg-form input[type=range]{display:block;width:100%;touch-action:pan-y}

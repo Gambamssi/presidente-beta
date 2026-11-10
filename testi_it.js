@@ -1141,6 +1141,7 @@ TESTI.it={
   "home.menu":"Menu",
   "home.x":"×",
   "home.novita_della_versione":"Novità della versione",
+  "home.programma":"Programma",
   "home.cambia_nome_della_segretaria":"Cambia nome della segretaria",
   "home.esporta_la_partita":"Esporta la partita",
   "home.importa_una_partita":"Importa una partita",
