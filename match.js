@@ -111,7 +111,7 @@ function planMatch(T, O, R){
 
 /* ---------- partita ---------- */
 function xgAt(dx,dy){ const ang=Math.abs(Math.atan2(7.32*dx, dx*dx+dy*dy-13.4)); const dg=hyp(dx,dy); return 1/(1+Math.exp(1.8-2.6*ang+0.08*dg)); }
-function laneBlock(p,o,gx){ let b=1; for(const q of o.on){ if(q.role==='GK') continue; if(Math.abs(q.x-gx)<Math.abs(p.x-gx) && segDist(q.x,q.y,p.x,p.y,gx,34)<1.6) b*=0.68+0.14*Math.max(0,Math.min(1,(80-q.st)/50)); } return b; }
+function laneBlock(p,o,gx){ let b=1; for(const q of o.on){ if(q.role==='GK') continue; if(Math.abs(q.x-gx)<Math.abs(p.x-gx) && segDist(q.x,q.y,p.x,p.y,gx,34)<1.6) b*=0.68+R4C.lb*Math.max(0,Math.min(1,(80-q.st)/50));   /* R4 (F6): il difensore stanco chiude meno la linea di tiro */ } return b; }
 const TIME_F=1;   /* v0.4.2.0: orologio vero, un secondo di simulazione = un secondo di partita (prima 0,715) */
 /* voti: pesi per ruolo (mu = contributo medio del ruolo, k = ampiezza) */
 const RATE_G={GK:'GK',CB:'CB',LB:'FB',RB:'FB',LWB:'FB',RWB:'FB',DM:'DM',CM:'CM',LM:'CM',RM:'CM',AM:'AM',LW:'AM',RW:'AM',ST:'ST'};
@@ -136,12 +136,15 @@ function moraleBoost(mor,cmor){ return clamp((mor-12)/8,-1,1)*MOR_K + clamp(((cm
 const PAN_TAB={sotto_medio:1, sotto_tardi:2, sotto2:2, sopra1_tardi:-1, sopra2:-1, pari_tardi_forte:1, pari_tardi_debole:0};
 /* v0.4.5.0 (R3b): skill tattiche e mentali lette dal codice dell'allenatore e loro medie di riferimento (giocatori dei mondi generati) */
 const SK_TQ=['SM','CL','DE','CO','LE','DT','LG','MA','AN','IN'], SK_TQM={SM:50,CL:47,DE:45,CO:40,LE:48,DT:50,LG:48,MA:46,AN:46,IN:48};
-const FIN=0.45, SKILL_K=0.33, HOME_B=1.5, DAY_F=0.7;   /* v0.4.2.7 (R2b): HOME_B 0,4 → 1,5. Il vantaggio di casa tocca solo le caratteristiche compresse a (decisioni); dalla 0.4.2.0 corpo, tiri, portiere e controllo usano a0 e la velocità vera, quindi serve un valore più alto per lo stesso effetto (vedi docs/PROGRESSI_R2b.md) */
+const FIN=0.45, SKILL_K=0.45, HOME_B=1.8, DAY_F=0.7;   /* v0.4.2.7 (R2b): HOME_B 0,4 → 1,5. Il vantaggio di casa tocca solo le caratteristiche compresse a (decisioni); dalla 0.4.2.0 corpo, tiri, portiere e controllo usano a0 e la velocità vera, quindi serve un valore più alto per lo stesso effetto (vedi docs/PROGRESSI_R2b.md) */
 /* v0.4.2.0: tarature della fisica dei tiri e del ritmo (vedi STATO.md, «Fisica della palla e dei corpi») */
 /* v0.4.2.0: con l'orologio vero i tempi delle decisioni (scritti in secondi della vecchia simulazione) scorrono a TDEC per secondo
    e le pause delle riprese (in tick) durano RS_K volte di più: così ritmo delle giocate e tempo effettivo restano quelli di prima */
 const TDEC=0.715, RS_K=1.75;
-const SHOT_S0=0.075, SHOT_ERR=3.2, GK_VD=5.4, CONTEST_K=1, RUN_K=0.6;
+const SHOT_S0=0.05, SHOT_ERR=3.9, GK_VD=5.8, CONTEST_K=1, RUN_K=0.6;
+/* v0.4.6.0 (R4): duelli. k = frequenza dei contrasti quando il portatore non dribbla, dr = durante un dribbling (il duello del dribbling);
+   f, fd = fattore dei falli per contrasto (meno contrasti, stessi falli a partita: decisione di Dani del 10/11) */
+const R4C={k:0.4, dg:3, dr:1.5, dw:2.6, f:3.0, fd:0.9, luc:0.9, lb:0.14};
 /* frame registrati (v0.4.2.0): Int16Array, coordinate in cm. Per n colonne (giocatori): [i*2, i*2+1] = x, y del giocatore i (FR_NONE se assente);
    n*2..+2 palla x,y,z; +3..+11 tre sotto-campioni della palla; +12..+17 arbitro e assistenti; +18 cartellino; +19 bandierina; +20, +21 capitani;
    +22, +23 inclinazione del portiere (millesimi di radiante, tuffo) delle due squadre; da n*2+24 l'orientamento dei giocatori, un byte ciascuno (due per numero) */
@@ -155,6 +158,27 @@ function frDecode(f, n, out){ const nb=n*2, L=nb+24+n; out=out||new Float32Array
   for(let i=nb+18;i<nb+22;i++) out[i]=f[i]; out[nb+22]=f[nb+22]*0.001; out[nb+23]=f[nb+23]*0.001;
   for(let k=0;k<n;k++) out[nb+24+k]=frOri(f,n,k); return out; }
 function xT(xr,yr){ return 0.004+0.26*Math.exp(-hyp(105-xr,34-yr)/10.5)+0.02*xr/105; }
+/* v0.4.6.0 (R4): caratteristiche dei gesti per il codice del giocatore, dalle 57 (S1). In matchInput un carattere per skill (GS_A, 64 livelli
+   sulla scala 1–20) per non appesantire le partite salvate. Le skill che hanno un «genitore» tra i 22 attributi sono centrate su di esso
+   (stessa taratura per ruolo di skA22): k = a[genitore] + (T20(skill) − T20(composto del genitore))·dispersione; le altre sono T20 grezze.
+   gsOf decodifica (o, per le partite salvate prima della 0.4.6.0, ricava i valori dai 22 attributi). */
+/* v0.4.6.0 (R4): tipi dell'elenco dei gesti (out.gesti con rec acceso): decodifica g → tick = g>>10, colonna = (g>>4)&63, tipo = GST_K[g&15] */
+const GST_K=['passaggio','cross','tiro','testa','stop','dribbling','contrasto','scivolata','parata','presa','rinvio','rimessa','lancio','spazzata','protezione','piazzato'];
+const GS_K=['PC','PL','PO','PU','CA','RI','AC','MA','IN','OF','DF','AN','PD','AG','EQ','CG','CL','CO'];
+const GS_A='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+const GS_P={PC:['pas',s=>0.7*s.PC+0.3*s.PL], PL:['pas',s=>0.7*s.PC+0.3*s.PL], PO:['lun',s=>(s.TI+s.PO)/2], PU:['cpz',s=>(s.PU+s.CA+s.RI)/3], CA:['cpz',s=>(s.PU+s.CA+s.RI)/3], RI:['cpz',s=>(s.PU+s.CA+s.RI)/3],
+  AC:['vel',s=>0.7*s.VE+0.3*s.AC], MA:['con',s=>s.CN], IN:['con',s=>s.CN], OF:['pos',(s,r)=>r==='A'?s.OF:r==='D'?s.DF:(s.OF+s.DF)/2], DF:['pos',(s,r)=>r==='A'?s.OF:r==='D'?s.DF:(s.OF+s.DF)/2]};
+function gsEnc(p){ const c=skOf(p), v=c.v, a=c.a, r=p.r, D=SK_DISP[r]||{}; let o='';
+  for(const k of GS_K){ const g=r==='P'&&(k==='OF'||k==='DF')?null:GS_P[k]; let x;
+    if(g){ const d=D[g[0]]?D[g[0]][1]:1; x=a[g[0]]+(SK_T20(v[k])-SK_T20(g[1](v,r)))*d; } else x=SK_T20(v[k]);
+    o+=GS_A[Math.round((clamp(x,1,20)-1)/19*63)]; }
+  return o; }
+/* F9 (revisione di Dani): GS_W = quanto la skill dei gesti si scosta dal suo riferimento tra i 22 (la qualità della rosa, misurata con ovr sui 22, deve contare almeno quanto prima) */
+const GS_W=0.5;
+function gsOf(pi){ const o={}, a=pi.a;
+  const F={PC:a.pas,PL:a.pas,PO:a.lun,PU:a.cpz,CA:a.cpz,RI:a.cpz,AC:a.vel,MA:a.con,IN:a.con,OF:a.pos,DF:a.pos,AN:a.pos,PD:pi.foot==='A'?15:6.5,AG:a.vel,EQ:a.for,CG:a.res,CL:a.fre,CO:a.dec};
+  if(typeof pi.g==='string' && pi.g.length===GS_K.length){ GS_K.forEach((k,i)=>{ const v=1+GS_A.indexOf(pi.g[i])*19/63; o[k]=k==='PD'?v:F[k]+(v-F[k])*GS_W; }); return o; }
+  for(const k of GS_K) o[k]=F[k]; return o; }
 const hyp=(x,y)=>Math.sqrt(x*x+y*y);
 const D2=(a,b)=>hyp(a.x-b.x,a.y-b.y);
 function segDist(px,py,ax,ay,bx,by){ const vx=bx-ax, vy=by-ay, L=vx*vx+vy*vy||1; let u=((px-ax)*vx+(py-ay)*vy)/L; if(u<0.08||u>1) return 99; return hyp(ax+u*vx-px, ay+u*vy-py); }
@@ -271,7 +295,7 @@ function simMatch(inp, seed, rec){
   /* v0.4.2.2 (T1): contesto condiviso con i moduli match_fis.js, match_all.js, match_gio.js, match_arb.js (vedi MAPPA.md).
      Le fabbriche definiscono soltanto le funzioni (niente numeri casuali); lega() copia in M i valori della preparazione
      e collega le variabili dei moduli agli stessi oggetti. Le variabili riassegnate durante la partita sono campi di M. */
-  const M={link:[], mFis:null, mAll:null, mGio:null, mArb:null, RB:null, tick:0, half:1, regEnd:0, restart:null, ht2:null, errLeft:0, bsN:0, RC:null, T:null, all:null, rx:null, ry:null, ball:null, ref:null, minNum:null, E:null, R:null, P:null, RA:null, RP:null, SO:null, SX:null, tm:null, op:null, fill2:null, recSub:null, RF:null, cardF:null, refErrs:null, errPlan:null, MIN_T:null};
+  const M={link:[], mFis:null, mAll:null, mGio:null, mArb:null, RB:null, tick:0, half:1, regEnd:0, restart:null, ht2:null, errLeft:0, bsN:0, RC:null, T:null, all:null, rx:null, ry:null, ball:null, ref:null, minNum:null, E:null, R:null, P:null, RA:null, RP:null, SO:null, SX:null, tm:null, op:null, fill2:null, recSub:null, RF:null, cardF:null, refErrs:null, errPlan:null, MIN_T:null, gst:null};
   M.mFis=matchFis(M); M.mAll=matchAll(M); M.mGio=matchGio(M); M.mArb=matchArb(M);
   const {fatK, move, separate, buildDist, D2, giveBall, loose, lineCheck, ballTick, ownerBall}=M.mFis, {setForm, specOf, gkOf, endCel, runProb, assignMarks, targets, deconflict, startSub, stepSubs, htSubs, coachBon, coachThink}=M.mAll, {nearestOpp, handsOk, gkCatch, decide}=M.mGio, {canErr, startKick, pause, refError, moveRefs, foul, injure, keepDistance, restartBall, rsReady, execRestart}=M.mArb;
   const lega=o=>{ Object.assign(M,o); for(const f of M.link) f(); };
@@ -284,7 +308,7 @@ function simMatch(inp, seed, rec){
     st:{poss:0,sh:0,sot:0,xg:0,cor:0,fou:0,yc:0,rc:0,pa:0,pc:0,off:0}}; });
   const all=new Map(), ev=[], frames=rec?[]:null;
   const dayF=[0,1].map(()=>(R()+R()-1)*DAY_F);
-  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, drib:0, shield:0, bA:null, wall:null, runOff:0, used:false, walkIn:false, leave:0, lw:0, subOut:false, subbed:false, st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
+  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, drib:0, shield:0, bA:null, wall:null, runOff:0, used:false, walkIn:false, leave:0, lw:0, subOut:false, subbed:false, gs:gsOf(pi), st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
     s:{g:0,as:0,kp:0,sh:0,sot:0,pa:0,pc:0,tk:0,int:0,drw:0,sv:0,err:0,red:0,prog:0,gv:0,av:0,ga:0,svv:0}}); }
   const plans=[0,1].map(i=>planMatch(T[i].inp,T[1-i].inp,RC));
   [0,1].forEach(i=>{ const f=inp.t[i].force; if(f){ Object.assign(plans[i],f); if(f.form) plans[i].xi=bestXI(T[i].inp.players,f.form); } });
@@ -302,7 +326,7 @@ function simMatch(inp, seed, rec){
   const ball={x:52.5,y:34,z:0,vz:0,owner:null,fl:null,vx:0,vy:0,lastT:0,lastP:null,pass:null};
   /* terna arbitrale: caratteristiche (1-20, media 10) */
   const RF=Object.assign({esp:10,car:10,fis:10,err:10}, inp.ref||{});
-  const cardF=0.7+RF.car*0.03, fisF=0.85+RF.fis*0.015, penF=0.55+RF.fis*0.045;
+  const cardF=(0.7+RF.car*0.03)*1.02, fisF=0.85+RF.fis*0.015, penF=0.55+RF.fis*0.045;
   const ref={x:45,y:40,v:0, a1:{x:35,y:-1}, a2:{x:70,y:PW+1}, cardK:0, cardT:-99, flag:0, flagT:-99};
   const errLam=clamp(0.35+(RF.err-10)*0.05-(RF.esp-10)*0.03,0.04,0.9);
   M.errLeft=(RA()<errLam?1:0)+(RA()<errLam*0.5?1:0); const refErrs=[];
@@ -324,6 +348,9 @@ function simMatch(inp, seed, rec){
   /* --- ciclo principale --- */
   let possTicks=[0,0], nTot=0, lastOwnT=-1;
   const cols = rec ? [...all.keys()] : null, colIdx = rec ? new Map(cols.map((id,i)=>[id,i])) : null, colP = rec ? cols.map(id=>all.get(id)) : null;
+  /* v0.4.6.0 (R4, per R6b): elenco leggero dei gesti, solo con rec acceso (nessun numero casuale, nessun effetto sulla partita).
+     Un intero per gesto: tick·1024 + colonna·16 + tipo (GST_K). */
+  const GST=rec?[]:null; M.gst=rec?(p,k)=>{ const c=colIdx.get(p.id); GST.push(M.tick*1024+(c==null?63:c)*16+k); }:null;
   let pbx=52.5, pby=34, pbz=0;
   const capHolder=t=>{ for(const id of (t.inp.capOrder||[])){ const p=all.get(id); if(p&&p.on) return colIdx.get(id); } const q=t.on.slice().sort((a,b)=>b.age-a.age)[0]; return q?colIdx.get(q.id):-1; };
   /* frame (v0.4.2.0): Int16Array, coordinate in centimetri (FR_NONE = assente), orientamento di ogni giocatore in un byte,
@@ -347,7 +374,11 @@ function simMatch(inp, seed, rec){
     for(const t of T) targets(t);
     if(M.restart){ const tk=M.restart.taker&&M.restart.taker.on?M.restart.taker:null;
       if(tk && M.restart.type==='kick'){ if(M.restart.bs==='ready'){ tk.tx=52.5-T[M.restart.team].dir*0.3; tk.ty=34; tk.urg=true; } }
-      else if(tk){ if(M.restart.type==='pen'){ const A=T[M.restart.team]; tk.tx=M.restart.x-A.dir*1.2; tk.ty=M.restart.y; } else { tk.tx=M.restart.x; tk.ty=M.restart.y; } tk.urg=true; }
+      else if(tk){ if(M.restart.type==='pen'){ const A=T[M.restart.team]; tk.tx=M.restart.x-A.dir*1.2; tk.ty=M.restart.y; } else { const r=M.restart;
+          /* v0.4.6.0 (R4, PROBLEMI_NOTI n. 1): angoli, punizioni e rinvii dal fondo con la rincorsa: chi batte aspetta 1,5 m dietro la palla
+             (rispetto alla direzione del calcio) e quando la ripresa è pronta fa i passi verso la palla (r.run, rsReady) */
+          if((r.type==='cor'||r.type==='fk'||r.type==='gk') && !r.run){ if(r.bx==null){ const A=T[r.team], gx=r.type==='cor'?(A.dir>0?PL-11:11):(A.dir>0?PL:0), ux0=r.type==='gk'?A.dir:gx-r.x, uy0=r.type==='gk'?0:34-r.y, L=hyp(ux0,uy0)||1; r.bx=r.x-ux0/L*1.5; r.by=r.y-uy0/L*1.5; }
+            tk.tx=r.bx; tk.ty=r.by; } else { tk.tx=r.x; tk.ty=r.y; } } tk.urg=true; }
       if(M.restart.fp && M.restart.bs==='fetch' && M.restart.fp.on){ M.restart.fp.tx=ball.x; M.restart.fp.ty=ball.y; M.restart.fp.urg=true; }
       keepDistance(false);
       if(M.restart.subs) for(const z of M.restart.subs) if(z.ph===0 && z.outP.on){ z.outP.tx=52.5+(z.t.idx===0?-3.5:3.5); z.outP.ty=-0.8; z.outP.urg=false; }
@@ -369,12 +400,14 @@ function simMatch(inp, seed, rec){
       if(M.restart.ticks<=0){ if(M.restart.type==='cel'){ if(M.restart.bs!=='roll'||hyp(ball.vx,ball.vy)<0.5) endCel(); } else if(rsReady(M.restart)) execRestart(); } }
     else if(ball.owner){
       const o=ball.owner;
+      if(o.hold && o.role==='GK' && !handsOk(o,ball.x,ball.y)) o.hold=false;   /* v0.4.6.0 (R4, PROBLEMI_NOTI n. 23): fuori dalla sua area il portiere gioca con i piedi */
       ownerBall();
       let lost=false;
-      for(const q of op(o).on){ if(q.role==='GK'&&(D2(q,o)>2.4||rx(tm(q),o.x)>16.5)) continue; if(q.stun>0||q.dv) continue; const d=D2(q,o); const box=rx(tm(q),q.x)<18 && Math.abs(q.y-34)<22; const eng=q.eng==='press'||q.eng==='contain'||q.role==='GK', pa=q.role==='GK'?0.3*(0.7+q.a0.usc/30):(q.eng==='press'||box?(d<1?0.3:0.16):(d<1?0.2:0.08))*(box?1.7:1)*(0.82+q.a0.agg/45)*CONTEST_K; if(d<(eng?2.0:1.6) && R()<pa){
-          const dp=(q.role==='GK'?q.a.usc*0.7+q.a.par*0.3:o.drib>0?q.a.con*0.6+q.a.vel*0.3+q.a.for*0.1:q.a.con*0.75+q.a.for*0.25)*(0.45+0.55*q.st/100), ap=(o.drib>0?o.a.dri*0.6+o.a.vel*0.3+o.a.for*0.1:o.a.dri*0.5+o.a0.ctr*0.25+o.a.for*0.25)*(0.45+0.55*o.st/100)*0.95*(o.shield>0?1.35:1); const fl=R()<o.fl*1.2; const win=!fl && R()<dp/(dp+ap);
-          const inOwnBox=(rx(tm(q),q.x)<17.5||rx(tm(q),o.x)<17.5)&&Math.abs(o.y-34)<21; if(R()<(0.19+(q.a0.agg-8)*0.009+(q.tem-10)*0.005+(win?0:0.07)+fatK(q)*0.03)*(inOwnBox?0.023*penF:1)*(q.yc?0.45:1)*fisF){ foul(q,o); lost=true; break; }
+      for(const q of op(o).on){ if(q.role==='GK'&&(D2(q,o)>2.4||rx(tm(q),o.x)>16.5)) continue; if(q.stun>0||q.dv) continue; const d=D2(q,o); const box=rx(tm(q),q.x)<18 && Math.abs(q.y-34)<22; const eng=q.eng==='press'||q.eng==='contain'||q.role==='GK', pa=q.role==='GK'?0.3*(0.7+q.a0.usc/30):(q.eng==='press'||box?(d<1?0.3:0.16):(d<1?0.2:0.08))*(box?1.7:1)*(0.82+q.a0.agg/45)*CONTEST_K*(o.drib>0?R4C.dr:R4C.k); const fq=o.drib>0&&o.dq===q; if(fq) o.dq=null; if(fq?d<2.4:(d<(eng?2.0:1.6) && R()<pa)){
+          const dp=(q.role==='GK'?q.a.usc*0.7+q.a.par*0.3:o.drib>0?q.a.con*0.6+q.a.vel*0.3+q.a.for*0.1:q.a.con*0.75+q.a.for*0.25)*(0.45+0.55*q.st/100), ap=(o.drib>0?o.a.dri*0.6+o.a.vel*0.3+o.a.for*0.1:o.a.dri*0.5+o.a0.ctr*0.25+o.a.for*0.25)*(0.45+0.55*o.st/100)*0.95*(o.shield>0?1.35:1); const fl=R()<o.fl*1.2; const dpw=(o.drib>0?dp*R4C.dw:dp)*(1-R4C.luc*fatK(q)*(1.3-q.gs.CO/20)), dpg=Math.pow(dpw,R4C.dg), apg=Math.pow(ap,R4C.dg), win=!fl && R()<dpg/(dpg+apg);   /* R4 (F9): la qualità conta di più nei duelli (meno duelli, stesso peso della rosa) */   /* R4 (F6): il difensore stanco e poco concentrato (CO) perde più contrasti */
+          const inOwnBox=(rx(tm(q),q.x)<17.5||rx(tm(q),o.x)<17.5)&&Math.abs(o.y-34)<21; if(R()<(0.19+(q.a0.agg-8)*0.009+(q.tem-10)*0.005+(win?0:0.07)+fatK(q)*0.03)*(inOwnBox?0.019*penF:1)*(q.yc?0.45:1)*fisF*(o.drib>0?R4C.fd:R4C.f)){ foul(q,o); lost=true; break; }
           if(win && inOwnBox && canErr('rigSi') && rx(tm(o),o.x)>88.5 && Math.abs(o.y-34)<20 && RA()<0.035){ const oo=tm(o); refError('rigSi',q.t,[q.id,o.id],`Contatto in area tra ${q.ln} e ${o.ln}: l'arbitro indica il dischetto!`,`Dal replay si vede che ${q.ln} prende il pallone in modo pulito. È sicuramente un errore arbitrale: il rigore non c'era.`); E('pen',o.t,[o.id,q.id],fill2(P(MTX.pen),{p:q,v:o})); const tk=specOf(oo,'pen',z=>z.a0.cpz*0.6+z.a0.fre*0.4); pause('pen',oo.idx,oo.dir>0?PL-11:11,34,60,{taker:tk}); lost=true; break; }
+          if(M.gst) M.gst(q, d>1.5?7:6);
           if(win){ q.s.tk++; o.stun=0.5; lost=true;
             /* v0.4.2.0: contrasto vinto: palla pulita al difensore oppure palla che schizza via (più spesso lontano dalla sua porta) */
             const own=rx(tm(q),q.x)<20 && Math.abs(q.y-34)<22;
@@ -395,6 +428,7 @@ function simMatch(inp, seed, rec){
         const brw=rx(w,ball.x), behind=l.on.filter(q=>q.role!=='GK' && rx(w,q.x)>brw).length; if(brw<75 && behind<=6 && !M.restart){ w.counterUntil=M.tick+22; w.on.forEach(q=>{ if(isAtt(q.role)&&q!==ball.owner){ q.runT=3.5; q.runOff=-0.6-R()*1.0; } }); } }
       lastOwnT=ball.owner.t; }
     moveRefs();
+    { const bo=ball.owner; if(bo && bo.hold && bo.role==='GK' && !handsOk(bo,ball.x,ball.y)) bo.hold=false; }   /* R4, n. 23: anche dopo il movimento del tick */
     if(SO) SO.tick(SX);
     if(rec) pushFrame();
     M.tick++;
@@ -447,7 +481,7 @@ function simMatch(inp, seed, rec){
   const pt=possTicks[0]+possTicks[1]||1;
   const out={gh:T[0].goals, ga:T[1].goals, ev, rt, played, mins, endSt, inj, red, scorers, poss:Math.round(possTicks[0]/pt*100),
     ref:refOut, coachOff, coachRt, stats:T.map(t=>t.st), plans:plans.map((p,i)=>({form:p.form, ment:p.ment, style:p.style, press:p.press, reasons:p.reasons})), nT:M.tick, htTick, ht2:M.ht2==null?htTick:M.ht2};
-  if(rec){ out.frames=frames; out.cols=cols; out.owners=owners; }
+  if(rec){ out.frames=frames; out.cols=cols; out.owners=owners; out.gesti=Int32Array.from(GST); }
   return out;
 }
 
@@ -469,5 +503,5 @@ function matchInput(t){
     if(p.r!=='P'){ const d7=Math.round((bonOf(p,CO_PAR.famMod).pos-a0.pos)*100)/100; if(d7!==(o.pos||0)){ o.pos7=d7; n++; } }
     return n?o:null; };
   return {id:t.id, n:t.n, c:t.c, coach:{n:c.n, tat:eq.tat, all:c.all, gio:c.gio, ges:eq.ges, mod:c.mod, car:eq.car, k:Object.assign({},eq.x), coll:Object.assign({},collOf(t)), rt:Math.round(coachRating(c)), mor:Math.round((c.mor??12)*10)/10, absent}, capOrder:[t.cap,t.vcap,...capOrder(t).filter(id=>id!==t.cap&&id!==t.vcap)].filter(id=>id!=null).slice(0,6),
-    players:avail.map(p=>{ const q={id:p.id, ln:p.ln, r:p.r, age:p.age, a:p.s?skMatchA(p):Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}; const b=bOf(p); if(b) q.b=b; const tq=tqOf(p); if(tq) Object.assign(q,tq); return q; })};
+    players:avail.map(p=>{ const q={id:p.id, ln:p.ln, r:p.r, age:p.age, a:p.s?skMatchA(p):Object.fromEntries(ATTR.map(k=>[k,Math.round(p.a[k]*10)/10])), st0:Math.round(100-(p.fat||0)), mor:Math.round(p.mor*10)/10, tem:p.tem, h:p.h||180, foot:p.foot||'D', fl:Math.round(flashP(p)*1000)/1000, ovr0:Math.round(ovr(p)*10)/10}; const b=bOf(p); if(b) q.b=b; const tq=tqOf(p); if(tq) Object.assign(q,tq); if(p.s) q.g=gsEnc(p); return q; })};
 }

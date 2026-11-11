@@ -72,7 +72,7 @@ function matchFis(M){
     const n=ON.length; for(let i=0;i<n;i++){ const a=ON[i]; DTB[i*NMAX+i]=0; for(let j=i+1;j<n;j++){ const b=ON[j]; const d=hyp(a.x-b.x,a.y-b.y); DTB[i*NMAX+j]=d; DTB[j*NMAX+i]=d; } } }
   const D2=(a,b)=>(a.k>=0&&b.k>=0)?DTB[a.k*NMAX+b.k]:hyp(a.x-b.x,a.y-b.y);
   function stopBall(){ ball.vx=0; ball.vy=0; ball.vz=0; ball.wx=0; ball.wy=0; ball.wz=0; }
-  function giveBall(p, delay){
+  function giveBall(p, delay){ if(M.gst && !(p.role==='GK' && delay>=1.5)) M.gst(p,4);   /* R4: «stop» nell'elenco dei gesti (la presa del portiere la scrive gkCatch) */
     if(ball.sh && !ball.sh.done && p.t!==ball.sh.p.t){ const gl=T[ball.sh.p.t].dir>0?PL:0, behind=Math.abs(ball.x-gl)<Math.abs(p.x-gl)-0.5;
       shotEnd(p.role==='GK'?(behind?'short':'save'):'block', p); }   /* v0.4.2.0: palla ferma dietro al portiere: non è una parata */
     if(ball.sh && (p!==ball.sh.p)) ball.sh=null;
