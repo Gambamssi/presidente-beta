@@ -102,14 +102,14 @@ function loop(now){
   if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
   else if(v.phase==='live' && v.playing){
     /* 0.4.2.3 (R6a): nelle pause il tempo scorre più in fretta (vRate), senza superare i momenti da vedere */
-    const R=vRate(v); let nt=v.t+R.r*dt; if(R.fast && nt>R.lim) nt=R.lim; v.fast=R.fast;
+    const R=vRate(v); let nt=v.t+R.r*dt; if(R.fast && nt>R.lim) nt=R.lim; if(v.pq.length && v.t<v.pq[0].at && nt>v.pq[0].at && use3D()) nt=v.pq[0].at; v.fast=R.fast;   /* 0.4.6.1 (n. 15): il replay parte al suo momento, non qualche tick dopo */ v.wg=R.fast?R.w:null;
     v.t=Math.min(v.nT-1, nt);
     processEvents(true); vVigTick(v);
     if(v.pq.length && v.t>=v.pq[0].at){ const p=v.pq.shift(); if(use3D() && v.t<p.t1+40) startReplay(p); }
     if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
     if(v.t>=v.nT-1 && v.phase==='live'){ if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(); }
-  } else if(v.phase==='replay'){ v.fast=false; const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
-  else if(v.phase==='scene'){ v.fast=false; v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
+  } else if(v.phase==='replay'){ v.fast=false; v.wg=null; const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
+  else if(v.phase==='scene'){ v.fast=false; v.wg=null; v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
   if(v.phase!=='live') vVigTick(v);
   /* 0.4.3.1 (V0, problema n. 14): catena separata dalla riga sopra, che dalla 0.4.2.3 la interrompeva → pagelle dopo 3,5 s e intervista che avanza da sola */
   if(v.phase==='done'){ if(v.post==='whistle' && performance.now()-v.postT>3500){ v.post='pag'; renderIV(); } else if(v.post==='iv' && v.iv) tickIV(Math.min(1000,raw)); }   /* intervista a tempo vero: con il 3D lento i fotogrammi superano i 100 ms */
@@ -196,11 +196,29 @@ function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); 
 function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
 function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent=t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")}); }
 function v3dToggle(){ if(viewer.phase==='replay') endReplay(); V3.pref=!V3.pref; try{ localStorage.setItem('presidente-vista',V3.pref?'3d':'2d'); }catch(_){} if(V3.pref) setupMatch3D(); render(); }
-function startReplay(p){ const v=viewer; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
+function startReplay(p){ const v=viewer; v.wgR=v.wg; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
   if(p.e.type==='referr'){ const cap=$('#v-cap'); if(cap){ cap.innerHTML=`<span class="tag">${t_("vis.moviola_il_giornalista")}</span><span>${esc(p.e.cm)}</span>`; cap.className='cap rf'; } }
   const f=frameAt(p.t0); const bx=f.bx-52.5, bz=f.by-34; V3.cp.set(bx*0.82,17,bz*0.3+34); V3.cl.set(bx*0.92,0,bz*0.55); V3.last=performance.now(); }
 function endReplay(){ const v=viewer; if(v&&v.phase==='scene') return endScene(); if(!v||v.phase!=='replay') return; const e=v.rep.e; v.phase='live'; v.rep=null; const rb=$('#v-rpl'); if(rb) rb.hidden=true;
-  if(e && e.type==='goal'){ const ko=v.sim.ev.find(x=>x.type==='ko' && x.t>e.t); if(ko && ko.t-3>v.t){ v.t=ko.t-3; processEvents(true); } } }
+  if(e && e.type==='goal'){ const ko=v.sim.ev.find(x=>x.type==='ko' && x.t>e.t); if(ko && ko.t-3>v.t){ vSkipTo(v,ko.t-3); processEvents(true); } } }
+/* 0.4.6.1 (n. 15): dopo il replay di un gol il visore salta al calcio d'inizio. Prima i 22 giocatori comparivano di colpo nelle posizioni della ripresa (fino a 90 m
+   in un fotogramma): ora si riparte dall'inizio dell'attesa del calcio d'inizio e i giocatori scorrono dalle posizioni di adesso a quelle della ripresa. */
+function vSkipTo(v,T){
+  let w=vWaitAt(v,T); if(!(w && w.S && w.s0>v.t && w.s0<=T)) w=vSynthWait(v,T);
+  if(!w){ v.t=Math.max(v.t,T); return; }
+  v.wg=v.wgR||null; const f=frameAt(v.t), n=f.P.length;   /* le posizioni come si vedevano in diretta prima del replay (con l'attesa che scorreva) */
+  for(let k=0;k<n;k++){ w.S[k*2]=f.P[k]?f.P[k].x:NaN; w.S[k*2+1]=f.P[k]?f.P[k].y:NaN; }
+  if(w.SR && f.RF) for(let r=0;r<3;r++){ w.SR[r*2]=f.RF[r].x; w.SR[r*2+1]=f.RF[r].y; }
+  /* chi si vedeva in campo ma alla ripresa non c'è più (uscito, espulso): scorre fino all'ultimo tick in cui c'è, poi sparisce */
+  w.hide=new Map(); const b=w.K-WT_RUN;
+  for(let k=0;k<n;k++){ if(isNaN(w.S[k*2])||!isNaN(w.E[k*2])) continue; let te=-1; for(let i=w.s0;i<=b;i++){ if(!isNaN(vFr(v,i)[k*2])) te=i; }
+    if(te>=0){ const Fe=vFr(v,te); w.E[k*2]=Fe[k*2]; w.E[k*2+1]=Fe[k*2+1]; } else { w.E[k*2]=w.S[k*2]; w.E[k*2+1]=w.S[k*2+1]; } w.hide.set(k,te); }
+  vWaitDm(v,w); w.force=true; v.t=w.s0; v.wg=w; }   /* v.wg subito: anche il primo fotogramma dopo il replay parte dalle posizioni di adesso */
+/* attesa di ripiego (3 tick) al tick T quando nella simulazione lì non c'è un'attesa della battuta: serve solo per far scorrere i giocatori */
+function vSynthWait(v,T){
+  T=Math.floor(T); if(T+3+WT_RUN>=v.nT-3) return null;
+  const w={s0:T, K:T+3+WT_RUN, L:3, k:-1, thr:true, bx:0, by:0, ux:0, uy:0, syn:true}; vWaitPose(v,w);
+  let i=v.wt.length; while(i>0 && v.wt[i-1].s0>T) i--; v.wt.splice(i,0,w); return w; }
 
 const WIN_PRI={coach:3,card:3,sub:2,sp:1};
 function activeWin(v){ let w=null; for(const x of v.wins) if(v.t>=x.t0 && v.t<=x.t1 && (!w || WIN_PRI[x.kind]>WIN_PRI[w.kind] || (WIN_PRI[x.kind]===WIN_PRI[w.kind] && x.t0>=w.t0))) w=x; if(w && w.kind==='sp' && w.go && w.fresh===false && !w.started){} return w; }
@@ -269,23 +287,70 @@ function vPrepPause(v){
     const thr=bk[2]>1.0, b2=B(Math.min(v.nT-1,K+2)); let dx=b2[0]-bk[0], dy=b2[1]-bk[1], dl=Math.hypot(dx,dy);
     let kk=-1, kd=1e9; const fk=vFr(v,K); for(let k=0;k<n;k++){ const x=fk[k*2]; if(isNaN(x)) continue; const d=Math.hypot(x-bk[0],fk[k*2+1]-bk[1]); if(d<kd){ kd=d; kk=k; } }
     if(dl<0.05 && kk>=0){ dx=bk[0]-fk[kk*2]; dy=bk[1]-fk[kk*2+1]; dl=Math.hypot(dx,dy); }
-    wt.push({s0, K, bx:bk[0], by:bk[1], k:kd<3.5?kk:-1, thr, ux:dl>0.01?dx/dl:0, uy:dl>0.01?dy/dl:0, L:K-WT_RUN-s0}); }
-  v.pz=sp2; v.wt=wt;
+    wt.push({s0, K, bx:bk[0], by:bk[1], k:kd<3.5?kk:-1, thr, ux:dl>0.01?dx/dl:0, uy:dl>0.01?dy/dl:0, L:K-WT_RUN-s0, dm:0}); }
+  v.pz=sp2; v.wt=wt; wt.forEach(w=>vWaitPose(v,w));
+}
+/* 0.4.6.1 (V0d, problema n. 35): pose all'inizio (S, tick s0) e alla fine (E, tick K-WT_RUN) dell'attesa accorciata, e distanza massima da coprire.
+   Nel tempo accorciato i giocatori scorrono in linea retta da S a E (vGlide), invece di far correre la simulazione 20-50 volte più in fretta:
+   prima tutto il movimento cadeva in uno o due fotogrammi (scatto) e il resto dell'attesa era immagine ferma. */
+const WT_VCAP=216;   /* m/s veri al massimo per chi scorre (3,6 m a fotogramma a 60 al secondo, appena sopra una corsa a 4×); se serve, l'attesa dura un po' di più */
+function vWaitPose(v,w){
+  const n=v.sim.cols.length, nb=n*2, b=w.K-WT_RUN, A=vFr(v,w.s0), B=vFr(v,Math.max(w.s0,b));
+  w.S=new Float32Array(n*2); w.E=new Float32Array(n*2); w.qx=w.bx-w.ux*WT_BACK; w.qy=w.by-w.uy*WT_BACK;
+  for(let k=0;k<n*2;k++){ w.S[k]=A[k]; w.E[k]=B[k]; }
+  /* chi entra o esce dal campo durante l'attesa (cambi, infortuni) segue la simulazione: w.pr[i] = passo massimo (m) di questi giocatori tra i tick
+     s0+i-1 e s0+i; dove serve, vRate rallenta il tempo perché non vadano più veloci di WT_VCAP */
+  w.pr=null; { const pr=new Float32Array(b-w.s0+1); let any=false;
+    for(let k=0;k<n;k++){ if(!isNaN(A[k*2])&&!isNaN(B[k*2])) continue; w.S[k*2]=w.S[k*2+1]=w.E[k*2]=w.E[k*2+1]=NaN;
+      let pf=null; for(let i=w.s0;i<=b;i++){ const f=vFr(v,i); if(isNaN(f[k*2])){ pf=null; continue; } if(pf){ const d=Math.hypot(f[k*2]-pf[0],f[k*2+1]-pf[1]); if(d>pr[i-w.s0]){ pr[i-w.s0]=d; any=true; } } pf=[f[k*2],f[k*2+1]]; } }
+    if(any) w.pr=pr; }
+  w.SR=null; w.ER=null; if(A.length>=nb+20){ w.SR=[0,1,2].flatMap(r=>[A[nb+12+r*2],A[nb+13+r*2]]); w.ER=[0,1,2].flatMap(r=>[B[nb+12+r*2],B[nb+13+r*2]]); }
+  /* chi batte raggiunge il punto dietro la palla a non più di 3 m per tick in più di quanto già corre (almeno 2 tick; nelle attese lunghe al massimo il 45% dell'attesa) */
+  const kd=(w.k>=0&&!isNaN(A[w.k*2]))?Math.hypot(A[w.k*2]-w.qx,A[w.k*2+1]-w.qy):0; w.kr=clamp(kd/3,2,b-w.s0>=6?Math.max(2,0.45*(b-w.s0)):1e9);
+  vWaitDm(v,w);
+}
+/* distanza massima (m) che qualcuno deve coprire tra la posizione di inizio e quella di fine dell'attesa */
+function vWaitDm(v,w){
+  const n=v.sim.cols.length; let dm=0;
+  for(let k=0;k<n;k++){ const sx=w.S[k*2], ex0=w.E[k*2]; if(isNaN(sx)||isNaN(ex0)) continue;
+    const kick=(k===w.k&&!w.thr); dm=Math.max(dm,Math.hypot((kick?w.qx:ex0)-sx,(kick?w.qy:w.E[k*2+1])-w.S[k*2+1])); }
+  if(w.SR) for(let r=0;r<3;r++) dm=Math.max(dm,Math.hypot(w.ER[r*2]-w.SR[r*2],w.ER[r*2+1]-w.SR[r*2+1]));
+  w.dm=dm;
 }
 function vWaitAt(v,t){ const a=v.wt; if(!a) return null; let lo=0, hi=a.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(a[m].s0<=t){ r=m; lo=m+1; } else hi=m-1; }
   const w=r>=0?a[r]:null; return w && t<w.K ? w : null; }
 function vPauseAt(v,t){ const a=v.pz; if(!a) return null; let lo=0, hi=a.length-1, r=-1; while(lo<=hi){ const m=(lo+hi)>>1; if(a[m].s<=t){ r=m; lo=m+1; } else hi=m-1; }
   const p=r>=0?a[r]:null; return p && t<p.r+1 ? p : null; }
-/* tick al secondo in questo istante: nell'attesa della battuta più in fretta, perché duri 1 s a 1× (in proporzione a 2× e 4×) */
+/* tick al secondo in questo istante: nell'attesa della battuta più in fretta, perché duri 1 s a 1× (in proporzione a 2× e 4×).
+   0.4.6.1 (V0d): se i giocatori devono percorrere molta strada (dopo un gol) l'attesa dura quanto serve perché nessuno scorra
+   più di WT_VCAP metri al secondo veri (con la partenza e l'arrivo dolci, ×1,5). R.w = attesa che scorre (vGlide). */
 function vRate(v){
   const base=(use3D() && activeWin(v)) ? 2/DT : tickRate(v), w=vWaitAt(v,v.t);
   if(!w || v.t>=w.K-WT_RUN) return {r:base, fast:false};
-  const n=tickRate(v), f=w.L/Math.max(0.1, 1/v.speed-WT_RUN/n); return f>base ? {r:f, fast:true, lim:w.K-WT_RUN} : {r:base, fast:false};
+  const n=tickRate(v), Dn=Math.max(0.1, 1/v.speed-WT_RUN/n), Dm=1.5*w.dm/WT_VCAP, D=Math.min(2, Math.max(Dn, w.force?Dm:Math.min(Dm, Dn+0.24))); let f=w.L/D;   /* l'attesa si allunga al massimo di 0,24 s (dopo il replay di un gol, fino a 2 s) */
+  const fast=(f>base||w.force);
+  if(fast && w.pr){ const i0=clamp(Math.floor(v.t-w.s0),0,w.pr.length-1), i1=Math.min(w.pr.length-1,i0+Math.ceil(f*0.034)+1); let m=0; for(let i=i0;i<=i1;i++) if(w.pr[i]>m) m=w.pr[i]; if(m>0) f=Math.min(f,Math.max(base,WT_VCAP/m)); }
+  return fast ? {r:f, fast:true, lim:w.K-WT_RUN, w} : {r:base, fast:false};
+}
+/* nell'attesa accorciata (v.wg) ogni giocatore e ogni arbitro scorre dalla posizione di inizio a quella di fine con partenza e arrivo dolci;
+   chi batte va 1,5 m dietro la palla. Restituisce false fuori dall'attesa accorciata (allora vale vFixFrame). */
+function vGlide(v,t,P,RF,V,O){
+  const w=v.wg; if(!w || !w.S || t<w.s0 || t>w.K-WT_RUN) return false;
+  const span=Math.max(1e-6,w.K-WT_RUN-w.s0), a=clamp((t-w.s0)/span,0,1), e=a*a*(3-2*a), S=w.S, E=w.E;
+  for(let k=0;k<P.length;k++){ const sx=S[k*2], ex0=E[k*2]; if(isNaN(sx)||isNaN(ex0)) continue;
+    const kick=(k===w.k&&!w.thr), ex=kick?w.qx:ex0, ey=kick?w.qy:E[k*2+1], sy=S[k*2+1];
+    P[k]={x:sx+(ex-sx)*e, y:sy+(ey-sy)*e};
+    /* velocità e verso del corpo (corsa, scia, 3D): chi scorre guarda dove va e corre almeno al trotto; chi non si muove resta come nella simulazione */
+    const dx=ex-sx, dy=ey-sy, dl=Math.hypot(dx,dy);
+    if(V && O && dl>0.3 && a>0 && a<1){ const sp=Math.max(2.6,Math.hypot(V[k*2],V[k*2+1])); V[k*2]=dx/dl*sp; V[k*2+1]=dy/dl*sp; O[k]=Math.atan2(dy,dx); } }
+  if(w.hide) for(const [k,te] of w.hide) if(t>te) P[k]=null;
+  if(RF && w.SR) for(let r=0;r<3;r++) RF[r]={x:w.SR[r*2]+(w.ER[r*2]-w.SR[r*2])*e, y:w.SR[r*2+1]+(w.ER[r*2+1]-w.SR[r*2+1])*e};
+  return true;
 }
 /* posizione disegnata di chi batte durante l'attesa (frameAt; i frame non cambiano). Dalla 0.4.2.7 la palla dopo il gol la trattiene la rete della simulazione */
 function vFixFrame(v,t,P,o){
   const w=vWaitAt(v,t); if(w && w.k>=0 && !w.thr && P[w.k]){ const p=P[w.k], qx=w.bx-w.ux*WT_BACK, qy=w.by-w.uy*WT_BACK, ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
-    const a=clamp((t-w.s0)/2,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1), u=ez(a)*(1-ez(b));
+    const a=clamp((t-w.s0)/w.kr,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1), u=ez(a)*(1-b);   /* 0.4.6.1: la rincorsa parte subito, senza il tratto ancora fermo di prima (era 1-ez(b)) */
     P[w.k]={x:p.x+(qx-p.x)*u, y:p.y+(qy-p.y)*u}; }
 }
 
@@ -479,7 +544,7 @@ function updNext(){ const v=viewer; const b=$('#v-next'); if(!b||!v) return; con
 /* salta fino al tick T: gli eventi prima di T si registrano senza replay né 3D (e senza contare come visti), quelli di T normalmente */
 function vJump(T){ const v=viewer, ev=v.sim.ev;
   while(v.evI<ev.length && ev[v.evI].t<T){ handleEvent(ev[v.evI], false, v.evI); v.evI++; }
-  v.t=Math.max(v.t,T); v.pq=v.pq.filter(p=>p.at>=T && p.e.t>=T); v.wins=v.wins.filter(w=>w.t0>=T); v.goalShow=0;
+  v.wg=null; v.t=Math.max(v.t,T); v.pq=v.pq.filter(p=>p.at>=T && p.e.t>=T); v.wins=v.wins.filter(w=>w.t0>=T); v.goalShow=0;
   while(v.vigI<v.vig.length && v.vig[v.vigI].s<T) v.vigI++; vVigHide();   /* vignette saltate: non si mostrano */
   processEvents(true); }
 /* a fine partita: nel registro anche gli eventi dopo l'ultimo frame (fischio finale, voto alla terna), prima della scena finale */
@@ -573,7 +638,7 @@ function frameAt(t){
   const tilt=[A[nb+22]+(B[nb+22]-A[nb+22])*f, A[nb+23]+(B[nb+23]-A[nb+23])*f];
   /* 0.4.2.3 (R6a): velocità di ogni giocatore tra i due frame (m/s), per il tipo di corsa nel 2D e nel 3D */
   const V=new Float32Array(n*2); if(j>i) for(let k=0;k<n;k++){ const ax=A[k*2], bx_=B[k*2]; if(isNaN(ax)||isNaN(bx_)) continue; V[k*2]=(bx_-ax)/DT; V[k*2+1]=(B[k*2+1]-A[k*2+1])/DT; }
-  const o={bx,by,bz}; if(v.wt) vFixFrame(v,t,P,o);
+  const o={bx,by,bz}; if(v.wt && !(v.wg && vGlide(v,t,P,RF,V,O))) vFixFrame(v,t,P,o);
   return {P, bx:o.bx, by:o.by, bz:o.bz, own:v.sim.owners[i], RF, card, flag, cap, O, tilt, dive:null, V};
 }
 function activeEvent(t){ const ev=viewer.sim.ev; let best=null; for(let k=Math.max(0,viewer.evI-6);k<ev.length;k++){ const e=ev[k]; if(e.t>t+8) break; if(e.t>=t-4 && e.type!=='fo' && e.p && e.p.length) best=e; } return best; }
