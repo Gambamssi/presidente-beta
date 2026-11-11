@@ -27,7 +27,7 @@ function matchAll(M){
      wide = posizione in larghezza (metri dalla linea laterale) di esterni e terzini sul lato della palla e su quello lontano;
      early/earlyK = inizio prudente (minuti e mentalità tolta al primo minuto); fatK = metri di lunghezza in più senza palla con la stanchezza */
   const SHP={possD:{costr:34,prog:36,rif:38,contro:44}, nonD:{alto:31,medio:29,basso:26}, amp:{stretta:0.95,normale:1.05,larga:1.15}, blk:{alto:6,medio:0,basso:-7}, blkHi:{alto:46,medio:40,basso:32},
-    wide:{ball:5,far:17,fbFar:20,in:15}, rest:{n:3,nAll:2,gap:8}, early:15, earlyK:1.4, fatK:10};
+    wide:{ball:5,far:17,fbFar:20,in:15}, rest:{n:3,nAll:2,gap:8}, early:15, earlyK:1.4, fatK:12};
   /* livelli di pressing: tMin–tMax = dove valgono gli inneschi; zMin–zMax = zona in cui il più vicino va sempre sul portatore;
      oltre «far» esce comunque solo se è a meno di dFar metri */
   const PRESS={alto:{tMin:0,tMax:106,zMin:76,zMax:106,far:200,dFar:6,back:0}, medio:{tMin:0,tMax:62,zMin:-1,zMax:52,far:60,dFar:5,back:1}, basso:{tMin:0,tMax:45,zMin:-1,zMax:40,far:45,dFar:3.5,back:0}};
@@ -35,7 +35,7 @@ function matchAll(M){
      Ogni effetto è centrato sulla media dei giocatori (SK_TQM): un valore medio non cambia nulla rispetto a prima.
      sig = errore di posizione (m) con U media (U0); fatCO/lateCO = cali di Concentrazione con la stanchezza e dopo il 75';
      shock/shockK = tick e peso del calo dopo un gol subito (lo riducono i leader in campo) */
-  const TQ={sig:1.2, U0:0.53, kU:0.4, kS:0.5, fatCO:1.5, lateCO:1, shock:600, shockK:0.35};
+  const TQ={sig:1.2, U0:0.53, kU:0.15, kS:0.25, fatCO:2.2, lateCO:1.5, shock:600, shockK:0.35};
   const tqv=(p,k)=>(p.te?p.te[k]:SK_TQM[k])*TQ.kS+SK_TQM[k]*(1-TQ.kS), tqz=(p,k)=>(tqv(p,k)-SK_TQM[k])/100;   /* kS: quanto pesano gli scarti dalla media (taratura del peso dell'allenatore) */
   const tqAvg=(arr,k)=>arr.length?arr.reduce((s,q)=>s+tqv(q,k),0)/arr.length:SK_TQM[k];
   function tqErr(t){

@@ -43,7 +43,7 @@ const PROGRAMMA = {
     { titolo: 'Partite senza anticipazioni', spiegazione: 'Il risultato resta nascosto fino alla visione; il 3D è disponibile solo su computer.', area: 'gioco', peso: 1, fase: 1, stato: 'fatto', data: '2026-11-08', versione: '0.4.5.2' },
     /* ---- fase 1: completare la partita ---- */
     { titolo: 'Trattative dal telefono e pagina del programma', spiegazione: 'Portare le trattative anche sul telefono e mostrare questo percorso ai tester.', area: 'gioco', peso: 1, fase: 1, stato: 'fatto', data: '2026-11-10', versione: '0.4.5.3' },
-    { titolo: 'I calciatori scelgono le loro azioni', spiegazione: 'Passaggi, dribbling, tiri, calci piazzati e rigori diventano scelte dei giocatori in campo.', area: 'motore', peso: 3, fase: 1, stato: 'da fare' },
+    { titolo: 'I calciatori scelgono le loro azioni', spiegazione: 'Passaggi, dribbling, tiri, calci piazzati e rigori diventano scelte dei giocatori in campo.', area: 'motore', peso: 3, fase: 1, stato: 'fatto', data: '2026-11-11', versione: '0.4.6.0' },
     { titolo: 'Arbitro e assistenti in campo', spiegazione: 'Posizione dell’arbitro, fuorigioco, vantaggio, falli e cartellini come nel calcio vero.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },
     { titolo: 'Infortuni e fine carriera', spiegazione: 'Gli infortuni dei calciatori e la conclusione della loro carriera, con tempi realistici.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },
     { titolo: 'Controllare ogni parte della partita', spiegazione: 'Verificare che azioni, regole e risultato funzionino insieme.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },
@@ -76,6 +76,7 @@ const PROGRAMMA = {
     { titolo: 'Tornei di beneficenza', spiegazione: 'Partite e tornei per una buona causa.', area: 'gestione', peso: 2, fase: 'dopo', stato: 'da fare' },
     { titolo: 'La Banca Centrale', spiegazione: 'Moneta, inflazione e borsa: l’economia del gioco vista da vicino.', area: 'gestione', peso: 3, fase: 'dopo', stato: 'da fare' },
     { titolo: 'Categorie di giocatori e staff', spiegazione: 'Un voto unico e categorie per confrontare giocatori e collaboratori.', area: 'gestione', peso: 2, fase: 'dopo', stato: 'da fare' },
+    { titolo: 'Presidente e allenatore', spiegazione: 'Obiettivi e richieste a inizio stagione, con responsabilità chiare se le cose vanno male.', area: 'gestione', peso: 3, fase: 'dopo', stato: 'da fare' },
     { titolo: 'Un’economia ancora più equilibrata', spiegazione: 'Rivedere i conti dei club dopo tutte le novità economiche.', area: 'gestione', peso: 2, fase: 'dopo', stato: 'da fare' },
     { titolo: 'Una comunità che dialoga', spiegazione: 'Chat della lega, messaggi privati e forum con regole chiare.', area: 'multi', peso: 2, fase: 'dopo', stato: 'da fare' },
     { titolo: 'Coppe e Supercoppa', spiegazione: 'Nuove competizioni oltre al campionato.', area: 'multi', peso: 3, fase: 'dopo', stato: 'da fare' },

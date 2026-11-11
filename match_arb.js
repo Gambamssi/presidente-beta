@@ -153,9 +153,13 @@ function matchArb(M){
     if(!tk) return late;
     const dk=hyp(tk.x-r.x,tk.y-r.y), need=r.type==='pen'?2.2:r.type==='kick'?2.8:1.0;
     if(late) return dk<6 || r.wt>240;
-    if(dk>need) return false;
+    /* v0.4.6.0 (R4, n. 1): prima chi batte arriva al punto della rincorsa (r.bx, r.by); quando tutto è pronto parte verso la palla */
+    const run=(r.type==='cor'||r.type==='fk'||r.type==='gk') && r.bx!=null && !r.run;
+    if(run){ if(hyp(tk.x-r.bx,tk.y-r.by)>1.0) return false; }
+    else if(dk>need) return false;
     if(r.type==='kick'){ for(const tt of T) for(const p of tt.on){ if(p!==tk && (p.x-52.5)*tt.dir>0.4) return false; if(tt.idx!==r.team && hyp(p.x-52.5,p.y-34)<8.6) return false; } return true; }
     if(r.type!=='pen' && r.type!=='cel' && r.type!=='gk'){ const nd=r.type==='thr'?2:r.type==='drop'?4:9.15; for(const q of T[1-r.team].on){ if(q.role==='GK') continue; if(hyp(q.x-r.x,q.y-r.y)<nd-0.9) return false; } }
+    if(run){ r.run=true; return false; }
     return true;
   }
   function execRestart(){
