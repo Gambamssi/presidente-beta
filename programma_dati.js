@@ -41,9 +41,11 @@ const PROGRAMMA = {
     { titolo: 'Anche gli allenatori hanno un profilo', spiegazione: 'Ogni allenatore è descritto da 10 caratteristiche che pesano sulla squadra.', area: 'motore', peso: 2, fase: 1, stato: 'fatto', data: '2026-11-07', versione: '0.4.4.0' },
     { titolo: 'La tattica della squadra', spiegazione: 'Forma del modulo, pressing e cambi dalla panchina decisi dall’allenatore.', area: 'motore', peso: 3, fase: 1, stato: 'fatto', data: '2026-11-07', versione: '0.4.5.0' },
     { titolo: 'Partite senza anticipazioni', spiegazione: 'Il risultato resta nascosto fino alla visione; il 3D è disponibile solo su computer.', area: 'gioco', peso: 1, fase: 1, stato: 'fatto', data: '2026-11-08', versione: '0.4.5.2' },
+    { titolo: 'Partite più fluide da guardare', spiegazione: 'Sulle palle ferme i giocatori si spostano senza scatti; il replay parte al momento giusto.', area: 'grafica', peso: 1, fase: 1, stato: 'fatto', data: '2026-11-11', versione: '0.4.6.1' },
     /* ---- fase 1: completare la partita ---- */
     { titolo: 'Trattative dal telefono e pagina del programma', spiegazione: 'Portare le trattative anche sul telefono e mostrare questo percorso ai tester.', area: 'gioco', peso: 1, fase: 1, stato: 'fatto', data: '2026-11-10', versione: '0.4.5.3' },
     { titolo: 'I calciatori scelgono le loro azioni', spiegazione: 'Passaggi, dribbling, tiri, calci piazzati e rigori diventano scelte dei giocatori in campo.', area: 'motore', peso: 3, fase: 1, stato: 'fatto', data: '2026-11-11', versione: '0.4.6.0' },
+    { titolo: 'Tiri da vicino e rimesse dal fondo', spiegazione: 'Chi è davanti alla porta tira; il portiere batte la rimessa dal fondo da fermo; attese più brevi.', area: 'motore', peso: 1, fase: 1, stato: 'da fare' },
     { titolo: 'Arbitro e assistenti in campo', spiegazione: 'Posizione dell’arbitro, fuorigioco, vantaggio, falli e cartellini come nel calcio vero.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },
     { titolo: 'Infortuni e fine carriera', spiegazione: 'Gli infortuni dei calciatori e la conclusione della loro carriera, con tempi realistici.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },
     { titolo: 'Controllare ogni parte della partita', spiegazione: 'Verificare che azioni, regole e risultato funzionino insieme.', area: 'motore', peso: 2, fase: 1, stato: 'da fare' },

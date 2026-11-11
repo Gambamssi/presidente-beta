@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.6.0';
+const VERSION = '0.4.6.1';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,11 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.6.1','11 novembre 2026',[
+    'Visore fluido: sulle palle ferme (rimesse, punizioni, falli, dopo un gol) i giocatori vanno verso le posizioni della ripresa in modo morbido, a ogni velocità. Prima, in un solo fotogramma, tutti saltavano in posizioni nuove e poi l’immagine restava ferma per un istante; ora non ci sono più salti né fermi. «Avanti» salta come prima.',
+    'Se c’è molta strada da fare (dopo un gol, nei cambi) l’attesa dura un po’ di più, perché nessuno scorra troppo in fretta.',
+    'Replay in 3D (solo computer): parte esattamente nel momento previsto e, finito un replay di gol, i giocatori tornano alle posizioni del calcio d’inizio scorrendo, non più di colpo.'
+  ]],
   ['0.4.6.0','10 novembre 2026',[
     'Partita: i giocatori decidono con le loro caratteristiche (passaggio corto e lungo, potenza di tiro, calci di punizione, d’angolo e di rigore, piede debole, agilità, equilibrio, marcatura, concentrazione). Le partite già giocate restano nel registro ma, rivedendole, le scelte dei giocatori possono essere diverse.',
     'Le punte passano meno e provano di più il dribbling, il cross e il tiro; gli esterni crossano dalla fascia e i centrocampisti tirano anche da fuori area. Si gira palla dietro quando davanti non c’è spazio. La squadra con la rosa migliore vince un po’ più spesso di prima e l’allenatore pesa come in R3.',
