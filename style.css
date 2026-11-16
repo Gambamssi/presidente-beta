@@ -290,6 +290,8 @@ select,input{background:var(--ev-bg);border:1px solid var(--ev-border);border-ra
 .badge-s.inj{background:color-mix(in srgb,var(--ev-danger) 18%,transparent);color:var(--ev-danger)}
 .badge-s.capb{background:var(--ev-field-cap);color:var(--ev-field-cap-ink);font-weight:800}.badge-s.vcapb{background:color-mix(in srgb,var(--ev-field-cap) 30%,transparent);color:var(--ev-text);font-weight:700}
 .badge-s.sq{background:color-mix(in srgb,var(--ev-brand-gold) 20%,transparent);color:var(--ev-gold-text)}
+.badge-s.dif{background:color-mix(in srgb,var(--ev-brand-gold) 10%,transparent);color:var(--ev-gold-text);border:1px dashed color-mix(in srgb,var(--ev-brand-gold) 60%,transparent)}
+.sq-list{list-style:none;margin:0;padding:0}.sq-list li{padding:4px 0;border-bottom:1px solid var(--ev-border-subtle)}.sq-list li:last-child{border-bottom:0}
 @media (max-width:600px){.pre-cols{grid-template-columns:1fr;gap:10px}.pre{align-content:start;position:static}.pl ul{font-size:12.5px}.pl-form{font-size:26px}.forms span{font-size:10.5px}.ff{left:70px;font-size:10.5px}.bub.a{max-width:60%;font-size:12.5px;padding:6px 9px 8px;top:6px;right:8px;border-radius:14px}.bub .who{font-size:10px}.ivq{padding:18px 10px 8px;gap:6px}.ivq p{font-size:13.5px}.ivq .tag{font-size:10px;margin-bottom:3px}.sb{font-size:16px}.sc{font-size:30px}}
 /* ===== visore 0.4.2.3 (R6a): grafica della 019 (Evivora-scambio risposte/019-grafica-visore), solo variabili --ev-… =====
    barra del punteggio con gli stemmi, comandi, riquadro 1050×600 (1,75:1) uguale in 2D e 3D, tutto schermo «contain», cronaca, scene, vignette */

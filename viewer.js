@@ -70,7 +70,7 @@ function vIngresso(v){ const m=v.m, f=frameAt(0), cols=v.sim.cols, out=[], ri=m.
   const cap=s=>{ const k=(f.cap||[]).find(k=>k>=0 && cols[k]!=null && v.team[k]===s); return k!=null?{k, i:v.info[cols[k]]}:null; }, c0=cap(0), c1=cap(1);
   if(c0) out.push(t_("vis.capitano",{ln:c0.i.ln,vTeamName:vTeamName(v,0)})); if(ri) out.push(t_("vis.arbitro_2",{full:ri.full||ri.n})); if(RT){ out.push(t_("vis.assistente",{a1:RT.a1})); out.push(t_("vis.assistente_2",{a2:RT.a2})); }
   if(c1) out.push(t_("vis.capitano",{ln:c1.i.ln,vTeamName:vTeamName(v,1)}));
-  const gk=[0,1].map(s=>cols.findIndex((id,k)=>v.info[id].gk && v.team[k]===s && f.P[k] && !((s?c1:c0)&&(s?c1:c0).k===k))).filter(k=>k>=0).map(k=>v.info[cols[k]].ln);
+  const gk=[0,1].map(s=>cols.findIndex((id,k)=>vIsGk(v,id,0) && v.team[k]===s && f.P[k] && !((s?c1:c0)&&(s?c1:c0).k===k))).filter(k=>k>=0).map(k=>v.info[cols[k]].ln);
   if(gk.length) out.push((gk.length>1?t_("vis.portieri"):t_("vis.portiere"))+gk.join(t_("vis.e"))); out.push(t_("vis.poi_gli_altri_giocatori")); return out; }
 function vScnHTML(v,kind){
   const m=v.m, sim=v.sim, A=esc(vTeamName(v,0)), B=esc(vTeamName(v,1));
@@ -288,7 +288,28 @@ function vPrepPause(v){
     let kk=-1, kd=1e9; const fk=vFr(v,K); for(let k=0;k<n;k++){ const x=fk[k*2]; if(isNaN(x)) continue; const d=Math.hypot(x-bk[0],fk[k*2+1]-bk[1]); if(d<kd){ kd=d; kk=k; } }
     if(dl<0.05 && kk>=0){ dx=bk[0]-fk[kk*2]; dy=bk[1]-fk[kk*2+1]; dl=Math.hypot(dx,dy); }
     wt.push({s0, K, bx:bk[0], by:bk[1], k:kd<3.5?kk:-1, thr, ux:dl>0.01?dx/dl:0, uy:dl>0.01?dy/dl:0, L:K-WT_RUN-s0, dm:0}); }
-  v.pz=sp2; v.wt=wt; wt.forEach(w=>vWaitPose(v,w));
+  v.pz=sp2; vPrepStill(v,wt); v.wt=wt; wt.forEach(w=>vWaitPose(v,w));
+}
+/* R4b (0.4.6.2, F4, n. 38): tratti in cui nei frame della partita nessuno si muove (rigore, esultanza, cambio, rinvio, punizione…: la simulazione li tiene
+   fermi anche 20–60 s di partita) fuori dalle attese della battuta già trattate sopra: si accorciano nello stesso modo (durano 1 s a 1×, 0,5 s a 2×, 0,25 s a 4×;
+   gli ultimi WT_RUN tick restano alla velocità scelta). Solo visore: i frame non cambiano, nessun numero casuale. Fermo = nessun giocatore a più di 5 cm e la
+   palla a più di 4 cm dalla posizione di prima, per almeno VS_MIN tick di fila. */
+const VS_MIN=6;
+function vPrepStill(v,wt){
+  const n=v.sim.cols.length, nb=n*2, nT=v.nT; let a=-1, prev=vFr(v,0);
+  const still=(f,g)=>{ for(let k=0;k<n;k++){ const x=f[k*2], y=g[k*2]; if(isNaN(x)!==isNaN(y)) return false; if(isNaN(x)) continue; if(Math.abs(x-y)>0.05||Math.abs(f[k*2+1]-g[k*2+1])>0.05) return false; }
+    return Math.hypot(f[nb]-g[nb],f[nb+1]-g[nb+1])<=0.04 && Math.abs(f[nb+2]-g[nb+2])<=0.05; };
+  /* R5b (n. 38): prima del tratto fermo i giocatori che frenano strisciano ancora di 4–5 cm a tick: il tratto si allunga all'indietro finché nessun
+     giocatore e la palla sono a più di 0,1 m dal suo primo fotogramma (prima quei tick restavano alla velocità scelta: fino a 0,6 s fermi in più a 1×) */
+  const near=(f,g)=>{ for(let k=0;k<n;k++){ const x=f[k*2], y=g[k*2]; if(isNaN(x)!==isNaN(y)) return false; if(isNaN(x)) continue; if(Math.hypot(x-y,f[k*2+1]-g[k*2+1])>0.1) return false; }
+    return Math.hypot(f[nb]-g[nb],f[nb+1]-g[nb+1])<=0.1 && Math.abs(f[nb+2]-g[nb+2])<=0.1; };
+  const add=(s0,K)=>{ if(K-s0<VS_MIN || K>nT-1 || wt.some(w=>w.s0<K && s0<w.K)) return;
+    { const A0=vFr(v,s0).slice(); while(s0>1 && near(vFr(v,s0-1),A0) && !wt.some(w=>w.s0<K && s0-1<w.K)) s0--; }
+    const bk=vFr(v,K);
+    wt.push({s0, K, bx:bk[nb], by:bk[nb+1], k:-1, thr:true, ux:0, uy:0, L:K-WT_RUN-s0, dm:0, still:true}); };
+  for(let t=1;t<nT;t++){ const f=vFr(v,t); if(still(prev,f)){ if(a<0) a=t-1; } else { if(a>=0) add(a,t); a=-1; } prev=f; }
+  if(a>=0) add(a,nT-1);   /* anche il tratto fermo che arriva al fischio finale */
+  wt.sort((x,y)=>x.s0-y.s0);
 }
 /* 0.4.6.1 (V0d, problema n. 35): pose all'inizio (S, tick s0) e alla fine (E, tick K-WT_RUN) dell'attesa accorciata, e distanza massima da coprire.
    Nel tempo accorciato i giocatori scorrono in linea retta da S a E (vGlide), invece di far correre la simulazione 20-50 volte più in fretta:
@@ -300,13 +321,19 @@ function vWaitPose(v,w){
   for(let k=0;k<n*2;k++){ w.S[k]=A[k]; w.E[k]=B[k]; }
   /* chi entra o esce dal campo durante l'attesa (cambi, infortuni) segue la simulazione: w.pr[i] = passo massimo (m) di questi giocatori tra i tick
      s0+i-1 e s0+i; dove serve, vRate rallenta il tempo perché non vadano più veloci di WT_VCAP */
+  /* R5b (n. 38): segue la simulazione anche chi nell'attesa resta quasi sul posto (tra inizio e fine al massimo 2 m) ma nel frattempo si allontana più di
+     1 m dalla retta tra le due posizioni (per esempio il portiere che durante una rimessa oscilla di ±1 m davanti alla porta): lo scorrimento lo mostrerebbe
+     fermo mentre si muove davvero. Chi attraversa il campo resta nello scorrimento (si vede già muovere, e seguirlo allungherebbe l'attesa) */
+  const offLine=k=>{ if(k===w.k && !w.thr) return false; const sx=A[k*2], sy=A[k*2+1], ex=B[k*2], ey=B[k*2+1], L2=(ex-sx)*(ex-sx)+(ey-sy)*(ey-sy); if(L2>4) return false;
+    for(let i=w.s0+1;i<b;i++){ const f=vFr(v,i), x=f[k*2], y=f[k*2+1]; if(isNaN(x)) return true; const u=L2>1e-6?clamp(((x-sx)*(ex-sx)+(y-sy)*(ey-sy))/L2,0,1):0;
+      if(Math.hypot(x-(sx+u*(ex-sx)),y-(sy+u*(ey-sy)))>1.0) return true; } return false; };
   w.pr=null; { const pr=new Float32Array(b-w.s0+1); let any=false;
-    for(let k=0;k<n;k++){ if(!isNaN(A[k*2])&&!isNaN(B[k*2])) continue; w.S[k*2]=w.S[k*2+1]=w.E[k*2]=w.E[k*2+1]=NaN;
+    for(let k=0;k<n;k++){ if(!isNaN(A[k*2])&&!isNaN(B[k*2])&&!offLine(k)) continue; w.S[k*2]=w.S[k*2+1]=w.E[k*2]=w.E[k*2+1]=NaN;
       let pf=null; for(let i=w.s0;i<=b;i++){ const f=vFr(v,i); if(isNaN(f[k*2])){ pf=null; continue; } if(pf){ const d=Math.hypot(f[k*2]-pf[0],f[k*2+1]-pf[1]); if(d>pr[i-w.s0]){ pr[i-w.s0]=d; any=true; } } pf=[f[k*2],f[k*2+1]]; } }
     if(any) w.pr=pr; }
   w.SR=null; w.ER=null; if(A.length>=nb+20){ w.SR=[0,1,2].flatMap(r=>[A[nb+12+r*2],A[nb+13+r*2]]); w.ER=[0,1,2].flatMap(r=>[B[nb+12+r*2],B[nb+13+r*2]]); }
   /* chi batte raggiunge il punto dietro la palla a non più di 3 m per tick in più di quanto già corre (almeno 2 tick; nelle attese lunghe al massimo il 45% dell'attesa) */
-  const kd=(w.k>=0&&!isNaN(A[w.k*2]))?Math.hypot(A[w.k*2]-w.qx,A[w.k*2+1]-w.qy):0; w.kr=clamp(kd/3,2,b-w.s0>=6?Math.max(2,0.45*(b-w.s0)):1e9);
+  const kd=(w.k>=0&&!isNaN(A[w.k*2]))?Math.hypot(A[w.k*2]-w.qx,A[w.k*2+1]-w.qy):0; w.kr=clamp(kd/3,2,b-w.s0>=6?Math.max(2,0.45*(b-w.s0)):1e9); w.kd=kd;
   vWaitDm(v,w);
 }
 /* distanza massima (m) che qualcuno deve coprire tra la posizione di inizio e quella di fine dell'attesa */
@@ -338,7 +365,10 @@ function vGlide(v,t,P,RF,V,O){
   const w=v.wg; if(!w || !w.S || t<w.s0 || t>w.K-WT_RUN) return false;
   const span=Math.max(1e-6,w.K-WT_RUN-w.s0), a=clamp((t-w.s0)/span,0,1), e=a*a*(3-2*a), S=w.S, E=w.E;
   for(let k=0;k<P.length;k++){ const sx=S[k*2], ex0=E[k*2]; if(isNaN(sx)||isNaN(ex0)) continue;
-    const kick=(k===w.k&&!w.thr), ex=kick?w.qx:ex0, ey=kick?w.qy:E[k*2+1], sy=S[k*2+1];
+    /* CA1 (0.4.7.3): chi batte scorre fino al punto in cui vFixFrame lo disegna alla fine dello scorrimento (la sua rincorsa, vKickU, verso il punto dietro
+       la palla). Prima scorreva sempre fino al punto dietro la palla, poi vFixFrame lo rimetteva indietro sulla sua rincorsa più lunga dell'attesa
+       (salto di 4,7 m: seme 2024, giornata 1, partita 1, tick 6963, chi batte a 20 m dalla palla in un'attesa di 3 tick) */
+    const kick=(k===w.k&&!w.thr), ku=kick?vKickU(v,w,w.K-WT_RUN):null, ex=ku!=null?ex0+(w.qx-ex0)*ku:ex0, ey=ku!=null?E[k*2+1]+(w.qy-E[k*2+1])*ku:E[k*2+1], sy=S[k*2+1];
     P[k]={x:sx+(ex-sx)*e, y:sy+(ey-sy)*e};
     /* velocità e verso del corpo (corsa, scia, 3D): chi scorre guarda dove va e corre almeno al trotto; chi non si muove resta come nella simulazione */
     const dx=ex-sx, dy=ey-sy, dl=Math.hypot(dx,dy);
@@ -348,9 +378,21 @@ function vGlide(v,t,P,RF,V,O){
   return true;
 }
 /* posizione disegnata di chi batte durante l'attesa (frameAt; i frame non cambiano). Dalla 0.4.2.7 la palla dopo il gol la trattiene la rete della simulazione */
+/* CA1 (0.4.7.3): quota della rincorsa di chi batte al tempo t (0 = dove lo mette la simulazione, 1 = dietro la palla); null = lo si disegna dove lo mette la
+   simulazione. La usano vFixFrame e vGlide, così chi batte non salta quando finisce lo scorrimento */
+function vKickU(v,w,t){ const ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+    /* R4b (0.4.6.2, F4, n. 39): fuori dallo scorrimento la rincorsa dura almeno quanto serve perché chi batte non vada più veloce di WT_VCAP m/s veri
+       alla velocità scelta (picco della partenza dolce ×2); senza superare l'attesa. Prima a 4× poteva fare 20 m in 4 fotogrammi (fino a 7,7 m a fotogramma) */
+    const kn=2*(w.kd||0)*tickRate(v)/WT_VCAP, kmax=Math.max(w.kr, w.K-WT_RUN-w.s0);
+    /* R5b (n. 39): se chi batte è troppo lontano per arrivare dietro la palla entro l'attesa senza superare WT_VCAP (per esempio 27 m in 8 tick quando
+       dopo un vantaggio non riuscito si torna al punto del fallo) lo si disegna dove lo mette la simulazione, che lo fa correre fino alla palla */
+    if(kn>kmax) return null;
+    const kr=Math.min(Math.max(w.kr, kn), kmax);
+    const a=clamp((t-w.s0)/kr,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1);
+    return ez(a)*(1-b); }   /* 0.4.6.1: la rincorsa parte subito, senza il tratto ancora fermo di prima (era 1-ez(b)) */
 function vFixFrame(v,t,P,o){
-  const w=vWaitAt(v,t); if(w && w.k>=0 && !w.thr && P[w.k]){ const p=P[w.k], qx=w.bx-w.ux*WT_BACK, qy=w.by-w.uy*WT_BACK, ez=x=>x<0.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
-    const a=clamp((t-w.s0)/w.kr,0,1), b=clamp((t-(w.K-WT_RUN))/WT_RUN,0,1), u=ez(a)*(1-b);   /* 0.4.6.1: la rincorsa parte subito, senza il tratto ancora fermo di prima (era 1-ez(b)) */
+  const w=vWaitAt(v,t); if(w && w.k>=0 && !w.thr && P[w.k]){ const p=P[w.k], qx=w.bx-w.ux*WT_BACK, qy=w.by-w.uy*WT_BACK;
+    const u=vKickU(v,w,t); if(u==null) return;
     P[w.k]={x:p.x+(qx-p.x)*u, y:p.y+(qy-p.y)*u}; }
 }
 
@@ -697,14 +739,14 @@ function draw2D(t, ivOn){
     if(Math.abs(f.bx-gx)<52.5){ const xs=[]; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(p && v.team[kk]===def) xs.push(Math.abs(p.x-gx)); }); xs.sort((a,b)=>a-b);
       if(xs.length>1){ const lx=gx===0?xs[1]:105-xs[1]; c.save(); c.setLineDash([6,5]); c.strokeStyle=v.kit[def].fill; c.globalAlpha=0.8; c.lineWidth=Math.max(2,1.5*px); c.beginPath(); c.moveTo(X(lx),Y(0)); c.lineTo(X(lx),Y(68)); c.stroke(); c.restore(); } } }
   /* v0.4.5.0 (R3b, risposta 8A): solo per le prove, con ?forma nell'indirizzo: rettangolo dei 10 di movimento di ogni squadra con lunghezza e larghezza */
-  if(!ivOn && VFORMA){ for(const tm of [0,1]){ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,n=0; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(!p || v.team[kk]!==tm || v.info[id].gk) return; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); n++; });
+  if(!ivOn && VFORMA){ for(const tm of [0,1]){ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,n=0; v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(!p || v.team[kk]!==tm || vIsGk(v,id,t)) return; x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); n++; });
     if(n<9) continue; c.save(); c.setLineDash([3,4]); c.strokeStyle=v.kit[tm].fill; c.lineWidth=Math.max(1.5,px); c.strokeRect(X(x0),Y(y0),(x1-x0)*S,(y1-y0)*S);
     c.fillStyle=v.kit[tm].fill; c.font=`${Math.max(10,8*px)}px ${font}`; c.textAlign='left'; c.textBaseline='bottom'; c.fillText(`L ${Math.round(x1-x0)} · W ${Math.round(y1-y0)}`,X(x0),Y(y0)-2); c.restore(); } }
   const ev=ivOn?null:activeEvent(t), named=new Set(ev?ev.p:[]), flashed=new Set(ev&&ev.flash?ev.flash:[]);
   const ownId = f.own>=0 ? v.sim.cols[f.own] : null, dbg=v.d2=[];
   c.textAlign='center'; c.textBaseline='middle';
   v.sim.cols.forEach((id,kk)=>{ const p=f.P[kk]; if(!p) return; const inf=v.info[id], kit=v.kit[inf.t], cx=X(p.x), cy=Y(p.y);
-    const col = inf.gk ? v.gkc[inf.t] : kit.fill;
+    const gkN=vIsGk(v,id,t), col = gkN ? v.gkc[inf.t] : kit.fill;   /* I1 (n. 77): maglia di chi sta in porta adesso */
     if(flashed.has(id)){ c.beginPath(); c.arc(cx,cy,R*2.1,0,Math.PI*2); c.fillStyle=css('--ev-brand-gold'); c.globalAlpha=0.35+0.2*Math.sin(performance.now()/160); c.fill(); c.globalAlpha=1; }
     /* scia di chi corre: dietro rispetto al movimento (con la freccia si legge se corre avanti, indietro o di lato) */
     const vx=f.V[kk*2], vy=f.V[kk*2+1], spd=Math.hypot(vx,vy), o=f.O?f.O[kk]:NaN, run=vRunType(vx,vy,o);
@@ -713,8 +755,8 @@ function draw2D(t, ivOn){
     c.beginPath(); c.ellipse(cx+R*0.12,cy+R*0.55,R*0.95,R*0.34,0,0,Math.PI*2); c.fillStyle=dark; c.globalAlpha=0.4; c.fill(); c.globalAlpha=1;
     c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.fillStyle=col; c.fill();
     if(f.cap && (kk===f.cap[0]||kk===f.cap[1])){ c.save(); c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.clip(); c.fillStyle=goldL; c.fillRect(cx-R,cy-R,R*0.4,R*2); c.restore(); }
-    c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.lineWidth=Math.max(kit.thick||kit.alt?3.4:2.6, 1.1*px); c.strokeStyle=inf.gk?dark:(kit.alt?kit.edge:chalk); c.stroke();
-    if(inf.gk){ c.beginPath(); c.arc(cx,cy,R-2.6,0,Math.PI*2); c.lineWidth=1.4; c.strokeStyle=chalk; c.stroke(); }
+    c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.lineWidth=Math.max(kit.thick||kit.alt?3.4:2.6, 1.1*px); c.strokeStyle=gkN?dark:(kit.alt?kit.edge:chalk); c.stroke();
+    if(gkN){ c.beginPath(); c.arc(cx,cy,R-2.6,0,Math.PI*2); c.lineWidth=1.4; c.strokeStyle=chalk; c.stroke(); }
     if(id===ownId){ c.beginPath(); c.arc(cx,cy,R+3.2,0,Math.PI*2); c.lineWidth=Math.max(2.4,1.2*px); c.strokeStyle=goldL; c.stroke(); }
     if(W>=420){ c.font=`900 ${Math.round(R*1.05)}px ${font}`; c.fillStyle=relLum(col)>0.3?dark:chalk; c.fillText(inf.num, cx, cy+0.8); }
     /* freccia della direzione sul bordo (mai sopra il numero) */
@@ -851,15 +893,19 @@ function initThree(){
     return true;
   }catch(e){ return false; }
 }
+/* I1 (PROBLEMI_NOTI n. 77, regola 4 IFAB, Dani 15/11): la maglia da portiere segue il posto in campo, non il ruolo del giocatore. gkT della partita
+   (match.js, con la registrazione): [tick, squadra, id di chi sta in porta]; partite salvate prima della 0.4.7.6: dal ruolo (info.gk) */
+function vIsGk(v,id,t){ const g=v.sim&&v.sim.gkT, inf=v.info[id]; if(!inf) return false; if(!g) return !!inf.gk; let cur=null;
+  for(let i=0;i<g.length;i+=3){ if(g[i]>t) break; if(g[i+1]===inf.t) cur=g[i+2]; } return cur===id; }
 function personMesh(kit, shorts, skin, hair, hcm){
   const T=THREE, g=new T.Group();
   const torso=new T.Mesh(new T.CylinderGeometry(0.27,0.22,0.72,10),mat(kit)); torso.position.y=1.3;
   const sh=new T.Mesh(new T.CylinderGeometry(0.24,0.26,0.3,10),mat(shorts)); sh.position.y=0.84;
   const head=new T.Mesh(new T.SphereGeometry(0.16,12,10),mat(skin)); head.position.y=1.86;
-  const legs=[], arms=[];
+  const legs=[], arms=[], km=[torso];   /* I1 (n. 77): parti con il colore della maglia, da cambiare se il giocatore va o lascia la porta */
   for(const s of [-1,1]){
-    const hip=new T.Group(); hip.position.set(s*0.12,0.74,0); const leg=new T.Mesh(new T.BoxGeometry(0.13,0.7,0.14),mat(kit)); leg.position.y=-0.35; hip.add(leg); g.add(hip); legs.push(hip);
-    const shl=new T.Group(); shl.position.set(s*0.33,1.6,0); const arm=new T.Mesh(new T.BoxGeometry(0.1,0.58,0.1),mat(skin)); arm.position.y=-0.29; shl.add(arm); const slv=new T.Mesh(new T.BoxGeometry(0.13,0.24,0.13),mat(kit)); slv.position.y=-0.1; shl.add(slv); g.add(shl); arms.push(shl);
+    const hip=new T.Group(); hip.position.set(s*0.12,0.74,0); const leg=new T.Mesh(new T.BoxGeometry(0.13,0.7,0.14),mat(kit)); leg.position.y=-0.35; hip.add(leg); km.push(leg); g.add(hip); legs.push(hip);
+    const shl=new T.Group(); shl.position.set(s*0.33,1.6,0); const arm=new T.Mesh(new T.BoxGeometry(0.1,0.58,0.1),mat(skin)); arm.position.y=-0.29; shl.add(arm); const slv=new T.Mesh(new T.BoxGeometry(0.13,0.24,0.13),mat(kit)); slv.position.y=-0.1; shl.add(slv); km.push(slv); g.add(shl); arms.push(shl);
   }
   g.add(torso); g.add(sh); g.add(head);
   const neck=new T.Mesh(new T.CylinderGeometry(0.07,0.08,0.14,8),mat(skin)); neck.position.y=1.7; g.add(neck);
@@ -870,7 +916,7 @@ function personMesh(kit, shorts, skin, hair, hcm){
   const nose=new T.Mesh(new T.BoxGeometry(0.025,0.045,0.03),mat(skin)); nose.position.set(0,1.845,0.162); g.add(nose);
   const col=new T.Mesh(new T.TorusGeometry(0.1,0.022,6,16),mat(shorts)); col.rotation.x=Math.PI/2; col.position.y=1.655; g.add(col);
   g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-  const sc=(hcm||180)/100/2.04; g.scale.setScalar(sc); g.userData={legs,arms,ph:0,s:sc};
+  const sc=(hcm||180)/100/2.04; g.scale.setScalar(sc); g.userData={legs,arms,ph:0,s:sc,km};
   return g;
 }
 
@@ -878,11 +924,11 @@ function setupMatch3D(){
   if(!use3D()||!viewer) return; const v=viewer;
   V3.men.forEach(g=>V3.sc.remove(g)); V3.men.clear();
   const skins=['#f1c7a5','#e2ae86','#c68b62','#8d5a3b','#5e3a26'], hairs=['#1a1310','#3b2615','#5a3a1e','#8a6a3a','#d8c08a','#2a2a2a'];
-  v.sim.cols.forEach((id,k)=>{ const inf=v.info[id]; let kit=v.kit[inf.t].fill; if(inf.gk) kit=v.gkc[inf.t];   /* 0.4.2.3: stesse maglie del 2D */
+  v.sim.cols.forEach((id,k)=>{ const inf=v.info[id], gk0=vIsGk(v,id,0); let kit=v.kit[inf.t].fill; if(gk0) kit=v.gkc[inf.t];   /* 0.4.2.3: stesse maglie del 2D; I1: di chi sta in porta */
     const g=personMesh(kit, lum(kit)>0.55?'#1d2433':'#f2f2ee', skins[(id*7)%5], hairs[(id*11)%6], inf.h);
     const n=parseInt(kit.slice(1),16), yel=(n>>16&255)>180&&(n>>8&255)>150&&(n&255)<120, band=new THREE.Mesh(new THREE.CylinderGeometry(0.082,0.082,0.11,14), new THREE.MeshLambertMaterial({color:lin(yel?'#16181c':'#f5d020')}));
     band.position.set(0,-0.13,0); band.visible=false; g.userData.arms[1].add(band); g.userData.band=band;
-    g.visible=false; V3.sc.add(g); V3.men.set(k,g); });
+    g.userData.gk=gk0; g.visible=false; V3.sc.add(g); V3.men.set(k,g); });
   (V3.refs||[]).forEach(g=>V3.sc.remove(g)); (V3.coaches||[]).forEach(g=>V3.sc.remove(g));
   V3.refs=[0,1,2].map(k=>{ const g=personMesh('#141414','#141414',skins[(k*3+1)%5],hairs[(k*5+2)%6],k?178:182); g.visible=false;
     const hand=new THREE.Mesh(new THREE.BoxGeometry(k?0.36:0.34,k?0.28:0.45,k?0.02:0.015), k?new THREE.MeshLambertMaterial({color:lin('#e4572e')}):new THREE.MeshBasicMaterial({color:lin('#f5d020')}));
@@ -921,6 +967,7 @@ function draw3D(t, ivOn, sp){
   const bx=f.bx-52.5, bz=f.by-34;
   { const red=new Set(v.sim.red||[]), cnt=[0,0]; V3.bench=new Map(); v.sim.cols.forEach((id,k)=>{ if(f.P[k] || red.has(id)) return; const tm_=v.team[k]; if(cnt[tm_]<8) V3.bench.set(k,cnt[tm_]++); }); }
   V3.men.forEach((g,k)=>{
+    { const id=v.sim.cols[k], inf=v.info[id], gk=vIsGk(v,id,t); if(gk!==g.userData.gk && inf){ g.userData.gk=gk; const c=gk?v.gkc[inf.t]:v.kit[inf.t].fill; for(const m of g.userData.km||[]) m.material=mat(c); } }   /* I1 (n. 77): cambio di maglia */
     let p=f.P[k], q=f2.P[k];
     if(k===starK) p=q={x:52.5,y:58.5};
     if(g.userData.band) g.userData.band.visible = !!(f.cap && (k===f.cap[0]||k===f.cap[1]) && p && !p.hidden);
@@ -942,7 +989,7 @@ function draw3D(t, ivOn, sp){
       u.arms[0].rotation.x=-0.45+s*0.3; u.arms[1].rotation.x=-0.45-s*0.3; u.arms[0].rotation.z=-0.1; u.arms[1].rotation.z=0.1; }
     else { u.legs[0].rotation.x=s; u.legs[1].rotation.x=-s; u.legs[0].rotation.z=0; u.legs[1].rotation.z=0; u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[0].rotation.z=0; u.arms[1].rotation.z=0; }
     g.rotation.z=0;
-    const inf_=v.info[v.sim.cols[k]], tl=f.tilt&&inf_&&inf_.gk&&!ivOn&&!inScene?f.tilt[v.team[k]]:0;
+    const inf_=v.info[v.sim.cols[k]], tl=f.tilt&&inf_&&vIsGk(v,v.sim.cols[k],t)&&!ivOn&&!inScene?f.tilt[v.team[k]]:0;
     if(tl && Math.abs(tl)>0.05){ const fc=g.rotation.y, lean=Math.min(1.25,Math.abs(tl)), sf=Math.sin(fc)||1; g.rotation.z=Math.sign(tl)*Math.sign(sf)*lean; g.position.y=0.35*lean/1.25;   /* tuffo (0.4.2.0: dalla simulazione) */
       u.arms[0].rotation.x=Math.PI*0.95; u.arms[1].rotation.x=Math.PI*0.95; u.arms[0].rotation.z=-0.2; u.arms[1].rotation.z=0.2; u.legs[0].rotation.x=0.15; u.legs[1].rotation.x=-0.15; }
     const ev=v.rep?v.rep.e:null;

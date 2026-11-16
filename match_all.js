@@ -144,6 +144,54 @@ function matchAll(M){
     for(const [d,p,q] of pairs){ if(used.has(p.id)||!free.has(q)) continue; if(d>30) continue; t.marks.set(p.id,q); used.add(p.id); free.delete(q); }
   }
   function fwdMode(t,p){ return t.fwd[p.id] || (p.role==='ST'?'spazi':p.a.vel>=12?'linea':'spazi'); }
+  /* R4b passo 2 (sessione 12/11): difesa vicino alla porta, con il portatore (BO in BX, BY, velocità BVX, BVY) a boG < 22 m dalla porta, oppure con un passaggio
+     o un cross avversario in volo verso quella zona (allora BX, BY = punto d'arrivo, BO = chi riceve): i difensori leggono il passaggio e si muovono mentre la palla viaggia */
+  function boxDef(t,o,lvl,boG,BX,BY,BVX,BVY,BO){ const gx=t.dir>0?0:PL;
+          /* R4b passo 2 (sessione 12/11): non va il più vicino, ma chi ARRIVA PRIMA: tempo = reazione (Concentrazione: 0,2–0,5 s, tempi di reazione di scelta
+       umani) + distanza alla velocità massima del momento + il ritardo della partenza (τ dell'accelerazione, meno quanto già corre in quella direzione) */
+    const tArr=(q,X,Y)=>{ const d=hyp(X-q.x,Y-q.y), vm=q.vmax*(0.5+0.5*q.st/100), vp=((q.vx||0)*(X-q.x)+(q.vy||0)*(Y-q.y))/Math.max(0.1,d);
+      return 0.2+0.3*(1-clamp((q.gs.CO-1)/19,0,1)) + d/vm + 5.0/q.amax*(1-clamp(vp/vm,0,1)); };
+    const free=q=>q.role!=='GK'&&q.eng!=='man'&&!q.dv&&!(q.stun>0);
+    /* C1: chiusura sul portatore: va dove il portatore sarà tra 0,2–0,6 s (Anticipazione) e si mette dalla parte della porta,
+       a 0,6 / 0,9 / 1,2 m (pressing alto / medio / basso dell'allenatore) più o meno secondo la Marcatura */
+    const hz0=q=>clamp(0.2+(q.gs.AN-1)/19*0.4,0.2,0.6);
+    let c1=null, b1=1e9; for(const q of t.on){ if(!free(q)) continue; const hz=hz0(q), v=tArr(q,BX+BVX*hz,BY+BVY*hz)-(BO&&q.mk===BO?0.2+0.3*(1-clamp((q.gs.CO-1)/19,0,1)):0); if(v<b1){ b1=v; c1=q; } }   /* C1a: chi marcava già il portatore lo sta guardando: niente reazione */
+    if(c1){ const hz=hz0(c1), px=BX+BVX*hz, py=BY+BVY*hz, Lg=Math.max(1,hyp(gx-px,34-py)), dm=({alto:0.6,medio:0.9,basso:1.2}[lvl]||0.9)*(1.3-(c1.gs.MA-1)/19*0.6);
+      c1.tx=px+(gx-px)/Lg*dm; c1.ty=py+(34-py)/Lg*dm; c1.urg=true; c1.ucap=1; c1.eng='press'; c1.fq=null; }
+    /* C2: linea di tiro: chi arriva prima sulla linea palla–centro della porta (dalla parte della porta, mai chi marca a uomo né chi chiude il portatore)
+       ci entra nel punto della linea più vicino a lui (come nel calcio vero: si sposta di lato, non torna a un punto fisso), non più vicino alla palla di
+       1,5–3,0 m secondo Posizione (chi legge bene il gioco chiude più vicino, dove copre più angolo); con il pressing basso o la linea bassa dell'allenatore
+       sono due, distanziati almeno 1,6 m sulla linea */
+    const nL=(lvl==='basso'||t.lineH==='bassa')?2:1, ux=(gx-BX)/boG, uy=(34-BY)/boG, used=new Set([c1]); let uPrev=-1e9;
+    for(let k=0;k<nL;k++){ let q2=null, b2=1e9, uB=0;
+      for(const q of t.on){ if(!free(q)||used.has(q)||rx(t,q.x)>=rx(t,BX)+3||(q.mk&&q.mk!==BO&&q.mk.on)) continue;   /* C1a (n. 80): chi marca un attaccante in area non lo lascia per chiudere la linea */
+        const dMin=1.5+(20-q.a0.pos)/19*1.5, u=clamp(Math.max((q.x-BX)*ux+(q.y-BY)*uy, uPrev+1.6),Math.min(dMin,boG-1),Math.max(1,boG-1)), v=tArr(q,BX+ux*u,BY+uy*u); if(v<b2){ b2=v; q2=q; uB=u; } }
+      if(!q2) break; used.add(q2); uPrev=uB; q2.tx=BX+ux*uB; q2.ty=BY+uy*uB; q2.urg=true; q2.ucap=1; q2.eng='lane'; q2.fq=null; }
+    /* C3: ricevitori vicini (C1a, n. 80: markRunners, anche senza portatore vicino alla porta) */
+    markRunners(t,o,BO,used);
+  }
+  /* C1a (n. 80, decisione di Dani 15/11): marcatura degli attaccanti vicino alla porta PRIMA del passaggio. Gira finché l'avversario ha la palla
+     (o la sta passando), anche durante rimesse laterali e punizioni lontane, non solo con il portatore entro 22 m o con il passaggio già in volo.
+     Zona: attaccanti avversari entro 16 m dalla porta adesso o tra 1 s alla loro velocità (chi ci sta correndo: un passaggio di 15–20 m dura circa 1 s).
+     Il più vicino alla porta per primo lo prende chi arriva prima dalla parte della porta, a 0,5–1,3 m secondo la Marcatura.
+     Lettura del difensore: vede la corsa con il suo tempo di reazione (Concentrazione: 0,2–0,5 s, lo stesso di boxDef) e la prevede di 0,2–0,6 s
+     (Anticipazione, come C1): punto letto = posizione + velocità·(anticipo − reazione). Passaggio di consegne: chi marca già quell'uomo (p.mk) lo sta
+     guardando e non paga la reazione; un compagno lo prende solo se ci arriva prima anche così. Ordini dell'allenatore invariati: chi marca a uomo
+     (compito man) tiene il suo; chi pressa il portatore o chiude la linea di tiro resta al suo compito. Nessun numero casuale. */
+  function markRunners(t,o,BO,used){ const gx=t.dir>0?0:PL;
+    const reac=q=>0.2+0.3*(1-clamp((q.gs.CO-1)/19,0,1)), ant=q=>clamp(0.2+(q.gs.AN-1)/19*0.4,0.2,0.6);
+    const tArr=(q,X,Y)=>{ const d=hyp(X-q.x,Y-q.y), vm=q.vmax*(0.5+0.5*q.st/100), vp=((q.vx||0)*(X-q.x)+(q.vy||0)*(Y-q.y))/Math.max(0.1,d);
+      return reac(q) + d/vm + 5.0/q.amax*(1-clamp(vp/vm,0,1)); };
+    const free=q=>q.role!=='GK'&&q.eng!=='man'&&q.eng!=='press'&&q.eng!=='lane'&&q.eng!=='contain'&&!q.dv&&!(q.stun>0)&&!used.has(q);
+    const zG=q=>Math.min(hyp(gx-q.x,34-q.y), hyp(gx-q.x-(q.vx||0),34-q.y-(q.vy||0)));
+    const rcv=o.on.filter(q=>q!==BO&&q.role!=='GK'&&zG(q)<16).sort((a,b)=>zG(a)-zG(b)), took=new Set();
+    for(const a of rcv){ if(t.on.some(q=>q.eng==='man'&&q.fq===a)) continue; let q3=null, b3=1e9, X=0, Y=0;
+      for(const q of t.on){ if(!free(q)||took.has(q)) continue; const k=ant(q)-reac(q), ax=a.x+(a.vx||0)*k, ay=a.y+(a.vy||0)*k, La=Math.max(1,hyp(gx-ax,34-ay)), dm=1.3-(q.gs.MA-1)/19*0.8,
+          x=ax+(gx-ax)/La*dm, y=ay+(34-ay)/La*dm, v=tArr(q,x,y)-(q.mk===a?reac(q):0); if(v<b3){ b3=v; q3=q; X=x; Y=y; } }
+      if(!q3) break; took.add(q3); used.add(q3); q3.tx=X; q3.ty=Y; q3.urg=true; q3.ucap=1; q3.eng='area'; q3.fq=a; q3.mk=a; }
+    for(const q of t.on) if(q.mk && !took.has(q)) q.mk=null;
+  }
+  const SV_RB=new Set();   /* C1c (n. 47): chi rientra in questo passo (riusato, nessuna allocazione) */
   function targets(t){
     for(const p of t.on) p.fq=null;
     if(M.restart && M.restart.type==='cel'){ celTargets(t); return; }
@@ -171,18 +219,40 @@ function matchAll(M){
         t.dline += clamp(tgt-t.dline,-sp,sp);
         line=t.dline;
       } }
-    if(inPoss) t.dline=null;
+    if(inPoss){ t.dline=null; for(const p of t.on) p.mk=null; }   /* C1a: con la palla nessuno marca */
     const k=depth/30;
+    /* C1c (n. 47, 2a di Dani): inferiorità dietro la palla: avversari tra la palla e la nostra porta almeno quanti i nostri giocatori di movimento */
+    SV_RB.clear(); let inf=false; if(!inPoss){ let me=0, th=0; for(const q of t.on) if(q.role!=='GK' && rx(t,q.x)<brx) me++; for(const q of o.on) if(rx(t,q.x)<brx) th++; inf=th>=me; }
     for(const p of t.on){
-      p.urg=false; p.ucap=1; p.eng=null; p.fq=null; let xr, yr=t.slots[p.slot].y;
+      p.urg=false; p.ucap=1; p.eng=null; p.fq=null; p.vNeed=0; p.sup=false; let xr, yr=t.slots[p.slot].y;
       if(M.restart && M.restart.type==='kick') continue;
       if(p.role==='GK'){ xr=inPoss?clamp(3+Math.max(0,line-12)*0.55,3,22):clamp(3+Math.max(0,line-14)*0.25,2.5,12); yr=34+(bry-34)*(inPoss?0.3:0.22);
         /* v0.4.5.0 (R3b): con la palla nella metà avversaria il portiere fa il libero dietro la difesa; quando la perde rientra di corsa */
-        if(!inPoss && rx(t,p.x)>xr+5) p.urg=true;
+        const gkBack=!inPoss && rx(t,p.x)>xr+5;   /* C1c (n. 47, 2b di Dani): il portiere che rientra corre con la velocità sul bisogno (sotto), non al massimo */
         /* v0.4.2.0: senza palla il portiere sta sulla linea tra la palla e il centro della porta (chiude l'angolo), più avanti quando la palla è vicina */
-        const db=hyp(brx,bry-34);
-        if(!inPoss && db<36){ const dG=clamp(0.7+(db-5)*0.14,0.7,4.2), ux=brx/Math.max(db,0.1), uy=(bry-34)/Math.max(db,0.1); xr=Math.max(0.6,ux*dG); yr=34+uy*dG; p.urg=db<24;
-          const bo=ball.owner; if(bo && bo.t!==t.idx && db<16){ let def=0; for(const q of t.on){ if(q===p) continue; const qx=rx(t,q.x); if(qx<brx-0.5 && Math.abs(ry(t,q.y)-bry)<8) def++; } if(def===0){ const k=clamp(0.42-(db-8)*0.02,0.25,0.5); xr=Math.max(xr,brx*k); yr=34+(bry-34)*(1-k*0.6); } } } }
+        /* R4b (0.4.6.2): con un passaggio o un cross in azione avversario in volo (non sugli angoli) il portiere si piazza dove arriverà la palla */
+        let gbx=brx, gby=bry, fly=false; if(ball.fl && ball.fl.t!==t.idx && (ball.fl.type==='pass'||(ball.fl.type==='cross' && !(ball.sp && ball.sp.type==='cor' && M.tick-ball.sp.t<11)))){ gbx=rx(t,ball.fl.x1); gby=ry(t,ball.fl.y1); fly=true; }
+        /* C1b (n. 88, 1b, ok di Dani 16/11): lettura dell'azione. Senza un passaggio in volo il portiere si piazza dove sarà la palla (portatore o palla
+           vagante) alla fine di questo passo di simulazione (DT), letta con i tempi umani di C1a: anticipo 0,2–0,6 s da Anticipazione e Posizionamento del
+           portiere, reazione 0,2–0,5 s da Concentrazione (punto letto = posizione + velocità·(DT + anticipo − reazione)). Prima leggeva la palla di inizio
+           passo: con il tiro che parte a fine passo si piazzava dove la palla era fino a mezzo secondo prima. */
+        if(!fly && !inPoss){ const lead=DT+clamp(0.2+((p.gs.AN+p.a0.pos)/2-1)/19*0.4,0.2,0.6)-(0.2+0.3*(1-clamp((p.gs.CO-1)/19,0,1))), bo=ball.owner, vx=bo?(bo.vx||0):(ball.vx||0), vy=bo?(bo.vy||0):(ball.vy||0);
+          let X=ball.x+vx*lead, Y=ball.y+vy*lead; const fl=ball.fl; if(fl && !bo && fl.tA>0){ const u=clamp((fl.el+lead)/fl.tA,0,1); X=fl.x0+(fl.x1-fl.x0)*u; Y=fl.y0+(fl.y1-fl.y0)*u; }   /* palla in volo (angoli, lanci, respinte): sulla sua traiettoria */
+          gbx=rx(t,clamp(X,0,PL)); gby=ry(t,clamp(Y,0,PW)); }
+        const db=hyp(gbx,gby-34);
+        if(!inPoss && db<36){ const dG=clamp(0.7+(db-5)*0.14,0.7,4.2), ux=gbx/Math.max(db,0.1), uy=(gby-34)/Math.max(db,0.1); xr=Math.max(0.6,ux*dG); yr=34+uy*dG;
+          /* C1b (n. 88, 1a): sulla bisettrice dell'angolo palla–pali (prima sulla linea palla–centro della porta), sul semicerchio di raggio dG intorno al
+             centro della porta (stessa distanza di R4b: 0,7–4,2 m, dentro le fasce «arretrata» e «avanzata» dello studio dei Mondiali 2010/14, risposta 035) */
+          { const e1x=-gbx, e1y=34-FIS.GW-gby, e2x=-gbx, e2y=34+FIS.GW-gby, l1=Math.max(0.01,hyp(e1x,e1y)), l2=Math.max(0.01,hyp(e2x,e2y));
+            let bx=e1x/l1+e2x/l2, by=e1y/l1+e2y/l2; const lb=hyp(bx,by); if(lb>1e-6 && bx<-1e-6 && gbx>xr+0.1){ bx/=lb; by/=lb; const sq=(xr-gbx)/bx; yr=gby+by*sq; } }   /* stessa distanza dalla linea, y sulla bisettrice (con la palla larga e vicina il semicerchio stretto non incontra la bisettrice: palo vicino) */
+          const bo=ball.owner; if(bo && bo.t!==t.idx && db<16){ let def=0; for(const q of t.on){ if(q===p) continue; const qx=rx(t,q.x); if(qx<gbx-0.5 && Math.abs(ry(t,q.y)-gby)<8) def++; } if(def===0){ const k=clamp(0.42-(db-8)*0.02,0.25,0.5); xr=Math.max(xr,gbx*k); yr=34+(gby-34)*(1-k*0.6); } } }
+        /* C1b (n. 88, 1c): piccoli passi laterali in appoggio. Il portiere va al suo posto alla velocità che gli serve per arrivarci prima che il tiro possa
+           partire (velocità sul bisogno di R4b: volo che resta + una scelta del portatore ~1 s + distanza della palla dal posto a 15 m/s), di fronte alla
+           palla (di lato il corpo rende il 55% della velocità massima, fisCorpo); scatta (urg) solo se a passi non arriva o se rientra da lontano. Prima
+           era «di corsa» con la palla entro 36 m, anche fermo. */
+        if(!inPoss && (!p.urg||gkBack)){ p.urg=false; const X=rx(t,xr), Y=ry(t,yr), d=hyp(X-p.x,Y-p.y); if(d>=0.3){ const fl=ball.fl, bxw=fly?fl.x1:ball.x, byw=fly?fl.y1:ball.y,
+            tb=(fly?Math.max(0,fl.tA-fl.el):0)+1.0+hyp(bxw-X,byw-Y)/15, vN=d/Math.max(0.5,tb), cap=0.55*p.vmax*(0.5+0.5*p.st/100);
+            if(vN>cap) p.urg=true; else p.vNeed=vN; } } }
       else {
         xr=line+LINE_OFF[p.role]*k;
         yr=34+(yr-34)*width+(bry-34)*shift;
@@ -216,14 +286,17 @@ function matchAll(M){
           if(isDefR(p.role)) xr = t.dline!=null ? t.dline : Math.min(xr, Math.max(5,brx-1.5));
           else if(ROLE_GROUP[p.role]==='C') xr=Math.min(xr, brx+8);
           if(M.restart && M.restart.type==='gk') xr=Math.min(xr,84);
-          if(!M.restart && rx(t,p.x)>xr+4-tqz(p,'DE')*10) p.urg=true;   /* R3b: Determinazione nei rientri */
+          if(!M.restart && rx(t,p.x)>xr+4-tqz(p,'DE')*10 && xr<brx){ p.urg=true; SV_RB.add(p); }   /* R3b: Determinazione nei rientri. C1c (n. 47, 2a): solo chi ha il
+            posto tra la palla e la porta (il compito); con quale velocità lo decide la velocità sul bisogno, sotto */
         }
         xr=clamp(xr,4,100); yr=clamp(yr,2,66);
       }
       p.tx=rx(t,xr); p.ty=ry(t,yr);
       if(inPoss && !isDefR(p.role) && p.role!=='GK' && rx(t,p.x)>off-1.0 && rx(t,p.x)>52.5){ p.urg=true; if(rx(t,p.x)>off-0.3) p.tx=rx(t,Math.min(rx(t,p.tx),off-1.5)); }   /* chi è oltre la linea del fuorigioco rientra subito */
     }
-    if(M.restart){ if(M.restart.type==='pen') penTargets(t); else if(M.restart.type==='cor') corTargets(t); else if(M.restart.type==='fk' && (M.restart.direct||M.restart.crossFk)) fkTargets(t); return; }
+    if(M.restart){ if(M.restart.type==='pen') penTargets(t); else if(M.restart.type==='cor') corTargets(t); else if(M.restart.type==='fk' && (M.restart.direct||M.restart.crossFk)) fkTargets(t);
+      else if((M.restart.type==='thr'||M.restart.type==='fk') && M.restart.team!==t.idx) markRunners(t,o,null,new Set());   /* C1a (n. 80, 84): marcatura in area durante rimesse e punizioni lontane */
+      restNeed(t); return; }
     const gx=t.dir>0?0:PL;
     if(!inPoss && ball.owner){
       const bo=ball.owner;
@@ -255,11 +328,19 @@ function matchAll(M){
         let m=null,md=(deep?15:8)*clamp(1+tqz(p,'MA'),0.7,1.3); for(const q of o.on){ if(q===bo||marked.has(q)) continue; const d=hyp(q.x-p.tx,q.y-p.ty); if(d<md){md=d;m=q;} }
         if(m) marked.add(m);
         if(m){ const k3=(deep?1.25:1.5)/Math.max(1,hyp(gx-m.x,34-m.y)); const w=deep?0.93:0.5; if(!inLine) p.tx=p.tx*(1-w)+(m.x+(gx-m.x)*k3)*w; p.ty=p.ty*(1-w)+(m.y+(34-m.y)*k3)*w; if(deep){ p.urg=true; p.fq=m; } } }
+      /* R4b (0.4.6.2, C): difesa vicino alla porta (portatore a meno di 22 m), con velocità e frenate del motore */
+      { const boG=hyp(gx-bo.x,34-bo.y);
+        if(boG<22 && bo.role!=='GK'){
+          boxDef(t,o,lvl,boG,bo.x,bo.y,bo.vx||0,bo.vy||0,bo);
+        } else markRunners(t,o,bo,new Set()); }   /* C1a (n. 80): marcatura in area anche con il portatore lontano */
     }
     if(inPoss && ball.owner && ball.owner.t===t.idx){
       const bo=ball.owner, brx2=rx(t,bo.x);
-      const sup=t.on.filter(p=>p!==bo && p.role!=='GK' && p.runT<=0 && !((p.role==='ST'||p.role==='LW'||p.role==='RW') && fwdMode(t,p)==='linea')).sort((a,b)=>D2(a,bo)-D2(b,bo)).slice(0,3);
-      for(const p of sup){ let c=supCache.get(p.id); if(!c||M.tick-c.t>3){ c={t:M.tick,s:freeSpot(p,t,o,bo.x,bo.y,11+(counter?4:0))}; supCache.set(p.id,c); } if(c.s){ const w=clamp(0.7+tqz(p,'SM')*0.6,0.4,0.95); p.tx=p.tx*(1-w)+c.s[0]*w; p.ty=p.ty*(1-w)+c.s[1]*w; } }   /* R3b: Smarcamento */
+      /* R4b (sessione 12/11, scelta D di Dani): in appoggio vanno prima i centrocampisti entro 25 m dal portatore (nel calcio vero sono loro a offrirsi
+         di continuo: corrono più di tutti), poi gli altri; chi si offre si muove (urg) con la velocità sul bisogno */
+      const supP=p=>ROLE_GROUP[p.role]==='C' && D2(p,bo)<25 ? 0 : 1;
+      const sup=t.on.filter(p=>p!==bo && p.role!=='GK' && p.runT<=0 && !((p.role==='ST'||p.role==='LW'||p.role==='RW') && fwdMode(t,p)==='linea')).sort((a,b)=>supP(a)-supP(b)||D2(a,bo)-D2(b,bo)).slice(0,3);
+      for(const p of sup){ let c=supCache.get(p.id); if(!c||M.tick-c.t>3){ c={t:M.tick,s:freeSpot(p,t,o,bo.x,bo.y,11+(counter?4:0))}; supCache.set(p.id,c); } if(c.s){ const w=clamp(0.7+tqz(p,'SM')*0.6,0.4,0.95); p.tx=p.tx*(1-w)+c.s[0]*w; p.ty=p.ty*(1-w)+c.s[1]*w; if(supP(p)===0){ p.urg=true; p.sup=true; } } }   /* R3b: Smarcamento */
       const byr=ry(t,bo.y);
       if(brx2>40 && Math.abs(byr-34)>16){ const fb=t.on.find(p=>isFB(p.role) && Math.sign(ry(t,p.y)-34)===Math.sign(byr-34) && p!==bo);
         if(fb && rx(t,fb.x)<brx2+4){ fb.tx=rx(t,Math.min(95,brx2+11)); fb.ty=ry(t,byr<34?5:63); fb.urg=true; } }
@@ -275,20 +356,52 @@ function matchAll(M){
       /* palla vagante nella sua area piccola (o poco fuori): il portiere esce sempre a prenderla */
       const g=gkOf(t); if(g && !g.dv && rx(t,ball.x)<9 && Math.abs(ball.y-34)<12 && ball.z<2){ g.tx=ball.x+(ball.vx||0)*0.3; g.ty=ball.y+(ball.vy||0)*0.3; g.urg=true; } }
     /* v0.4.2.0: palla che rotola verso la porta: il portiere si mette sulla sua strada */
-    if(!ball.owner && (!ball.fl || ball.fl.type!=='shot')){ const g=gkOf(t), gl=t.dir>0?0:PL, vt=(gl-ball.x)*(ball.vx||0);
+    /* C1b (n. 88): non su un passaggio o un cross avversario diretto a un compagno davanti alla porta: la palla si ferma lì (targets: punto d'arrivo) */
+    if(!ball.owner && (!ball.fl || (ball.fl.type!=='shot' && !((ball.fl.type==='pass'||ball.fl.type==='cross') && ball.fl.t!==t.idx && ball.fl.recv && rx(t,ball.fl.x1)>1.5)))){ const g=gkOf(t), gl=t.dir>0?0:PL, vt=(gl-ball.x)*(ball.vx||0);
       if(g && !g.dv && vt>0 && Math.abs(ball.x-gl)<30){ const tl=Math.abs(ball.x-gl)/Math.max(0.5,Math.abs(ball.vx)), yl=ball.y+ball.vy*tl; if(tl<4 && Math.abs(yl-34)<FIS.GW+1.5){ const xg=gl+t.dir*0.8, k=Math.abs(xg-ball.x)/Math.max(0.5,Math.abs(ball.vx)); g.tx=xg; g.ty=clamp(ball.y+ball.vy*k,34-FIS.GW,34+FIS.GW); g.urg=true; } } }
     if(ball.fl && ball.fl.recv && ball.fl.recv.t===t.idx){ const f=ball.fl, r=f.recv; r.tx=f.x1; r.ty=f.y1; r.urg=true;
-      if(f.chase){ r.tx=ball.x+ball.vx*0.45; r.ty=ball.y+ball.vy*0.45; }
+      if(f.chase && !(r.role==='GK' && ((t.dir>0?0:PL)-ball.x)*(ball.vx||0)>0 && Math.abs(ball.x-(t.dir>0?0:PL))<30)){ r.tx=ball.x+ball.vx*0.45; r.ty=ball.y+ball.vy*0.45; }   /* R4b: il portiere che riceve un retropassaggio diretto in porta resta sulla traiettoria (bersaglio della palla che rotola verso la porta) invece di inseguirla */
       else
       /* v0.4.2.0: sul passaggio rasoterra il compagno va incontro alla palla sulla sua linea */
       if(f.type==='pass' && ball.z<0.3 && f.z0<0.3 && f.h<0.6){ const ux=f.x1-ball.x, uy=f.y1-ball.y, L=hyp(ux,uy); if(L>0.5){ const s0=clamp(((r.x-ball.x)*ux+(r.y-ball.y)*uy)/L, 0, L+2.5); r.tx=ball.x+ux/L*s0; r.ty=ball.y+uy/L*s0; } } }
+    /* R4b (0.4.6.2, M2): su un passaggio avversario diretto a meno di 30 m dalla nostra porta, il difensore più vicino al punto d'arrivo ci va
+       (dalla parte della porta, 0,9 m) se ci arriva entro 1 s dall'arrivo della palla: reazione 0,5 − 0,3·(Anticipazione−1)/19 s, poi corsa piena */
+    if(ball.fl && ball.fl.recv && ball.fl.recv.t!==t.idx && ball.fl.type==='pass' && hyp((t.dir>0?0:PL)-ball.fl.x1,34-ball.fl.y1)<30){ const f=ball.fl, gl=t.dir>0?0:PL;
+      const q=t.on.filter(p=>p.role!=='GK'&&!p.dv&&p.eng!=='man').sort((a,b)=>hyp(a.x-f.x1,a.y-f.y1)-hyp(b.x-f.x1,b.y-f.y1))[0];
+      if(q){ const rt=0.5-0.3*(q.gs.AN-1)/19, left=Math.max(0,(f.tA||0)-(f.el||0)), need=rt+hyp(q.x-f.x1,q.y-f.y1)/Math.max(1,q.vmax*(0.5+0.5*q.st/100));
+        if(f.el>=rt && need<left+1.0){ const Lg=Math.max(1,hyp(gl-f.x1,34-f.y1)); q.tx=f.x1+(gl-f.x1)/Lg*0.9; q.ty=f.y1+(34-f.y1)/Lg*0.9; q.urg=true; q.ucap=1; q.eng='press'; q.fq=null; } } }
+    /* R4b passo 2: passaggio o cross avversario in volo verso la zona a meno di 22 m dalla nostra porta: dopo 0,3 s (reazione) la difesa si dispone sul punto d'arrivo */
+    if(ball.fl && ball.fl.recv && ball.fl.recv.t!==t.idx && (ball.fl.type==='pass'||ball.fl.type==='cross') && (ball.fl.el||0)>=0.3 && !M.restart){ const f=ball.fl, G=hyp((t.dir>0?0:PL)-f.x1,34-f.y1);
+      if(G<22) boxDef(t,o,(t.plan||{}).press||'medio',G,f.x1,f.y1,0,0,f.recv); else markRunners(t,o,null,new Set()); }
+    else if(ball.fl && ball.fl.recv && ball.fl.recv.t!==t.idx && (ball.fl.type==='pass'||ball.fl.type==='cross') && !M.restart) markRunners(t,o,null,new Set());   /* C1a (n. 80): nei primi 0,3 s del volo chi marca tiene il suo uomo (reazione nel punto letto) */
     if(ball.fl && ball.fl.recv && ball.fl.recv.t!==t.idx && (ball.fl.type==='pass')){ const L0=ball.fl.through?18:9; const cs=t.on.filter(p=>p.role!=='GK'||ball.fl.through).sort((a,b)=>hyp(a.x-ball.fl.x1,a.y-ball.fl.y1)-hyp(b.x-ball.fl.x1,b.y-ball.fl.y1)).slice(0,ball.fl.through?2:1); for(const c of cs){ if(hyp(c.x-ball.fl.x1,c.y-ball.fl.y1)<L0*clamp(1+tqz(c,'AN')*1.2,0.6,1.5)){ c.tx=ball.fl.x1;   /* R3b: Anticipazione */ c.ty=ball.fl.y1; c.urg=true; } } }
     for(const p of t.on){ if(p.wall && M.tick-p.wall.t<14 && p!==ball.owner && (ball.owner?ball.owner.t===t.idx:ball.fl&&ball.fl.t===t.idx)){ p.tx=p.wall.X; p.ty=p.wall.Y; p.urg=true; } }
     /* v0.4.2.0: il portiere esce sul cross se arriva in tempo nel punto di caduta */
     if(ball.fl && ball.fl.type==='cross' && ball.fl.t!==t.idx){ const f=ball.fl, g=gkOf(t); if(g && !g.dv){ const gl=t.dir>0?0:PL; if(Math.abs(f.x1-gl)<6.5 && Math.abs(f.y1-34)<9.5){ const left=f.tA-f.el, d=hyp(g.x-f.x1,g.y-f.y1); if(d<left*5+1.5){ g.tx=f.x1; g.ty=f.y1; g.urg=true; f.gkOut=g; } } } }
     tqErr(t);
     if(ball.owner && ball.owner.t===t.idx){ const o2=ball.owner; o2.tx=o2.cx??o2.x; o2.ty=o2.cy??o2.y; o2.urg=true; }
+    /* R4b (sessione 12/11, scelta D di Dani): VELOCITÀ SUL BISOGNO. Chi deve spostarsi senza contrastare (non pressa, non marca, non chiude, non riceve, non ha la
+       palla, non fa un taglio a tempo) corre alla velocità che gli serve per arrivare prima della palla in quella zona: tempo della palla = volo che le resta
+       + una scelta del portatore (~1 s, tempo con la palla misurato del tiratore) + la distanza dalla zona a 15 m/s (passaggio a terra tipico, 12–18 m/s).
+       Margine (quanto prima vuole arrivare): dagli ordini dell'allenatore (pressing alto 0,8 s, medio 0,5, basso 0,3), più Determinazione, per la Resistenza,
+       ridotto dalla stanchezza. Se il tempo non basta corre al massimo (move). */
+    { const MG={alto:0.8,medio:0.5,basso:0.3}[(t.plan||{}).press||'medio']||0.5, fl=ball.fl;
+      /* C1c (n. 47, 2a e 2c di Dani): nel rientro, senza inferiorità dietro la palla, la minaccia è la palla portata avanti dal portatore (alla sua velocità
+         con la palla, 0,90·vmax) e non un passaggio nello spazio; il margine cresce con Determinazione e Collaborazione. Il marcatore (marcatura a uomo, in
+         area o stretta vicino alla porta) corre quanto serve per restare sul suo uomo prima che gli arrivi un passaggio: alla sua velocità (move: p.fq) più
+         quella per chiudere la distanza, non al massimo */
+      const bo=ball.owner, vCar=bo&&bo.t!==t.idx?Math.max(1,(bo.vmax||8)*0.9):15;
+      for(const p of t.on){ const mk=p.fq && p.fq!==ball.owner && p.fq.t!==t.idx && (p.eng==='man'||p.eng==='area'||!p.eng);
+        if(!p.urg||(p.eng&&!mk)||(p.fq&&!mk)||p===ball.owner||p.role==='GK'||p.runT>0||(fl&&fl.recv===p)) continue; const d=hyp(p.tx-p.x,p.ty-p.y); if(d<1) continue;
+        const rb=SV_RB.has(p)&&!inf, bx=fl?fl.x1:ball.x, by=fl?fl.y1:ball.y, tb=(fl?Math.max(0,fl.tA-fl.el):0)+1.0+hyp(bx-(mk?p.fq.x:p.tx),by-(mk?p.fq.y:p.ty))/(rb?vCar:15);
+        const mg=Math.max(0,(MG+tqz(p,'DE')+(SV_RB.has(p)?tqz(p,'CL'):0))*(0.8+0.4*clamp((p.a0.res-1)/19,0,1))*p.st/100);
+        p.vNeed=d/Math.max(0.5,tb-mg); } }
   }
+  /* R4b (sessione 12/11, scelta D): nelle riprese chi non batte ha tutto il tempo che manca alla battuta (M.restart.ticks): corre solo quanto serve per arrivare
+     prima, con lo stesso margine del gioco (pressing dell'allenatore, Determinazione, Resistenza, stanchezza). Esclusi chi batte, chi lo aiuta e l'esultanza. */
+  function restNeed(t){ const r=M.restart; if(!r || r.type==='cel') return; const MG={alto:0.8,medio:0.5,basso:0.3}[(t.plan||{}).press||'medio']||0.5, left=Math.max(0,r.ticks)*DT;
+    for(const p of t.on){ p.vNeed=0; if(!p.urg||p===r.taker||p===r.helper||p.role==='GK') continue; const d=hyp(p.tx-p.x,p.ty-p.y); if(d<1) continue;
+      const mg=Math.max(0,(MG+tqz(p,'DE'))*(0.8+0.4*clamp((p.a0.res-1)/19,0,1))*p.st/100); p.vNeed=d/Math.max(0.5,left-mg); } }
   /* bersagli che coincidono (B11 a): se due compagni vanno nello stesso punto, il meno urgente si sposta di lato */
   function deconflict(t){ const on=t.on, n=on.length;
     for(let i=0;i<n;i++){ const a=on[i]; for(let j=i+1;j<n;j++){ const b=on[j]; const dx=b.tx-a.tx, dy=b.ty-a.ty; if(dx*dx+dy*dy>=1.44) continue;
@@ -310,13 +423,20 @@ function matchAll(M){
     if(!M.restart || !M.restart.subs) return;
     for(const z of M.restart.subs){
       if(z.ph===0 && (z.outP.y<0.15 || !z.outP.on || force || M.tick-z.t0>70)){ const o=z.outP; if(o.on){ o.on=false; o.subbed=true; z.t.on=z.t.on.filter(q=>q!==o); } o.leave=36; o.lw=0; z.ph=1; }
-      if(z.ph===1){ const W=subW(z.t); if(force || M.tick-z.t0>90 || (hyp(z.inP.x-W[0],z.inP.y-W[1])<0.7 && hyp(ref.a1.x-52.5,ref.a1.y+1)<2)){
+      if(z.ph===1){ const W=subW(z.t); if(force || M.tick-z.t0>90 || hyp(z.inP.x-W[0],z.inP.y-W[1])<0.7){
         z.ph=2; const slot=(z.outP&&!z.noRemove)?z.outP.slot:z.slot; doSub(z.t,z.outP,z.inP,slot,z.why); z.inP.x=W[0]; z.inP.y=0.4; } } }
   }
   function benchX(side){ return 52.5+(side===0?-9:9); }
   function reshape10(t, why){
     const n=t.on.length; if(n<7) return;
-    const used=new Set(t.on.map(q=>q.slot)); const holes=t.slots.map((s,i)=>i).filter(i=>!used.has(i) && isDefR(t.slots[i].r));
+    const used=new Set(t.on.map(q=>q.slot));
+    /* I1 (n. 77, Dani 15/11): se esce il portiere senza cambi (rosso o infortunio) in porta va il giocatore di movimento più adatto (parata, presa,
+       uscite, posizione, rinvio: i pesi di SUIT.GK, senza la penalità del fuori ruolo, uguale per tutti); prima la porta restava vuota */
+    const gkH=t.slots.findIndex((s,i)=>s.r==='GK' && !used.has(i));
+    if(gkH>=0){ const A=q=>{ const w=SUIT.GK, a=q.a0||q.a; let s=0, n=0; for(const k in w){ s+=(a[k]||0)*w[k]; n+=w[k]; } return s/n; };
+      const mv=t.on.filter(q=>q.role!=='GK').sort((a,b)=>A(b)-A(a))[0]; if(mv){ used.delete(mv.slot); mv.slot=gkH; mv.role='GK'; used.add(gkH); mv.hold=false;
+        E('form',t.idx,[mv.id],`${mv.ln} va in porta: ${t.inp.n} non ha più cambi per il portiere.`,{kind:'gkin'}); } }
+    const holes=t.slots.map((s,i)=>i).filter(i=>!used.has(i) && isDefR(t.slots[i].r));
     for(const h of holes){ const mv=t.on.filter(q=>ROLE_GROUP[q.role]==='C'||isAtt(q.role)).sort((a,b)=>suit(b,t.slots[h].r)-suit(a,t.slots[h].r))[0]; if(mv){ mv.slot=h; mv.role=t.slots[h].r; } }
     E('form',t.idx,[],`${t.inp.n} resta in ${n}${why?' ('+why+')':''}: ${t.coach.n.split(' ').slice(-1)[0]} sistema la difesa e rinuncia a un uomo in avanti.`,{form:t.form+' in '+n, kind:'in10'});
   }
