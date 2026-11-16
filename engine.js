@@ -199,11 +199,18 @@ function mkRefTrio(i){
   return {id:i, n:nm(), a1:nm(), a2:nm(), esp, car:clamp(Math.round(10+gauss()*3),3,20), fis:clamp(Math.round(10+gauss()*3),3,20),
     err:clamp(Math.round(10+gauss()*2.5-(esp-10)*0.35),3,20), age:clamp(Math.round(30+esp*0.9+gauss()*2),26,45), g:0, vs:0, er:0, yc:0, rc:0, pen:0};
 }
+/* R5b (0.4.7.1, PROBLEMI_NOTI n. 61, indicazione di Dani): asticella dei falli dell'arbitro, 1–20 (alta = lascia giocare di più, bassa = fischia di più).
+   È un tratto della persona, uguale per tutta la carriera e per tutta la partita: si genera dal nome con un hash (come coachTemper, nessun rnd()), quindi
+   partite nuove e salvataggi vecchi (ensureRefs) danno la stessa asticella allo stesso arbitro. In partita diventa metri al secondo con REF_A (match.js) */
+function refAst(r){ const g=(hashU(r.n,21)+hashU(r.n,22)+hashU(r.n,23)+hashU(r.n,24)-2)*1.73; return clamp(Math.round(10.5+g*3.5),1,20); }
 function ensureRefs(){
   const need=Math.floor(G.T.length/2);
   if(!G.refs) G.refs=[]; while(G.refs.length<need) G.refs.push(mkRefTrio(G.refs.length));
+  G.refs.forEach(r=>{ if(r.ast==null) r.ast=refAst(r); });   /* R5b: salvataggi fino alla 0.4.7.0 */
   G.T.forEach(t=>ensureCaptains(t,true));
   coachEnsure();   /* v0.4.4.0 (R3a): prima qui si aggiungeva solo il temperamento */
+  i1Migrate();     /* v0.4.7.6 (I1): infortuni a giorni, usura (salvataggi fino alla 0.4.7.5) */
+  sqMigrate();     /* v0.4.7.5 (SQ1): conteggi dei cartellini della stagione (salvataggi fino alla 0.4.7.4: da zero) */
 }
 /* capitano e vice: carisma = professionalità, anzianità, qualità; scelti dall'allenatore */
 function capScore(p){ return p.prof*0.45+Math.min(Math.max(p.age-19,0),12)*0.35+ovr(p)*0.45+(p.r==='A'?-0.4:0)+(p.apps||0)*0.01; }
@@ -216,7 +223,7 @@ function ensureCaptains(t, quiet){
   if(!has(t.vcap) || t.vcap===t.cap) t.vcap = ord.find(id=>id!==t.cap);
   if(!quiet && t.id===0 && G.P[t.cap] && old!=null && old!==t.cap) news(t_("eng.e_il_nuovo_capitano",{fn:G.P[t.cap].fn,ln:G.P[t.cap].ln,ln2:G.P[t.vcap].ln}),'club',false,t.id);
 }
-function refInput(r){ return {id:r.id, n:r.n.split(' ').slice(-1)[0], full:r.n, esp:r.esp, car:r.car, fis:r.fis, err:r.err}; }
+function refInput(r){ return {id:r.id, n:r.n.split(' ').slice(-1)[0], full:r.n, esp:r.esp, car:r.car, fis:r.fis, err:r.err, ast:r.ast??refAst(r)}; }
 function value(p){ const o=ovr(p); const af=p.age<=20?1.35:p.age<=23?1.2:p.age<=28?1:p.age<=31?0.7:0.4; return Math.round(Math.pow(o,2.5)*af)*1000; }
 function wage(p){ return Math.max(300, Math.round(value(p)*0.005/100)*100); }
 
@@ -288,7 +295,7 @@ function forfeit(inp,exH,exA){ const gh=exH?0:3, ga=exA?0:3;
   return {gh:exH&&exA?0:gh, ga:exH&&exA?0:ga, forfeit:true, ev:[], rt:{}, played:[[],[]], mins:{}, endSt:{}, inj:{}, red:[], scorers:[], poss:50, stats:[0,1].map(()=>({sh:0,sot:0,cor:0,fou:0,yc:0,rc:0,off:0,pa:0,pc:0,xg:0})), plans:[], nT:0, htTick:0, ref:{voto:6,errs:[]}, coachOff:[false,false], coachRt:[null,null]}; }
 function playMatchday(){
   if(G.md>=G.sched.length) return null;
-  const fx = G.sched[G.md]; const out=[];
+  const fx = G.sched[G.md]; const out=[]; const dM=i1Oggi();   /* I1: giorno di questa giornata */
   G.T.forEach(t=>ensureBudget(t,true));
   for(const t of G.T) teamPlayers(t).forEach(p=>{ p.fat=Math.max(0,(p.fat||0)-25); });
   ensureRefs(); G.T.forEach(t=>ensureCaptains(t,false));
@@ -309,13 +316,13 @@ function playMatchday(){
     const pl=teamPlayers(t);
     const m = out.find(x=>x.h===t.id||x.a===t.id), side=m.h===t.id?0:1;
     const played=new Set(m.played[side]);
+    sqMatch(t,m,side);   /* v0.4.7.5 (SQ1): giornate scontate, poi i cartellini di questa partita (conteggi della stagione) */
     updMorale(t,m,side); collEvolve(t);   /* v0.4.4.0 (R3a): valori collettivi verso il potenziale dell'allenatore */
     for(const p of pl){
       const mins=m.mins[p.id]||0;
       p.min = 0.7*(p.min??0.5) + 0.3*Math.min(1,mins/90);
       if(played.has(p.id)) p.fat = clamp((100-(m.endSt[p.id]??80))*0.8,0,60);
-      if(p.inj>0 && !(m.inj[p.id])) p.inj--;
-      if(p.sq>0 && !m.red.includes(p.id) && !played.has(p.id)) p.sq--;
+      if(mins) p.um=(p.um||0)+mins;   /* I1: minuti di carriera (usura); le giornate d'infortunio si contano a giorni (i1Gap) */
       grow(p,t);
     }
     roundFinance(t,m,m.h===t.id);
@@ -325,6 +332,7 @@ function playMatchday(){
   G.FA.forEach(id=>grow(G.P[id],null));
   G.res.push(out.map(m=>({h:m.h,a:m.a,gh:m.gh,ga:m.ga})));
   G.last = out; G.md++; G.scoutLeft=3;
+  if(G.md<G.sched.length){ i1Gap(dM, I1G.gg, 1); i1Sync(); }   /* I1: i 20 giorni fino alla prossima giornata (la pausa estiva la fa endSeason) */
   { const k=CHECKS.indexOf(G.md); if(k>=0) G.T.forEach(t=>wageCheck(t,k)); }
   G.T.forEach(t=>{ if(t.id!==0) botFinance(t); });
   afterRound(out);
@@ -348,11 +356,133 @@ function applyResult(H,A,m){
   m.att = Math.round(cap*fill_); m.inc = m.att*14;
   const res = Math.sign(m.gh-m.ga);
   [[m.played[0],res,H],[m.played[1],-res,A]].forEach(([lu,s,T])=>lu.forEach(id=>{ const p=G.P[id]; if(!p) return; p.apps++; p.rts.push(m.rt[id]); if(p.rts.length>6) p.rts.shift(); statApp(p,T.id,m.rt[id]);
-    if(m.inj[id]){ p.inj=m.inj[id]; if(T.id===0) news(t_("eng.si_e_infortunato_stara",{fn:p.fn,ln:p.ln,inj:p.inj,v:p.inj>1?'giornate':'giornata'}),'player',false,T.id); }
-    if(m.red.includes(id)){ p.sq=1; if(T.id===0) news(t_("eng.e_stato_espulso_saltera",{fn:p.fn,ln:p.ln}),'player',false,T.id); } }));
+    const ij=m.inj[id]; if(ij){ if(typeof ij==='number'){ p.inj=ij; } else { const d=i1Oggi(); i1Start(p, T, ij, d, d+1); } } }));   /* I1: infortunio della partita (giorni dello studio) */
   m.scorers.forEach(s=>{ const p=G.P[s.pid]; p.gl++; statGoal(p); });
   H.pop = clamp(H.pop + res*1.2,10,100); A.pop = clamp(A.pop - res*1.2,10,100);
 }
+
+/* ====================== INFORTUNI (0.4.7.6, I1) ======================
+   Decisioni di Dani del 15/11 (D1–D12, docs/PROGRESSI_I1.md); costanti della partita e tipi in I1 (match.js).
+   D1  calendario: una giornata = 20 giorni (14 giornate in circa 9 mesi); tra la 14ª e la 1ª della stagione dopo 105 giorni (9 settimane di ferie,
+       6 di preparazione). Giorno assoluto = stagione·365 + giornata·20. Un giocatore salta le giornate che cadono prima del via libera.
+   D2  allenamento: 4,9 ore a settimana (0,7 al giorno) per chi è in rosa e sano, tasso UEFA 3,4 ogni 1000 ore (84,4% senza contatto); numeri casuali
+       da hash (i1U), così gli altri sorteggi del motore non cambiano.
+   D7  forma: deficit al rientro come la capacità aerobica persa per inattività (Mujika & Padilla, Sports Med 2000: ~4–7% dopo 2–4 settimane, fino a
+       14% oltre 8), tolto dall'energia di partenza; si recupera in tanti giorni quanti quelli di assenza (almeno 7).
+   D8  ricadute, stessa sede: ×4,8 per 8 settimane dal rientro e ×2,7 fino a un anno (Green et al. BJSM 2020; Hägglund et al. BJSM 2006: 2–3 volte);
+       due stagioni (730 giorni) dopo un infortunio grave (oltre 28 giorni) o ripetuto alla stessa sede (decisione di Dani: il ×2,7 «per sempre» non ha
+       fonte; l'effetto duraturo resta nell'usura e nel ritiro); una ricaduta dura 5 giorni in più (Ekstrand et al. BJSM 2020: +3,3–10,6).
+   D9  usura = minuti di carriera / 1260 (stagioni piene) + giorni d'infortunio / 180; ritiro a fine stagione con curva logistica (50% a 34,5 anni,
+       portieri 37: Jones et al. 2025, +2,8 anni), anticipata di 0,25 anni per unità d'usura sopra la media della sua età e di 2 anni dopo un LCA o una
+       frattura oltre 60 giorni nella stagione (Forsythe et al. 2021; Jones et al. 2025); a 40 anni sempre, portieri compresi.
+   D10 qualità medica del club (0–1) dal centro sportivo: previsione dei tempi con errore da ±35% a ±8%, tempi −10%·qualità, ricadute ×(1,2 − 0,4·qualità)
+       (Ekstrand et al. BJSM 2019: comunicazione tra staff medico e allenatore e giorni persi; nessun coefficiente in letteratura: effetti piccoli).
+   D11 fuori dal campo: 2 ogni 1000 giocatori all'anno (stima da ISTAT, incidenti stradali con stop), frattura, contusione o distorsione.
+   Dati salvati nel giocatore: p.ij infortunio in corso {k tipo, c causa, st inizio, f via libera, dd giorni, r ricaduta, e previsione} (o null);
+   p.inj giornate che salterà (come prima: le schermate e matchInput lo leggono); p.ih storico [[k, inizio, giorni, causa]]; p.irs finestre di
+   ricaduta {sede:[rientro, fine]}; p.ifo forma [deficit, dal giorno, recupero al giorno]; p.um minuti di carriera; p.ud giorni d'infortunio. */
+const I1G={gg:20, pausa:105, prep:42, hDay:0.7, off:2/1000/365, r1:4.8, w1:56, r2:2.7, w2:365, w3:730, ric:5, A50:34.5, A50P:37, s:1.5, uK:0.25, gr:2, max:40};
+function i1U(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  h^=h>>>16; h=Math.imul(h,0x85ebca6b); h^=h>>>13; h=Math.imul(h,0xc2b2ae35); h^=h>>>16; return (h>>>0)/4294967296; }
+function i1Med(t){ return t&&t.fac ? clamp(0.3+0.15*((t.fac.cs||1)-1),0,1) : 0.3; }
+function i1Oggi(){ return G.season*365+G.md*I1G.gg; }   /* giorno della prossima partita (G.md = giornata da giocare) */
+function i1Grav(d){ return d<=3?'min':d<=7?'lie':d<=28?'mod':'gra'; }   /* fasce UEFA: minima, lieve, moderata, grave */
+/* giornate da saltare: partite dal giorno da (compreso) che cadono prima del via libera f */
+function i1Gio(f, da){ let n=0; for(let s=Math.floor(da/365); s<=Math.floor(f/365)+1; s++) for(let m=0;m<14;m++){ const g=s*365+m*I1G.gg; if(g>=da && g<f) n++; } return n; }
+function i1Fd(p, day){ const f=p.ifo; if(!f) return 0; return Math.max(0, f[0]-f[2]*(day-f[1])); }
+function i1FdOf(a){ const P=[[7,0],[14,4],[28,7],[56,14]]; if(a<=7) return 0; for(let i=1;i<P.length;i++) if(a<=P[i][0]) return P[i-1][1]+(P[i][1]-P[i-1][1])*(a-P[i-1][0])/(P[i][0]-P[i-1][0]); return 14; }
+/* moltiplicatori di ricaduta per sede al giorno day (null se nessuno), con la qualità medica del club */
+function i1Rs(p, day, med){ const w=p.irs; if(!w) return null; let o=null;
+  for(const s in w){ const [r,u]=w[s]; const m=day<r+I1G.w1?I1G.r1:day<u?I1G.r2:1; if(m>1){ (o||(o={}))[s]=Math.round(m*(1.2-0.4*med)*100)/100; } } return o; }
+function i1Sede(k){ const d=I1.T[k]; return d?d[2]:null; }
+function i1Nome(k){ return t_('i1.k_'+(I1.T[k]?k:'vecchio')); }
+/* previsione del medico: errore lognormale che si stringe con il tempo passato; deterministica */
+function i1Stima(p, t, day){ const j=p.ij; if(!j) return; const med=i1Med(t), sg=(0.35-0.27*med)*Math.max(0,(j.f-day)/Math.max(1,j.dd)),
+  u1=i1U(`${p.id}|${j.st}|e1`), u2=i1U(`${p.id}|${j.st}|e2`), z=Math.sqrt(-2*Math.log(Math.max(1e-12,u1)))*Math.cos(2*Math.PI*u2);
+  j.e=Math.max(day, Math.round(day+(j.f-day)*Math.exp(sg*z))); }
+/* nuovo infortunio: raw {k, d giorni dello studio, c causa}; day = giorno assoluto; da = prima partita che può saltare */
+function i1Start(p, t, raw, day, da){
+  if(p.ij && p.ij.f>day) return false;
+  const med=i1Med(t), s=i1Sede(raw.k), w=p.irs&&s?p.irs[s]:null, ric=!!(w && day<w[1]);
+  let dd=Math.max(I1.T[raw.k]?I1.T[raw.k][5]:1, Math.round(raw.d*(1-0.1*med)))+(ric?I1G.ric:0);
+  p.ij={k:raw.k, c:raw.c, st:day, f:day+dd, dd, r:ric?1:0, e:day+dd};
+  i1Stima(p, t, day); p.inj=i1Gio(p.ij.f, da);
+  if(t && t.id===0){ const ge=i1Gio(p.ij.e, da);
+    news(t_(ge>0?'i1.n_inf':'i1.n_inf0',{fn:p.fn, ln:p.ln, k:i1Nome(raw.k), g:t_('i1.g_'+i1Grav(dd)), ric:ric?t_('i1.ricaduta'):'', c:t_('i1.c_'+raw.c), n:ge, v:ge===1?'giornata':'giornate'}),'player',false,t.id); }
+  return true; }
+/* via libera: storico, usura, finestra di ricaduta della sede, deficit di forma; notizia per la squadra dell'utente */
+function i1Clear(p, t){ const j=p.ij; if(!j) return; const s=i1Sede(j.k);
+  (p.ih||(p.ih=[])).push([j.k, j.st, j.dd, j.c]); if(p.ih.length>30) p.ih.shift(); p.ud=(p.ud||0)+j.dd;
+  if(s){ const rip=p.ih.filter(h=>i1Sede(h[0])===s).length>=2, lunga=j.dd>28||rip; (p.irs||(p.irs={}))[s]=[j.f, j.f+(lunga?I1G.w3:I1G.w2)]; }
+  const fd=i1FdOf(j.dd); p.ifo=fd>0?[Math.round(fd*10)/10, j.f, Math.round(fd/Math.max(7,j.dd)*1000)/1000]:null;
+  p.ij=null; p.inj=0;
+  if(t && t.id===0) news(t_(fd>0?'i1.n_rientro_f':'i1.n_rientro',{fn:p.fn, ln:p.ln, d:j.dd, fd:Math.round(fd)}),'player',false,t.id); }
+/* passano n giorni dal giorno d0 (una partita o la pausa): rientri, allenamento (dal giorno d0+tr), rari infortuni fuori dal campo */
+function i1Gap(d0, n, tr){
+  const fine=d0+n, chi=[]; for(const t of G.T) for(const p of teamPlayers(t)) chi.push([p,t]); for(const id of G.FA){ const p=G.P[id]; if(p&&!p.retired) chi.push([p,null]); }
+  for(const [p,t] of chi){
+    let sano=d0; if(p.ij){ if(p.ij.f>fine) continue; sano=Math.max(d0,p.ij.f); i1Clear(p,t); }
+    const key=`${G.seed}|${d0}|${p.id}`;
+    /* allenamento: tempo del primo infortunio estratto dall'esponenziale (ore), tasso con le ricadute della sede */
+    if(t){ const a=Math.max(sano,d0+tr), ore=Math.max(0,fine-a)*I1G.hDay;
+      if(ore>0){ const med=i1Med(t), rs=i1Rs(p,a,med), nc=I1.ncT*i1RsF(rs), lam=I1.rT/1000*(nc+(1-I1.ncT)), x=-Math.log(Math.max(1e-12,i1U(key+'|t')))/lam;
+        if(x<ore){ const day=a+Math.floor(x/I1G.hDay), mech=i1U(key+'|m')*(nc+1-I1.ncT)<nc?'nc':'ct', k=i1Pick(mech, rs, false, i1U(key+'|k'));
+          i1Start(p, t, {k, d:i1Dur(k, i1U(key+'|d1'), i1U(key+'|d2')), c:'allenamento'}, day, fine);
+          if(p.ij && p.ij.f<=fine) i1Clear(p,t);
+          continue; } } }
+    /* fuori dal campo (D11): rarissimi, separati */
+    const y=-Math.log(Math.max(1e-12,i1U(key+'|o')))/I1G.off;
+    if(y<n && !p.ij){ const u=i1U(key+'|ok'), k=u<0.4?'fratt':u<0.7?'cont':'cavc', day=d0+Math.floor(y);
+      if(day>=sano){ i1Start(p, t, {k, d:i1Dur(k, i1U(key+'|o1'), i1U(key+'|o2')), c:'fuori'}, day, fine); if(p.ij && p.ij.f<=fine) i1Clear(p,t); } } } }
+/* dopo i giorni passati: giornate da saltare e previsione del medico aggiornate, per tutti */
+function i1Sync(){ const da=i1Oggi(); for(const t of G.T) for(const p of teamPlayers(t)){ if(p.ij){ p.inj=i1Gio(p.ij.f,da); i1Stima(p,t,da); } else if(p.inj) p.inj=0; }
+  for(const id of G.FA){ const p=G.P[id]; if(p && p.ij){ p.inj=i1Gio(p.ij.f,da); i1Stima(p,null,da); } } }
+/* giornate d'assenza che vede l'allenatore: la previsione del medico (almeno 1 finché non c'è il via libera) */
+function i1Prev(p){ return p.ij&&p.inj>0 ? Math.max(1,i1Gio(p.ij.e,i1Oggi())) : p.inj||0; }
+function i1Usura(p){ return (p.um||0)/1260+(p.ud||0)/180; }
+/* ritiro a fine stagione (dopo l'età +1): uref = usura media per età (prima dell'aumento) */
+function i1Ritira(p, uref){ if(p.age>=I1G.max) return 'eta';
+  const s0=G.season*365, grave=(p.ih||[]).some(h=>h[1]>=s0 && (h[0]==='lca'||h[0]==='lcac'||(h[0]==='fratt'&&h[2]>60))) || (p.ij && p.ij.st>=s0 && (p.ij.k==='lca'||p.ij.k==='lcac'||(p.ij.k==='fratt'&&p.ij.dd>60)));
+  const U=i1Usura(p), ur=uref[p.age-1]!=null?uref[p.age-1]:U, ae=p.age+I1G.uK*(U-ur)+(grave?I1G.gr:0), h=1/(1+Math.exp(-(ae-(p.r==='P'?I1G.A50P:I1G.A50))/I1G.s));
+  return i1U(`${G.seed}|${G.season}|${p.id}|rit`)<h ? (grave?'inf':'eta') : null; }
+function i1Uref(){ const s={}, n={}; const add=p=>{ if(!p||p.retired) return; const a=p.age; s[a]=(s[a]||0)+i1Usura(p); n[a]=(n[a]||0)+1; };
+  for(const t of G.T) teamPlayers(t).forEach(add); G.FA.forEach(id=>add(G.P[id]));
+  const o={}; for(const a in s){ const k=+a; let S=0, N=0; for(const b of [k-1,k,k+1]) if(n[b]){ S+=s[b]; N+=n[b]; } o[k]=S/N; } return o; }
+/* salvataggi fino alla 0.4.7.5: p.inj era il numero di giornate; diventa un infortunio «dato precedente» con le stesse giornate */
+function i1Migrate(){ if(G.i1) return; const X=i1Oggi();
+  for(const p of Object.values(G.P)){ if(p.inj>0 && !p.ij){ const f=X+I1G.gg*p.inj-Math.round(I1G.gg/2); p.ij={k:'vecchio', c:'vecchio', st:X-1, f, dd:f-X+1, r:0, e:f}; }
+    if(p.um==null) p.um=Math.round((p.apps||0)*75); if(p.ud==null) p.ud=0; }
+  G.i1=1; }
+
+/* ====================== SQUALIFICHE (0.4.7.5, SQ1) ======================
+   Regole di Dani (ex arbitro), uguali in tutti i campionati. Conteggi della stagione nel giocatore: p.yk gialli, p.rk rossi diretti;
+   p.sq giornate da scontare (una per ogni giornata della sua squadra in cui non gioca, anche a tavolino).
+   1  gialli sommati: al 5° giallo 1 giornata, al 10° 2, al 15° 3, … (ogni soglia superata conta, anche con un doppio giallo)
+   2  rosso diretto: il 1° della stagione 2 giornate, il 2° 3, …
+   3  rosso per doppio giallo (evento «rc» con y2): espulsione senza squalifica, i due gialli entrano nel conteggio
+   4  diffidato a un giallo dalla squalifica (4, 9, 14, … gialli)
+   5  fine stagione (sqSeason): conteggi a zero; le giornate che restano si scontano nella stagione dopo (porta, decisione di Dani)
+   Le giornate dei gialli e del rosso nella stessa partita si sommano. I cartellini si leggono dagli eventi della partita (yc, rc), che non cambia. */
+const SQ_K={gialli:5, rosso:2, porta:true};
+function sqCards(m){ const c={}; for(const e of m.ev||[]){ if(e.type!=='yc'&&e.type!=='rc') continue; const id=e.p&&e.p[0]; if(id==null) continue; const o=c[id]||(c[id]={y:0,r:0,y2:0});
+    if(e.type==='yc') o.y++; else if(e.y2){ o.y++; o.y2++; } else o.r++; } return c; }
+function sqDiff(p){ return (p.yk||0)%SQ_K.gialli===SQ_K.gialli-1; }
+function sqNext(p){ return Math.floor((p.yk||0)/SQ_K.gialli)+1; }   /* giornate della prossima squalifica per i gialli */
+function sqMatch(t,m,side){ const played=new Set(m.played[side]||[]), c=sqCards(m), me=t.id===0, gg=g=>g===1?t_("eng.sq_giornata"):t_("eng.sq_giornate");
+  for(const p of teamPlayers(t)){
+    if(p.sq>0 && !played.has(p.id)){ p.sq--; if(p.sq===0 && me) news(t_("eng.sq_rientra",{fn:p.fn,ln:p.ln}),'player',false,t.id); }
+    const k=c[p.id]; if(!k) continue;
+    const y0=p.yk||0, y1=y0+k.y, why=[]; let g=0;
+    for(let n=Math.floor(y0/SQ_K.gialli)+1;n<=Math.floor(y1/SQ_K.gialli);n++){ g+=n; why.push(t_("eng.sq_per_giallo",{n:n*SQ_K.gialli})); }
+    let r=p.rk||0; for(let i=0;i<k.r;i++){ r++; g+=r+SQ_K.rosso-1; why.push(t_("eng.sq_per_rosso",{n:r})); }
+    p.yk=y1; p.rk=r; if(g>0) p.sq=(p.sq||0)+g;
+    if(!me) continue;
+    if(k.y2 && !k.r) news(t_("eng.sq_doppio",{fn:p.fn,ln:p.ln,y:y1}),'player',false,t.id);
+    if(g>0) news(t_("eng.sq_squalificato",{fn:p.fn,ln:p.ln,g,v:gg(g),why:why.join(t_("eng.sq_e"))}),'player',false,t.id);
+    else if(sqDiff(p) && k.y) news(t_("eng.sq_diffidato",{fn:p.fn,ln:p.ln,y:y1,g:sqNext(p),v:gg(sqNext(p))}),'player',false,t.id);
+  } }
+function sqSeason(){ for(const p of Object.values(G.P)){ p.yk=0; p.rk=0; if(!SQ_K.porta) p.sq=0; } }
+function sqMigrate(){ if(G.sq1) return; for(const p of Object.values(G.P)){ if(p.yk==null) p.yk=0; if(p.rk==null) p.rk=0; } G.sq1=1; }
 
 /* ====================== ECONOMIA DEL CLUB ======================
    Entrate e uscite per giornata, prestiti, stipendi con le scadenze di controllo e le penalizzazioni
@@ -832,9 +962,11 @@ function endSeason(){
     f.prev=f.sea; f.sea={inc:{},exp:{}}; f.checks=[]; });
   news(t_("eng.fine_stagione_vince_il",{season:G.season,n:champ.n,upos:upos}),'club',true,champ.id);
   closePresidents(st); closeLeague(st, excl);
+  const uref=i1Uref(), fa0=new Set(G.FA);   /* I1: usura media per età, prima dell'aumento dell'età; svincolati di inizio fine stagione */
   for(const t of G.T){
     const pl=teamPlayers(t);
-    for(const p of pl){ p.age++; s1Invecchia(p); p.ct--; p.fat=0; if(p.age>=34 && rnd()<0.5 || p.age>=36){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(t_("eng.si_ritira_dal_calcio",{fn:p.fn,ln:p.ln,age:p.age}),'player',false,t.id); } }
+    /* I1 (D9): ritiro probabilistico secondo età, ruolo, usura e infortuni gravi della stagione; a 40 anni sempre (prima: dai 34 anni 50%, a 36 sempre) */
+    for(const p of pl){ p.age++; s1Invecchia(p); p.ct--; p.fat=0; const rit=i1Ritira(p,uref); if(rit){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.retired=true; if(t.id===0) news(t_(rit==='inf'?"i1.n_ritiro_inf":"eng.si_ritira_dal_calcio",{fn:p.fn,ln:p.ln,age:p.age}),'player',false,t.id); } }
     teamPlayers(t).forEach(p=>{ if(p.ct<=0){ if(p.renewNo===G.season && t.pl.length>16){ t.pl=t.pl.filter(x=>x!==p.id); p.team=null; p.ct=0; G.FA.push(p.id); news(t_("eng.lascia_a_parametro_zero",{fn:p.fn,ln:p.ln,n:t.n}), t.id===0?'market':'match',true,t.id); } else { p.ct=ri(1,3); p.wg=Math.max(p.wg,wage(p)); } } });
     ensureCaptains(t,t.id!==0);
     const sgL=facLevel(t,'sg')-1, ny = 2+(rnd()<0.4+0.15*sgL?1:0);
@@ -842,9 +974,13 @@ function endSeason(){
     t.tab={g:0,v:0,n:0,p:0,gf:0,gs:0,pt:0}; t.form=[];
     while(t.pl.length>22){ const worst=teamPlayers(t).sort((a,b)=>value(a)-value(b))[0]; t.pl=t.pl.filter(x=>x!==worst.id); worst.team=null; G.FA.push(worst.id); }
   }
-  G.FA = G.FA.filter(id=>!G.P[id].retired && G.P[id].age<35);
+  /* I1: anche gli svincolati invecchiano e smettono con la stessa curva (prima: tolti a 35 anni senza invecchiare) */
+  for(const id of G.FA){ const p=G.P[id]; if(!p||p.retired||!fa0.has(id)) continue; p.age++; s1Invecchia(p); if(i1Ritira(p,uref)){ p.retired=true; } }
+  G.FA = G.FA.filter(id=>!G.P[id].retired);
   for(let i=0;i<6;i++){ const young=rnd()<0.6; const p=mkPlayer(pick(['P','D','C','A']), young?7+rnd():8+rnd()*1.5, young?ri(17,20):ri(29,33)); p.team=null; p.wg=wage(p); p.ct=0; G.P[p.id]=p; G.FA.push(p.id); }
-  G.season++; G.md=0; G.res=[]; G.last=null; G.sched=schedule(8);
+  sqSeason();   /* v0.4.7.5 (SQ1): conteggi dei cartellini a zero, le squalifiche restano */
+  i1Gap(G.season*365+13*I1G.gg, I1G.pausa, I1G.pausa-I1G.prep);   /* I1: pausa estiva (ferie, poi 6 settimane di preparazione) */
+  G.season++; G.md=0; G.res=[]; G.last=null; G.sched=schedule(8); i1Sync();
   G.T.forEach(t=>{ pledgeSweep(t); ensureBudget(t); });
   firePending();
 }

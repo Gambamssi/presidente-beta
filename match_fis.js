@@ -4,8 +4,8 @@
    si leggono e scrivono come M.x (tick, half, regEnd, restart, ht2, errLeft, bsN); gli altri valori di simMatch e le funzioni degli altri moduli
    arrivano nelle variabili qui sotto con M.link (stessi oggetti, nessuna copia). Script classico: nessun import/export. */
 function matchFis(M){
-  let R, P, RA, RP, SO, SX, T, rx, tm, op, ball, ref, minNum, E, fill2, recSub, nearestOpp, handsOk, gkCatch, firstTime, aerial, shoot, gkDecide, doSave, shotEnd, gkOf, pause;
-  M.link.push(()=>{ ({R, P, RA, RP, SO, SX, T, rx, tm, op, ball, ref, minNum, E, fill2, recSub}=M); ({nearestOpp, handsOk, gkCatch, firstTime, aerial, shoot, gkDecide, doSave, shotEnd}=M.mGio); ({gkOf}=M.mAll); ({pause}=M.mArb); });
+  let R, P, RA, RP, SO, SX, T, rx, tm, op, ball, ref, minNum, E, fill2, recSub, nearestOpp, handsOk, gkCatch, firstTime, aerial, shoot, gkDecide, doSave, shotEnd, gkOf, pause, jostle, aerialContact, armGoal, ctInj;
+  M.link.push(()=>{ ({R, P, RA, RP, SO, SX, T, rx, tm, op, ball, ref, minNum, E, fill2, recSub}=M); ({nearestOpp, handsOk, gkCatch, firstTime, aerial, shoot, gkDecide, doSave, shotEnd}=M.mGio); ({gkOf}=M.mAll); ({pause, jostle, aerialContact, armGoal, ctInj}=M.mArb); });
 
   /* stanchezza: 0 se fresco (energia ≥ 80), 1 se sfinito (≤ 30) */
   const fatK=p=>clamp((80-p.st)/50,0,1);
@@ -15,6 +15,19 @@ function matchFis(M){
   const JOG=2.8, SEP_R=1.7;   /* v0.4.2.7 (R2b): corsa leggera 3,0 → 2,8 m/s (10 km/h): velocità media dei giocatori 7,1 → 7,0 km/h */
   function duelPair(a,b){ if(a.t===b.t) return false; const bo=ball.owner; if(a===bo||b===bo) return true;
     return ball.z<2 && Math.abs(a.x-ball.x)<2.2 && Math.abs(b.x-ball.x)<2.2 && hyp(a.x-ball.x,a.y-ball.y)<2 && hyp(b.x-ball.x,b.y-ball.y)<2; }
+  /* R5c (strada b): q è alle spalle del portatore p che corre (nel cono di 120° dietro di lui) */
+  function behindOf(q,p){ const sp=hyp(p.vx||0,p.vy||0); if(sp<=0.5) return false; const dx=q.x-p.x, dy=q.y-p.y, d=hyp(dx,dy); return d>0.01 && (dx*p.vx+dy*p.vy)<-0.5*d*sp; }
+  /* urto anelastico di q sul portatore p (R4b, passo 1): restituisce la velocità guadagnata da p (spinta) o null se non c'è contatto (sotto 0,5 m/s) */
+  function urto(p,q,scelta){ const ex=p.x-q.x, ey=p.y-q.y, dd=hyp(ex,ey); if(dd>1.2||dd<0.05) return null;
+    const nx=ex/dd, ny=ey/dd, vc=((q.vx||0)-(p.vx||0))*nx+((q.vy||0)-(p.vy||0))*ny; if(vc<=0.5) return null;
+    const mp=72+((p.h||180)-180)*0.9+(p.a0.for-10)*0.8, mq=72+((q.h||180)-180)*0.9+(q.a0.for-10)*0.8, dvp=vc*mq/(mp+mq), dvq=vc*mp/(mp+mq);
+    const sp0=hyp(p.vx||0,p.vy||0), behind=behindOf(q,p);
+    p.vx=(p.vx||0)+nx*dvp; p.vy=(p.vy||0)+ny*dvp; q.vx=(q.vx||0)-nx*dvq; q.vy=(q.vy||0)-ny*dvq; q.ctT=M.tick+2; p.hitV=vc; p.hitT=M.tick;
+    const thr=0.8+(p.gs.EQ-1)/19*1.2; if(dvp>thr) p.stun=Math.max(p.stun||0, 0.25+0.25*(dvp-thr));
+    const gain=hyp(p.vx,p.vy)-sp0;
+    ctInj(p,dvp,false); ctInj(q,dvq,false);   /* I1 (D4): l'urto può far male a tutti e due */
+    if(SO) SO.e('r5c',SX,{k:'urto', behind, scelta, gain, vc});
+    return {gain, vc, behind}; }
   function move(p){
     const t=tm(p);
     /* tuffo del portiere: il movimento è deciso al momento del tiro (gkDecide), qui si esegue */
@@ -26,17 +39,33 @@ function matchFis(M){
     if(p.tilt){ p.tilt*=0.45; if(Math.abs(p.tilt)<0.02) p.tilt=0; }
     let vmax=p.vmax*(0.5+0.5*p.st/100);
     if(p.stun>0) vmax*=0.35;
-    if(ball.owner===p){ vmax*=0.76; for(const q of op(p).on){ if(q.stun>0) continue; const ax=(q.x-p.x)*t.dir, ay=Math.abs(q.y-p.y); if(ax>0 && ax<2.6 && ay<1.6){ vmax*=p.drib>0?0.8:(ax<1.4?0.45:0.65); break; } } }
+    /* R4b (0.4.6.2, passo 1, contatto): chi arriva sul portatore lo colpisce con la sua velocità relativa: urto anelastico lungo la congiungente,
+       masse da altezza e Forza (~72 kg a 180 cm); il portatore cambia velocità di v·m2/(m1+m2) e, oltre una soglia data da Equilibrio, barcolla */
+    /* R5c (strada b di Dani, 13/11): chi arriva da dietro sul portatore non gli finisce addosso alla schiena: l'urto da dietro c'è solo se sceglie di
+       entrare in contrasto (urto() dal ciclo dei contrasti di match.js, dove una spinta che lo fa accelerare è fallo) */
+    if(ball.owner===p) for(const q of op(p).on){ if(q.dv||q.stun>0||(q.ctT||0)>M.tick) continue; const ex=p.x-q.x, ey=p.y-q.y, dd=hyp(ex,ey); if(dd>1.2||dd<0.05) continue;
+      if(behindOf(q,p)){ if(SO) SO.e('r5c',SX,{k:'urto', behind:true, evitato:true}); continue; }
+      urto(p,q,false); }
+    /* R4b (passo 3): con la palla al piede velocità massima ×0,90 e partenza più lenta (τ ×1,2): +15% di tempo sui 5 m e +13% sui 20 m
+       (professionisti: +13–19% e +8–11%); prima ×0,76 */
+    if(ball.owner===p){ vmax*=0.90; for(const q of op(p).on){ if(q.stun>0) continue; const ax=(q.x-p.x)*t.dir, ay=Math.abs(q.y-p.y); if(ax>0 && ax<2.6 && ay<1.6){ vmax*=p.drib>0?0.8:(ax<1.4?0.45:0.65); break; } } }
     const dx=p.tx-p.x, dy=p.ty-p.y, d=hyp(dx,dy);
     let s;
     /* camminata e corsa: fermo vicino al suo posto (zona morta 1,6 m), cammina fino a 5 m, corsa leggera oltre; scatto se urgente */
     if(d<0.3) s=0;
-    else if(p.urg) s=Math.min(vmax*(p.ucap||1)*(0.25+0.75*Math.min(1,p.st/88)), Math.sqrt(2*5*(d-0.3))+0.4);   /* scatto; con la stanchezza si scatta meno */
+    /* R4b (0.4.6.2, B): portiere in posizione: con un avversario con la palla a meno di 25 m dalla sua porta e il suo posto a meno di 1,2 m, si ferma pronto al tiro */
+    else if(p.role==='GK' && ball.owner && ball.owner.t!==p.t && hyp(ball.owner.x-(T[p.t].dir>0?0:PL),ball.owner.y-34)<25 && d<1.2) s=0;
+    else if(p.urg) s=Math.min(vmax*(p.ucap||1)*(0.25+0.75*Math.min(1,p.st/88)), p.vNeed>0?Math.max(1.2,p.vNeed):99, Math.sqrt(2*5*(d-0.3))+0.4);   /* scatto; con la stanchezza si scatta meno; R4b (scelta D): chi non contrasta corre solo quanto serve (p.vNeed, targets) */
+    /* C1b (n. 88, 1c): il portiere a passi laterali, alla velocità sul bisogno (targets), frenando in tempo per arrivare fermo (frenata umana 5 m/s²) */
+    else if(p.role==='GK' && p.vNeed>0) s=Math.min(p.vNeed, Math.sqrt(2*5*(d-0.3))+0.4);
     else if(d<(p.role==='GK'?0.3:2.6) && !p.fq) s=0;
     else s=Math.min(d<6?0.8+0.09*d : Math.min(JOG, 0.7+0.22*d), Math.sqrt(2*2.5*(d-0.3))+0.3);
     let Vx=d>0.01?dx/d*s:0, Vy=d>0.01?dy/d*s:0;
     /* chi segue un avversario (pressing, marcatura) ne anticipa il movimento */
     if(p.fq){ Vx+=p.fq.vx*0.85; Vy+=p.fq.vy*0.85; }
+    /* R5c (strada b di Dani, 13/11): chi insegue il portatore da dietro si affianca o rallenta: verso di lui chiude solo alla velocità con cui può ancora
+       fermarsi prima di toccarlo (frenata umana R5C.ab, contatto a R5C.touch); il movimento di lato resta (si affianca) */
+    { const o=ball.owner; if(o && o.t!==p.t && !p.dv && behindOf(p,o)){ const ex=o.x-p.x, ey=o.y-p.y, dq=hyp(ex,ey); if(dq<4 && dq>0.05){ const nx=ex/dq, ny=ey/dq, cl=(Vx-(o.vx||0))*nx+(Vy-(o.vy||0))*ny, cap=Math.sqrt(2*R5C.ab*Math.max(0,dq-R5C.touch)); if(cl>cap){ Vx-=(cl-cap)*nx; Vy-=(cl-cap)*ny; } } } }
     /* separazione morbida: ci si allontana da chi è troppo vicino (non nei duelli per la palla) */
     if(p.k>=0){ const row=p.k*NMAX; for(let j=0;j<ON.length;j++){ const q=ON[j]; if(q===p) continue; const dd=DTB[row+j], sr=q.t===p.t?SEP_R:1.35; if(dd>=sr) continue; if(duelPair(p,q)) continue;
         const w=(sr-dd)/sr*2.2, n=Math.max(dd,0.05); Vx+=(p.x-q.x)/n*w; Vy+=(p.y-q.y)/n*w; } }
@@ -47,10 +76,12 @@ function matchFis(M){
     if(ball.owner===p) face= sDes>0.6 ? md : (t.dir>0?0:Math.PI);
     else if(sDes>2.6) face= (p.role!=='GK' && Math.abs(fisAng(md-bd))>1.9 && d<7 && sDes<0.85*vmax) ? bd : md;
     else face=bd;
-    fisCorpo(p, Vx, Vy, sDes, face, vmax, p.amax*(p.stun>0?0.5:1), 5.8, DT);
+    /* R4b (sessione 12/11): l'accelerazione cala con la stanchezza più della velocità massima: con la velocità massima −10% le accelerazioni intense calano del 18%
+       (tempi supplementari, risposta 031): fattore 1 − 1,8·(1 − fattore della velocità massima), cioè 1 − 0,9·(1 − energia/100) */
+    fisCorpo(p, Vx, Vy, sDes, face, vmax, p.amax*(1-0.9*(1-p.st/100))*(p.stun>0?0.5:1)*(ball.owner===p?1/1.2:1), 5.8, DT);
     energy(p, hyp(p.vx,p.vy)); timers(p);
   }
-  function energy(p, sp){ const r=sp/7, tt=tm(p); p.st-=1.9*(0.006+0.03*r*r)*(1.5-p.a0.res/20)*0.35/TIME_F*STF*(ROLE_RUN[p.role]||1)*(tt.press===2?1.12:tt.press===0?0.95:1)*(M.half===1?0.82:1.22); if(p.st<15) p.st=15; }
+  function energy(p, sp){ const r=sp/7, tt=tm(p), st0=p.st; p.st-=1.9*(0.006+0.03*r*r)*(1.5-p.a0.res/20)*0.35/TIME_F*STF*(ROLE_RUN[p.role]||1)*(tt.press===2?1.12:tt.press===0?0.95:1)*(M.half===1?0.82:1.22); p.dE=st0-p.st; if(p.st<15) p.st=15; }   /* I1: consumo del tick (p.dE), base del rischio senza contatto */
   function timers(p){ if(p.stun>0) p.stun-=DT; if(p.runT>0) p.runT-=DT*TDEC; if(p.drib>0) p.drib-=DT*TDEC; if(p.shield>0) p.shield-=DT*TDEC; }
   /* distanza minima tra i corpi: 1,05 m, 0,5 nei duelli per la palla e nelle barriere, 0,6 tra avversari in area sui calci piazzati */
   function sepMin(a,b){
@@ -65,6 +96,9 @@ function matchFis(M){
       const m=sepMin(a,b); if(d2>=m*m) continue; let d=Math.sqrt(d2); if(d<1e-4){ dx=Math.cos(i*2.4+j); dy=Math.sin(i*2.4+j); d=1; } else { dx/=d; dy/=d; }
       const push=m-d; let wa=0.5; if(a===ball.owner||a.dv) wa=0.15; else if(b===ball.owner||b.dv) wa=0.85;
       a.nx-=dx*push*wa; a.ny-=dy*push*wa; b.nx+=dx*push*(1-wa); b.ny+=dy*push*(1-wa); } }
+    /* R5c (Dani, 13/11): la separazione non accelera nessun corpo oltre i limiti umani: lo spostamento del tick resta entro la velocità massima
+       (PROBLEMI_NOTI n. 39; il tuffo del portiere ha il suo movimento) */
+    for(let i=0;i<n;i++){ const a=ON[i]; if(a.dv) continue; const ddx=a.nx-a.x, ddy=a.ny-a.y, L=hyp(ddx,ddy), mx=(a.vmax||8)*DT; if(L>mx){ a.nx=a.x+ddx*mx/L; a.ny=a.y+ddy*mx/L; } }
   }
   /* tabella delle distanze del tick (RICERCA C2): calcolata una volta dopo il movimento e usata da tutti */
   const NMAX=24, ON=[], DTB=new Float64Array(NMAX*NMAX);
@@ -76,9 +110,9 @@ function matchFis(M){
     if(ball.sh && !ball.sh.done && p.t!==ball.sh.p.t){ const gl=T[ball.sh.p.t].dir>0?PL:0, behind=Math.abs(ball.x-gl)<Math.abs(p.x-gl)-0.5;
       shotEnd(p.role==='GK'?(behind?'short':'save'):'block', p); }   /* v0.4.2.0: palla ferma dietro al portiere: non è una parata */
     if(ball.sh && (p!==ball.sh.p)) ball.sh=null;
-    ball.owner=p; ball.fl=null; ball.lastT=p.t; ball.lastP=p; stopBall(); ball.ct=M.tick;   /* v0.4.2.7: il controllo è un contatto (come i rimbalzi) */ p.hold=false; p.hx=null; p.dt=delay??(1.0+R()*0.9); p.cx=undefined; p.cy=undefined; p.ft=delay==null; if(delay==null && firstTime(p)) return;
+    ball.owner=p; ball.fl=null; ball.nd=null; if(ball.kt!==p) ball.kt=null; ball.lastT=p.t; ball.lastP=p; stopBall(); ball.ct=M.tick;   /* v0.4.2.7: il controllo è un contatto (come i rimbalzi) */ p.hold=false; p.hx=null; p.dt=delay??(1.0+R()*0.9); p.cx=undefined; p.cy=undefined; p.ft=delay==null; if(delay==null && firstTime(p)) return;
     if(delay==null && p.role!=='GK'){ const [q,d]=nearestOpp(p); if(q && d<5){ const n=Math.max(0.5,d); p.cx=clamp(p.x+(p.x-q.x)/n*1.5,1,PL-1); p.cy=clamp(p.y+(p.y-q.y)/n*1.5,1,PW-1); } else { const t=tm(p); p.dt=0.7+R()*0.6; const xr=rx(t,p.x); if(xr<78){ p.cx=clamp(p.x+t.dir*4.5,1,PL-1); p.cy=p.y+(34-p.y)*0.08; } } } }
-  function loose(x,y,vx,vy,vz,z){ ball.owner=null; ball.fl=null; ball.ct=M.tick; ball.x=x; ball.y=y; ball.z=z||0; ball.vx=vx; ball.vy=vy; ball.vz=vz||0; ball.wx=0; ball.wy=0; ball.wz=0; }
+  function loose(x,y,vx,vy,vz,z){ ball.owner=null; ball.fl=null; ball.nd=null; ball.ct=M.tick; ball.x=x; ball.y=y; ball.z=z||0; ball.vx=vx; ball.vy=vy; ball.vz=vz||0; ball.wx=0; ball.wy=0; ball.wz=0; }
   /* volo (v0.4.2.0): la palla parte con la velocità giusta per arrivare nel punto scelto e poi segue la fisica.
      h < 0,6 = rasoterra (arriva con velocità 0,55·speed), altrimenti palla alzata con un arco di altezza ~h */
   function fly(type, from, x1, y1, speed, h, extra){
@@ -87,7 +121,7 @@ function matchFis(M){
     let tA, v0;
     if(type==='pass' && h<0.6 && z0<0.3){ const g=fisGround(L,clamp(speed*0.55,4.5,12)); fisKick(ball,g.v,Math.atan2(y1-y0,x1-x0),0,0,0); ball.z=0; tA=g.t; v0=g.v; }
     else { const el=clamp(Math.atan2(4*Math.max(h,0.4),L),0.1,1.05), a=fisLoft(x0,y0,z0,x1,y1,Math.min(z1,z0+4*h),el,ex.curl||0,0); fisKick(ball,a.v,a.az,a.el,ex.curl||0,0); tA=a.t; v0=a.v; }
-    ball.owner=null; ball.fl={type, t:from.t, from, x0, y0, z0, x1, y1, z1, tA, el:0, n:Math.max(1,Math.ceil(tA/DT)), k:0, h, tried:0, ...ex}; ball.lastT=from.t; ball.lastP=from; from.hold=false;
+    ball.owner=null; ball.nd=null; ball.fl={type, t:from.t, from, x0, y0, z0, x1, y1, z1, tA, el:0, n:Math.max(1,Math.ceil(tA/DT)), k:0, h, tried:0, ...ex}; ball.lastT=from.t; ball.lastP=from; from.hold=false;
     if(SO) SO.e('fly',SX,{f:ball.fl, speed:v0});
   }
   function segPt(px,py,ax,ay,bx,by){ const vx=bx-ax, vy=by-ay, L=vx*vx+vy*vy; let u=L>1e-9?((px-ax)*vx+(py-ay)*vy)/L:0; u=u<0?0:u>1?1:u; return hyp(ax+u*vx-px, ay+u*vy-py); }
@@ -111,7 +145,7 @@ function matchFis(M){
     gkDecide(f,gk,gkT,gyC,gzC,ly,lz,Math.hypot(s.vx,s.vy,s.vz));
   }
   /* blocco del difensore: la palla rimbalza sul corpo con una direzione nuova (fisica, con un po' di caso) */
-  function doBlock(f){ const q=f.blk.q, p=f.from; ball.fl=null; q.s.int++; ball.ct=M.tick;
+  function doBlock(f){ const q=f.blk.q, p=f.from; ball.fl=null; ball.nd=null; q.s.int++; ball.ct=M.tick;
     /* deviazione: spesso torna indietro, a volte prosegue deviata verso il fondo (angolo) */
     const v=Math.hypot(ball.vx,ball.vy,ball.vz), fw=RP()<0.38, a=Math.atan2(ball.vy,ball.vx)+(fw?(RP()-0.5)*1.4:Math.PI+(RP()-0.5)*2.6), k=v*(fw?0.35+RP()*0.3:0.25+RP()*0.35);
     ball.vx=Math.cos(a)*k*0.8+ball.vx*0.15; ball.vy=Math.sin(a)*k*0.8+ball.vy*0.15; ball.vz=Math.abs(ball.vz)*0.3+RP()*4; ball.wx=0; ball.wy=0; ball.wz=0;
@@ -144,12 +178,14 @@ function matchFis(M){
     const bx=ball.x, by=ball.y, r=FIS.R;
     if(bx<-r || bx>PL+r){
       const left=bx<0, atkT=left?(T[0].dir>0?1:0):(T[0].dir>0?0:1), A=T[atkT], D=T[1-atkT];
-      if(Math.abs(by-34)<FIS.GW && ball.z+r<FIS.GH){
+      /* R5 (n. 46): la palla entrata in porta direttamente da una rimessa laterale non è gol: rimessa dal fondo (porta avversaria) o calcio d'angolo (propria porta), come per un fuori */
+      if(Math.abs(by-34)<FIS.GW && ball.z+r<FIS.GH && !ball.nd){
         const sh=ball.sh; let scorer, kind='open', fx={};
         if(sh && sh.p.t===atkT && M.tick-sh.tick<14 && sh.p.on){ scorer=sh.p; kind=sh.kind; if(sh.done) fx.ns=1; if(sh.sot) fx.nt=1; else { A.st.sot++; scorer.s.sot++; }
           if(!sh.done){ sh.done=true; sh.f.res='goal'; if(SO) SO.e('shotend',SX,{f:sh.f}); } sh.sot=true; }
         else if(ball.lastT===atkT && ball.lastP && ball.lastP.t===atkT && ball.lastP.on){ scorer=ball.lastP; fx.ns=1; fx.nt=1; }
         else { scorer=ball.lastP && ball.lastP.t===D.idx && ball.lastP.on ? ball.lastP : (gkOf(D)||D.on[0]); fx.og=1; fx.ns=1; fx.nt=1; }
+        if(!fx.og && kind==='head' && armGoal(scorer)) return true;   /* R5c: gol con le braccia nel salto, annullato */
         goalScored(A, scorer, kind, fx); return true; }
       if(SO) SO.e('out',SX,{owner:ball.owner});
       const cross={y:by,z:ball.z}; shotEnd('wide',null,cross);
@@ -196,6 +232,8 @@ function matchFis(M){
   /* un tick di palla senza portatore: volo con le sue regole (arrivo, intercetti, blocchi, portiere) e poi fisica pura */
   function ballTick(){
     const h=DT/FIS.SUB; M.bsN=0;
+    /* R5c: angolo o punizione calciata in area: nell'ultimo mezzo secondo del volo si contende la posizione (trattenute e spinte, match_arb.js jostle) */
+    { const f0=ball.fl; if(f0 && !f0.jos && !M.restart && ball.sp && (ball.sp.type==='cor'||ball.sp.type==='fk') && M.tick-ball.sp.t<11 && (f0.type==='cross'||(f0.type==='pass'&&f0.h>=0.6)) && f0.el+DT>=f0.tA && jostle(f0)) return; }
     for(let q=0;q<FIS.SUB;q++){
       if(ball.owner && !M.restart){ ownerBall(); recSub(q); continue; }
       const px=ball.x, py=ball.y, pz=ball.z;
@@ -205,6 +243,10 @@ function matchFis(M){
       if(!M.restart && lineCheck()){ recSub(q); continue; }
       if(!M.restart){ const f=ball.fl;
         if(f){ f.el+=h;
+          /* R4b (0.4.6.2): passaggio o spazzata che va verso una porta: il portiere di quella porta, se è sulla traiettoria, la ferma
+             (prima un retropassaggio sbagliato o un passaggio non controllato gli passava attraverso ed entrava: autogol e gol senza tiro).
+             Sul retropassaggio di un compagno niente mani (la prende con i piedi) */
+          if((f.type==='pass'||f.type==='clear') && ball.z<2.0 && gkGuard(f)){ recSub(q); continue; }
           if(f.chase){ const r=f.recv; if(r.on && ball.z<1.2 && hyp(r.x-ball.x,r.y-ball.y)<1.3){ const t=tm(f.from); t.st.pc++; f.from.s.pc++; ball.pass={from:f.from,t:M.tick}; giveBall(r); }
             else { let qb=null; if(ball.z<1.2) for(const q of T[1-f.t].on){ if(q.dv) continue; if(hyp(q.x-ball.x,q.y-ball.y)<1.0){ qb=q; break; } } if(qb){ qb.s.int++; giveBall(qb,0.5); } else if(f.el>f.tA+1.6) ball.fl=null; } }
           else if(f.type==='shot'){ if(f.blk && f.el>=f.blk.t) doBlock(f); else if(f.gkp && !f.gkDone && (f.el>=f.gkp.t || (f.gk.on && (ball.x-f.gk.x)*T[f.t].dir>=-0.15))){ saveAt(f,px,py,pz); doSave(f); } else if(f.el>f.tA+2.5) ball.fl=null; }
@@ -214,9 +256,11 @@ function matchFis(M){
                 if(R()<((rx(T[qq.t],ball.x)<22?0.3:0.08)+qq.a.pos*(f.first?0.016:0.009))*(1-0.35*fatK(qq))*(qq.te?clamp(1+(qq.te.IN-SK_TQM.IN)/100*0.4,0.8,1.2):1)){   /* R3b: Intercettazione */ qq.s.int++; if(f.type!=='clear'&&f.from.s) f.from.s.err+=(rx(tm(f.from),ball.x)<30)?1:0;
                   if(ball.z<1.1) giveBall(qq,0.5); else { const tx=rx(T[qq.t],clamp(rx(T[qq.t],ball.x)+15,0,100)); ball.fl=null; fly('clear',qq,tx,clamp(ball.y+(R()-0.5)*20,3,65),16,5); } break; } } }
             if(ball.fl===f && f.type==='pass' && f.recv && f.recv.on && !f.bad && f.el>0.3*f.tA && ball.z<1.6 && hyp(f.recv.x-ball.x,f.recv.y-ball.y)<1.4) arrive();
-            else if(ball.fl===f && f.el>=f.tA) arrive(); } }
+            else if(ball.fl===f && f.el>=f.tA) arrive();
+            /* C1a (n. 82): cross e lancio lungo che scendono: il duello si gioca quando la palla entra alla portata di qualcuno (testa + stacco), non a fine volo */
+            else if(ball.fl===f && (f.type==='cross'||(f.type==='pass'&&f.h>=0.6&&hyp(f.x1-f.x0,f.y1-f.y0)>=25)) && (ball.vz||0)<0 && ball.z<2.7 && f.el>0.5*f.tA){ const du=aerialDuel(f, true); if(du.length && du[0].tc<=h){ f.early=true; arrive(); } } } }
         else if(!ball.owner){ /* palla libera: chi è vicino la prende */
-          if(ball.z<2.0 && (q&1)===1){ let na=null, nb=null; for(const t of T){ let b=null,bd=1.1; for(const qq of t.on){ if(qq.dv) continue; const d=hyp(qq.x-ball.x,qq.y-ball.y)-(rx(t,ball.x)<18&&Math.abs(ball.y-34)<21?0.35:0)-(qq.role==='GK'&&rx(t,ball.x)<16.5&&Math.abs(ball.y-34)<20.2?(rx(t,ball.x)<6&&Math.abs(ball.y-34)<10?1.0:0.5):0); if(d<bd){bd=d;b=qq;} } if(b){ if(na) nb=b; else na=b; } }
+          if(ball.z<2.0 && (q&1)===1){ let na=null, nb=null; for(const t of T){ let b=null,bd=1.1; for(const qq of t.on){ if(qq.dv || (qq===ball.kt && ball.lastP===qq)) continue; const d=hyp(qq.x-ball.x,qq.y-ball.y)-(rx(t,ball.x)<18&&Math.abs(ball.y-34)<21?0.35:0)-(qq.role==='GK'&&rx(t,ball.x)<16.5&&Math.abs(ball.y-34)<20.2?(rx(t,ball.x)<6&&Math.abs(ball.y-34)<10?1.0:0.5):0); if(d<bd){bd=d;b=qq;} } if(b){ if(na) nb=b; else na=b; } }
             const gkA=(na&&na.role==='GK')?na:(nb&&nb.role==='GK')?nb:null; if(gkA && hyp(gkA.x-ball.x,gkA.y-ball.y)<1.6 && handsOk(gkA,ball.x,ball.y)){ gkCatch(gkA,1.2); }
             else if(na && !nb) giveBall(na,0.5); else if(na && nb){ const sa=na.a.vel+na.a.con*0.6+R()*10, sb=nb.a.vel+nb.a.con*0.6+R()*10; giveBall(sa>=sb?na:nb,0.5); } } }
         if(!M.restart) lineCheck(); }
@@ -231,18 +275,56 @@ function matchFis(M){
       ball.x=clamp(o.x+o.hx,0.2,PL-0.2); ball.y=o.y+o.hy; ball.z=o.hz-FIS.R; ball.vx=o.vx; ball.vy=o.vy; ball.vz=0; return; }
     const a= sp>0.8 ? Math.atan2(o.vy,o.vx) : o.o; o.tp=(o.tp||0)+sp*DT/FIS.SUB; const Lt=1.2+0.35*sp, ph=(o.tp%Lt)/Lt, off=0.32+(0.1+0.07*sp)*(1-ph);
     ball.x=clamp(o.x+Math.cos(a)*off,0.2,PL-0.2); ball.y=clamp(o.y+Math.sin(a)*off,0.2,PW-0.2); ball.z=0; ball.vx=o.vx; ball.vy=o.vy; ball.vz=0; }
+  function gkGuard(f){ for(const t of T){ const gl=t.dir>0?0:PL; if((gl-ball.x)*ball.vx<=0 || Math.abs(ball.x-gl)>18) continue; const g=gkOf(t);
+      if(!g || !g.on || g.dv || g.stun>0 || hyp(g.x-ball.x,g.y-ball.y)>1.2 || (g===ball.kt && ball.lastP===g)) continue;   /* R5b (n. 56): chi ha battuto la ripresa non la tocca di nuovo */
+      if(g.t===f.t){ if(f.recv===g){ t.st.pc++; f.from.s.pc++; ball.pass={from:f.from,t:M.tick}; } giveBall(g,0.6); }
+      else { g.s.int++; if(handsOk(g,ball.x,ball.y)) gkCatch(g,1.2); else giveBall(g,0.6); }
+      return true; } return false; }
+  /* C1a (n. 82, 68, 79; decisione di Dani 15/11, strada A): duello aereo dalla fisica. Sul cross e sul lancio lungo saltano tutti quelli che arrivano
+     sotto la palla mentre è ancora alla loro portata, non solo chi è entro 1,5 m; vince chi la tocca per primo (a parità, più in alto).
+     - Altezza di contatto: fronte = statura − 0,10 m, più lo stacco JUMP0 + JUMPK·(Elevazione−1)/19 = 0,30–0,50 m. DA VERIFICARE: risposta 035 di
+       Evivora-scambio (valori riportati da Dani il 15/11): salto da fermo dei professionisti 34,7 ± 4,5 cm (195 giocatori), prima squadra 40,7 ± 4,3,
+       under 19 34,5 ± 4,5; guadagno della rincorsa non trovato, quindi nessun bonus per la rincorsa.
+     - Tempismo: chi salta prima o dopo l'istante giusto di e secondi tocca più in basso di g·e²/2; e è un errore fisico gaussiano con deviazione
+       0,05–0,15 s da Colpo di testa e Anticipazione (SENZA FONTE, da verificare), come l'errore d'angolo del tiro.
+     - Arrivo: corsa dal punto e dalla velocità del momento verso il punto in cui la palla sarà (volo senza attrito, passi di 0,05 s fino a 0,6 s); il volo arriva al suo punto quando la palla è già scesa sotto la testa (1,3–1,5 m a 7,5 m/s):
+       per questo si guarda anche il tratto degli ultimi 0,3 s (AER_B), con il giocatore dove era (posizione − velocità·tempo),
+       accelerazione e velocità massima del giocatore; il contatto avviene se testa e busto (AER_R) e la palla (raggio) si toccano e la palla è tra le spalle
+       (statura − 0,30 m) e l'altezza di contatto. Nessun punteggio a caso, nessun margine fisso, nessuna probabilità. */
+  const JUMP0=0.30, JUMPK=0.20, AER_T=0.6, AER_B=0.3, AER_DT=0.05, AER_R=0.55;   /* AER_R: busto 0,25 m + testa e spalle che si allungano nel salto 0,30 m (SENZA FONTE, da verificare) */
+  const gn2=()=>(R()+R()+R()+R()-2)*1.732;
+  function near1(t, r){ let b=null, d0=r; for(const q of t.on){ if(q.role==='GK'||(q.stun||0)>=0.8) continue; const e=hyp(q.x-ball.x,q.y-ball.y); if(e<d0){ d0=e; b=q; } } return b?{q:b, d:d0}:null; }
+  function tCover(d, vp, vm, a){ if(d<=0) return 0; const v0=clamp(vp,0,vm), ta=(vm-v0)/a, da=v0*ta+0.5*a*ta*ta; if(d<=da) return (-v0+Math.sqrt(v0*v0+2*a*d))/a; return ta+(d-da)/vm; }
+  function aerialDuel(f, fwd){ const g=9.81, E=f?(f.aerE||(f.aerE={})):{}, bx=ball.x, by=ball.y, bz=ball.z, vx=ball.vx||0, vy=ball.vy||0, vz=ball.vz||0, out=[];
+    for(const t of T) for(const q of t.on){ if(q.role==='GK'||q.dv||(q.stun||0)>=0.8) continue; if(hyp(q.x-bx,q.y-by)>12) continue;
+      const hq=(q.h||180)/100, qa=clamp(((q.a.tes+q.gs.AN)/2-1)/19,0,1), e=E[q.id]!=null?E[q.id]:(E[q.id]=(0.15-0.10*qa)*gn2()), top=hq-0.10+JUMP0+JUMPK*clamp((q.a.ele-1)/19,0,1)-0.5*g*e*e, low=hq-0.30;
+      const vm=q.vmax*(0.5+0.5*q.st/100), am=q.amax*(1-0.9*(1-q.st/100));
+      for(let tt=fwd?0:-AER_B; tt<=AER_T+1e-9; tt+=AER_DT){ const X=bx+vx*tt, Y=by+vy*tt, Z=bz+vz*tt-0.5*g*tt*tt; if(Z>top+FIS.R) continue; if(Z<low){ if(tt>0) break; continue; }
+        if(tt<0){ if(hyp(X-(q.x+(q.vx||0)*tt),Y-(q.y+(q.vy||0)*tt))<=AER_R+FIS.R){ out.push({q, tc:tt, z:Z}); break; } continue; }   /* già lì: dove era, dalla sua velocità */
+        const d=hyp(X-q.x,Y-q.y), vp=d>0.01?((q.vx||0)*(X-q.x)+(q.vy||0)*(Y-q.y))/d:0;
+        if(tCover(d-AER_R-FIS.R, vp, vm, am)<=tt){ out.push({q, tc:tt, z:Z}); break; } } }
+    out.sort((a,b)=>a.tc-b.tc||b.z-a.z); return out; }
   function arrive(){
     const f=ball.fl; ball.fl=null;
     if(f.type==='pass'){
       const r=f.recv, t=tm(f.from);
+      /* R5: il fuorigioco si fischia se l'attaccante segnalato partecipa (va sul pallone); altrimenti si gioca */
+      if(f.offside && !(r.on && hyp(r.x-ball.x,r.y-ball.y)<7)){ f.offside=false; if(SO) SO.e('r5',SX,{k:'offpass'}); }
       if(f.offside){ t.st.off++; ref.flag=ball.x>52.5?2:1; ref.flagT=M.tick; E('off',f.t,[r.id],fill2(P(MTX.off),{p:r})); const o=op(f.from); pause('fk',o.idx,ball.x,ball.y,24+Math.floor(RA()*10),{taker:o.on.filter(q=>q.role!=='GK').sort((a,b)=>hyp(a.x-ball.x,a.y-ball.y)-hyp(b.x-ball.x,b.y-ball.y))[0]}); return; }
       if(!f.bad && rx(t,ball.x)<rx(t,f.x0)-6) op(f.from).pressUntil=M.tick+8;
+      /* R5c: lancio lungo (rinvio del portiere, lancio) che scende su chi lo riceve e un avversario: saltano tutti e due e si toccano (falli aerei) */
+      let rDown=false;
+      /* C1a (n. 68, 82): lancio lungo che scende: salta chi ci arriva in tempo (aerialDuel); se il primo è un avversario la colpisce di testa e la allontana */
+      if(f.h>=0.6 && hyp(f.x1-f.x0,f.y1-f.y0)>=25 && r.on){ const du=aerialDuel(f), w=du[0], ra=du.find(x=>x.q===r), qa=du.find(x=>x.q.t!==r.t);
+        if(ra && qa && Math.abs(ra.tc-qa.tc)<0.2 && hyp(r.x-qa.q.x,r.y-qa.q.y)<1.5){ if(aerialContact(r,qa.q,-ra.tc,-qa.tc,'lancio')) return; rDown=r.stun>=0.8; }
+        else if(hyp(r.x-ball.x,r.y-ball.y)<1.5){ const cq=near1(op(f.from),1.5); if(cq){ if(aerialContact(r,cq.q,-hyp(r.x-ball.x,r.y-ball.y),-cq.d,'lancio')) return; rDown=r.stun>=0.8; } }
+        if(w && w.q.t!==r.t && !(w.q.stun>=0.8)){ const bd=w.q, o=T[bd.t]; bd.s.int++; ball.lastT=bd.t; ball.lastP=bd; const tx=rx(o,clamp(rx(o,ball.x)+18+R()*12,0,100)); fly('clear',bd,tx,clamp(ball.y+(R()-0.5)*34,-2,PW+2),18,6); return; } }
       if(f.volley && !f.bad && r.on && hyp(r.x-ball.x,r.y-ball.y)<1.3){ ball.pass={from:f.from,t:M.tick}; ball.owner=r; ball.lastT=r.t; ball.lastP=r; shoot(r,'open'); return; }
-      if(!f.bad && r.on && hyp(r.x-ball.x,r.y-ball.y)<(ball.z<0.4?2.0:1.7)){ const [,pr]=nearestOpp(r); if(R()<0.97+(r.a0.ctr-10)*0.008-(pr<1.4?0.09*(1.4-r.a0.ctr/20):0)){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; if(f.keyLike) f.from.s.kp++; ball.pass={from:f.from,t:M.tick}; giveBall(r); return; } }
+      if(!f.bad && r.on && !rDown && hyp(r.x-ball.x,r.y-ball.y)<(ball.z<0.4?2.0:1.7)){ const [,pr]=nearestOpp(r); if(R()<0.97+(r.a0.ctr-10)*0.008-(pr<1.4?0.09*(1.4-r.a0.ctr/20):0)){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; if(f.keyLike) f.from.s.kp++; ball.pass={from:f.from,t:M.tick}; giveBall(r); return; } }
       /* corsa sul pallone: se un avversario (o il portiere in uscita) arriva prima, la palla è sua */
       { const dr=r.on?hyp(r.x-ball.x,r.y-ball.y):99; let qb=null,dq=99; for(const q of op(f.from).on){ const inBoxQ=rx(T[q.t],ball.x)<16.5&&Math.abs(ball.y-34)<20; const d=hyp(q.x-ball.x,q.y-ball.y)-(q.role==='GK'?(inBoxQ?1.2:0.4)+(q.a0.usc-10)*0.05:0); if(d<dq){dq=d;qb=q;} }
         if(qb && dq<1.7 && dq<dr-0.3){ qb.s.int++; if(f.through && qb.role==='GK') E('save',f.t,[r.id,qb.id],`${qb.ln} esce e anticipa ${r.ln} sul filtrante.`,{x:ball.x,y:ball.y}); if(qb.role==='GK' && handsOk(qb,ball.x,ball.y)) gkCatch(qb,1.2); else giveBall(qb, qb.role==='GK'?0.8:0.5); return; } }
-      if(f.bad && r.on && hyp(r.x-ball.x,r.y-ball.y)<1.7){ const [,pr]=nearestOpp(r); if(R()<0.5+(r.a0.ctr-10)*0.025-(pr<1.5?0.15:0)){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; ball.pass={from:f.from,t:M.tick}; giveBall(r); return; } }
+      if(f.bad && r.on && !rDown && hyp(r.x-ball.x,r.y-ball.y)<1.7){ const [,pr]=nearestOpp(r); if(R()<0.5+(r.a0.ctr-10)*0.025-(pr<1.5?0.15:0)){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; ball.pass={from:f.from,t:M.tick}; giveBall(r); return; } }
       if(f.bad) f.from.s.err+= (rx(t,ball.x)<30)?1:0;
       /* v0.4.2.0: nessuno la controlla subito: la palla continua e il compagno la rincorre ancora per poco (passaggio riuscito se ci arriva prima di un avversario) */
       if(r.on && hyp(r.x-ball.x,r.y-ball.y)<7){ f.chase=true; ball.fl=f; }
@@ -250,12 +332,19 @@ function matchFis(M){
     }
     if(f.type==='cross'){
       const t=tm(f.from), o=op(f.from), gk=gkOf(o);
+      /* R5: cross verso un attaccante segnalato in fuorigioco che va sul pallone */
+      if(f.offside && f.recv && f.recv.on && hyp(f.recv.x-ball.x,f.recv.y-ball.y)<4){ const r=f.recv; t.st.off++; ref.flag=ball.x>52.5?2:1; ref.flagT=M.tick; E('off',f.t,[r.id],fill2(P(MTX.off),{p:r})); pause('fk',o.idx,r.x,r.y,24+Math.floor(RA()*10),{taker:o.on.filter(q=>q.role!=='GK').sort((a,b)=>hyp(a.x-r.x,a.y-r.y)-hyp(b.x-r.x,b.y-r.y))[0]}); return; }
       if(gk && f.gkOut===gk && hyp(gk.x-ball.x,gk.y-ball.y)<1.8 && handsOk(gk,ball.x,ball.y) && R()<(gk.a0.usc*0.7+gk.a0.pre*0.3)/16+(gk.h-185)*0.01+(ball.sp && ball.sp.type==='cor' && M.tick-ball.sp.t<11?0.1:0)){ gk.s.sv++; gkCatch(gk,1.5); return; }
-      const atk=t.on.filter(q=>hyp(q.x-ball.x,q.y-ball.y)<1.5), dfs=o.on.filter(q=>q.role!=='GK'&&hyp(q.x-ball.x,q.y-ball.y)<1.5);
-      let ba=null,bs=-1; for(const q of atk){ const s=aerial(q,R)+q.a.pos*0.3; if(s>bs){bs=s;ba=q;} }
-      let bd=null,bds=-1; for(const q of dfs){ const s=aerial(q,R)+q.a.pos*0.3; if(s>bds){bds=s;bd=q;} }
-      const fromCor = ball.sp && (ball.sp.type==='cor'||ball.sp.type==='fk') && M.tick-ball.sp.t<11;
-      if(ba && bs>bds+(bd?2.5:-99)+(fromCor&&bd?4:0) && R()<(fromCor?0.68:0.8)){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; ball.pass={from:f.from,t:M.tick}; ball.lastT=ba.t; ball.lastP=ba;
+      /* C1a (n. 82): saltano tutti quelli che arrivano in tempo (aerialDuel); il primo per squadra; tolti il punteggio con R()·8, i margini +2,5 e +4
+         e le probabilità 0,68 e 0,8 (Dani, 15/11) */
+      const du=aerialDuel(f), xa=du.find(x=>x.q.t===t.idx), xd=du.find(x=>x.q.t===o.idx);
+      let ba=xa?xa.q:null, bd=xd?xd.q:null; const bs=xa?-xa.tc:-99, bds=xd?-xd.tc:-99;
+      /* R5c: i due che saltano si toccano (falli aerei, match_arb.js aerialContact) se arrivano insieme; chi va giù per l'urto non prende la palla */
+      if(SO && ba && bd) SO.e('r5c',SX,{k:'duello', d:hyp(ba.x-bd.x,ba.y-bd.y), ctx:'cross'});
+      if(SO) SO.e('c1a',SX,{k:'aereo', n:du.length, a:xa, d:xd});
+      if(ba && bd && Math.abs(xa.tc-xd.tc)<0.2 && hyp(ba.x-bd.x,ba.y-bd.y)<1.5){ if(aerialContact(ba,bd,bs,bds,'cross')) return; if(ba.stun>=0.8) ba=null; if(bd&&bd.stun>=0.8) bd=null; }
+      else { const ca=near1(t,1.5), cd=near1(o,1.5); if(ca && cd && aerialContact(ca.q,cd.q,-ca.d,-cd.d,'cross')) return; if(ba&&ba.stun>=0.8) ba=null; if(bd&&bd.stun>=0.8) bd=null; }   /* palla al petto: i due più vicini si contendono il pallone con il corpo */
+      if(ba && (!bd || bs>bds || (bs===bds && xa.z>=xd.z))){ t.st.pc++; f.from.s.pc++; if(rx(t,ball.x)-rx(t,f.x0)>=10) f.from.s.prog++; ball.pass={from:f.from,t:M.tick}; ball.lastT=ba.t; ball.lastP=ba;
         /* v0.4.2.0: il colpo di testa va in porta solo da buona posizione; altrimenti è una sponda (la palla resta libera vicino) */
         const gxh=t.dir>0?PL:0, dgh=hyp(gxh-ball.x,34-ball.y); if(dgh<14 && R()<0.7){ f.from.s.kp++; ball.owner=ba; shoot(ba,'head'); return; }
         const a=Math.atan2(34-ball.y,gxh-ball.x)+(R()-0.5)*2.2, k=3+R()*5; loose(ball.x,ball.y,Math.cos(a)*k,Math.sin(a)*k,1.5+R()*2,ball.z); return; }
@@ -268,5 +357,5 @@ function matchFis(M){
   function toss(r){ const z0=Math.max(ball.z,0.9), L=hyp(r.x-ball.x,r.y-ball.y), z1=r.type==='thr'?1.6:0.5;
     if(L<0.6){ ball.x=r.x; ball.y=r.y; ball.z=r.type==='thr'?1.9:0; stopBall(); r.bs='ready'; return; }
     ball.z=z0; const a=fisLoft(ball.x,ball.y,z0,r.x,r.y,z1,L>30?0.55:L>12?0.7:0.9,0,0); fisKick(ball,a.v,a.az,a.el,0,0); r.tA=a.t; r.te=0; r.bs='toss'; }
-  return {fatK, JOG, SEP_R, duelPair, move, energy, timers, sepMin, separate, NMAX, ON, DTB, buildDist, D2, stopBall, giveBall, loose, fly, segPt, FIS_P, shotPlan, doBlock, moveTo, goalScored, lineCheck, collide, ballTick, ownerBall, arrive, toss};
+  return {fatK, JOG, SEP_R, duelPair, behindOf, urto, move, energy, timers, sepMin, separate, NMAX, ON, DTB, buildDist, D2, stopBall, giveBall, loose, fly, segPt, FIS_P, shotPlan, doBlock, moveTo, goalScored, lineCheck, collide, ballTick, ownerBall, arrive, toss};
 }

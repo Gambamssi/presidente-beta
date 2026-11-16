@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.6.1';
+const VERSION = '0.4.7.9';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,78 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.7.9','16 novembre 2026',[
+    'Tiro scelto con la stessa fisica della partita: chi ha la palla stima il tiro come andrà davvero (dove mira, quanto sbaglia, dove sta il portiere e fin dove arriva, chi può murarlo, se la palla arriva in porta) e lo confronta con il passaggio. Niente più regole fisse sul tiro in area e da fuori; chi decide e legge meglio il gioco sbaglia meno la stima.',
+    'Il portiere arriva sulla palla con la portata del suo corpo: di lato con spalla e braccio, verso l\'alto con il braccio teso, secondo la statura.',
+    'Meno scatti inutili: si torna di corsa solo quando il proprio posto è tra la palla e la porta e serve davvero (Determinazione e Collaborazione); il portiere che rientra e chi marca un uomo corrono quanto serve, non al massimo.'
+  ]],
+  ['0.4.7.8','16 novembre 2026',[
+    'Portiere più vero: senza palla si mette sulla bisettrice tra la palla e i pali, legge dove andrà la palla con i suoi tempi di reazione e di anticipo, si sposta a piccoli passi laterali e al tiro è fermo e pronto, invece di rincorrere il suo posto di corsa.',
+    'Tiro da fuori scelto dalla situazione: niente più regola fissa sull\'avversario a meno di 2,6 m; il giocatore valuta il tiro con la fisica (precisione, portiere, difensori che fanno in tempo a mettersi sulla linea).',
+    'Cross verso il punto dove il compagno arriva quando arriva la palla, non dove si trova al momento del cross.',
+    'I difensori sanno che la scivolata da dietro è da rosso e la evitano, salvo quando il pericolo che tolgono vale l\'espulsione.'
+  ]],
+  ['0.4.7.7','15 novembre 2026',[
+    'Difesa in area più vera: i difensori seguono gli attaccanti che entrano in area prima che parta il passaggio, ognuno con i suoi tempi di reazione e la sua lettura del gioco, e non lasciano il loro uomo per chiudere la linea di tiro. Lo fanno anche durante le rimesse laterali e le punizioni lontane.',
+    'Colpi di testa giocati: sui cross e sui lanci lunghi saltano tutti quelli che arrivano sotto la palla in tempo; vince chi la tocca per primo e più in alto (statura, stacco, tempismo), non più un tiro di dado. I cross vengono calciati verso la testa del compagno.',
+    'Pulizia del motore: tolta una costante del tiro che non si usava più.',
+  ]],
+  ['0.4.7.6','15 novembre 2026',[
+    'Infortuni come nel calcio vero: nascono dagli scontri in campo (più il colpo è forte rispetto all’equilibrio del giocatore, più fa male, anche senza fallo), dagli scatti e dalla stanchezza, e durante gli allenamenti. Fuori dal campo capitano solo di rado.',
+    'Ogni infortunio ha il suo tipo (contusione, distorsione, lesione muscolare, crociato, commozione…), la sua gravità e tempi di recupero presi dagli studi sui professionisti. Molti infortuni lievi guariscono prima della giornata dopo.',
+    'Chi non ha il via libera del medico non gioca, in nessuna squadra. Dopo un lungo stop il giocatore torna con la forma da recuperare e per qualche mese rischia di più di farsi male nello stesso punto. Una sospetta commozione fa sempre uscire dal campo.',
+    'Il medico prevede le giornate di assenza: più è buono il centro sportivo, più la previsione è precisa, il recupero un po’ più corto e le ricadute più rare.',
+    'Fine carriera realistica: si smette a età diverse secondo il ruolo, i minuti giocati e gli infortuni subiti; i portieri giocano più a lungo, nessuno oltre i 40 anni. Anche gli svincolati invecchiano.',
+    'Notizie per la tua squadra: tipo d’infortunio, giornate previste, via libera del medico, ritiri.']],
+  ['0.4.7.5','14 novembre 2026',[
+    'Squalifiche come nel calcio vero, uguali in tutti i campionati: i gialli si sommano nella stagione e al 5° giallo si salta 1 giornata, al 10° 2, al 15° 3.',
+    'Il rosso diretto fa saltare 2 giornate la prima volta nella stagione, 3 la seconda, 4 la terza. L’espulsione per doppio giallo non squalifica, ma i due gialli si sommano agli altri.',
+    'Chi è a un giallo dalla squalifica è diffidato: lo vedi nella rosa, nella scheda del giocatore e nel nuovo riquadro «Prossima partita» della pagina dell’allenatore, con gli squalificati e gli infortunati. Le notizie ti avvisano di squalifiche, diffide e rientri.',
+    'A fine stagione i cartellini si azzerano; le giornate di squalifica che restano si scontano nella stagione dopo. Nei salvataggi già iniziati i cartellini partono da zero.',
+  ]],
+  ['0.4.7.4','14 novembre 2026',[
+    'Le partite si calcolano in meno della metà del tempo: ogni giornata arriva prima, e le partite giocate sono esattamente le stesse di prima.',
+  ]],
+  ['0.4.7.3','14 novembre 2026',[
+    'I cartellini giudicano il comportamento del giocatore, come nelle regole del calcio: un intervento in scivolata o da dietro che manda a terra l’avversario è imprudente (giallo); la scivolata da dietro che lo mette in pericolo è un rosso; il contrasto in piedi, di fronte o di lato, è solo fallo. La velocità conta solo per quanto è forte l’urto.',
+    'Se il difensore prende prima la palla non c’è mai il rosso: c’è il giallo solo per una scivolata pericolosa di lato o da dietro.',
+    'Ogni arbitro ha la sua severità anche nei cartellini: quello severo ammonisce anche per un urto più leggero, quello permissivo solo per un urto più forte. I giocatori più attenti capiscono che tipo di arbitro hanno davanti dai cartellini che vedono e, con uno severo, entrano meno duri.',
+    'Chi arriva sul giocatore che ha appena passato e non riesce più a fermarsi non viene ammonito. Nei salti per la stessa palla la carica è fallo, ma senza cartellino. Chiara occasione da gol negata in area: giallo se il difensore cercava la palla, rosso se lo trattiene o lo spinge.',
+    'Visore: chi batte una punizione partendo lontano dalla palla non fa più un salto all’indietro alla fine dell’attesa.'
+  ]],
+  ['0.4.7.2','14 novembre 2026',[
+    'Nuovi falli, tutti nati da un contatto vero tra due giocatori: il fallo tattico per fermare un contropiede quando la difesa è scoperta (sempre ammonito; chi è già ammonito non lo fa), le spinte degli attaccanti sui calci d’angolo e sulle punizioni in area, le cariche nei salti di testa (anche sui rinvii lunghi del portiere) e le spinte di chi entra in contrasto da dietro.',
+    'Le braccia nei salti non sono fallo; ma se un attaccante si aiuta con le braccia e segna di testa, l’arbitro annulla il gol. Le trattenute del difensore nella sua area non si fischiano.',
+    'Chi arriva sul giocatore che ha appena passato e lo tocca non viene fischiato: si gioca, e solo un intervento pericoloso viene ammonito dopo l’azione.',
+    'Chi insegue un avversario con la palla non gli finisce più addosso alla schiena: si affianca o rallenta, oppure entra in contrasto.',
+    'Il difensore in area pensa anche al tiro che lascerebbe libero se non interviene: contrasta di più quando l’attaccante avrebbe la porta libera.',
+    'Il giallo per un’azione promettente interrotta si dà solo se chi subisce il fallo aveva la palla. Nessun giocatore viene spinto oltre la sua velocità massima quando i corpi si scontrano.'
+  ]],
+  ['0.4.7.1','13 novembre 2026',[
+    'Ogni arbitro ha la sua asticella dei falli: c’è chi lascia giocare di più e chi fischia di più. L’asticella resta la stessa per tutta la partita, qualunque siano il punteggio, il minuto e i cartellini già dati.',
+    'In area il rigore si dà solo se il fallo e l’occasione tolta lo valgono: un attaccante lanciato verso la porta in piccola area ha più da perdere di uno spalle alla porta sul limite. Un intervento da cartellino in area è sempre rigore.',
+    'Palla o uomo: se il difensore prende prima la palla non è fallo, a meno di un intervento pericoloso (allora fallo e cartellino); se prende prima l’uomo e l’attaccante cade o perde la palla è sempre fallo; un contatto leggero lo decide l’asticella dell’arbitro.',
+    'L’arbitro sbaglia meno sui contrasti puliti: il fischio sbagliato è più raro del fallo non visto, come negli studi sugli arbitri dei Mondiali. Un contatto lasciato correre non fa perdere la palla a chi resta in piedi.',
+    'Vantaggio in tutto il campo, anche quando la palla resta a un compagno di chi ha subito il fallo; in una partita con molti falli l’arbitro ne dà meno. I cartellini dovuti si danno sempre, alla prima interruzione o al fischio finale.',
+    'Chi batte una rimessa laterale, un angolo, una punizione, un calcio d’inizio o una rimessa dal fondo non tocca più di nuovo la palla prima di un altro giocatore.',
+    'Visore: niente più scatti di chi batte quando è lontano dalla palla, niente pause troppo lunghe dopo un gol, e chi si muove durante un’attesa non viene più nascosto.'
+  ]],
+  ['0.4.7.0','13 novembre 2026',[
+    'L’arbitro e i due assistenti sono persone in campo: corrono, accelerano e si stancano come persone vere. L’arbitro sta in diagonale a una distanza utile dall’azione e corsetta quando vede già bene; gli assistenti seguono di lato il penultimo difensore.',
+    'Il fuorigioco lo giudica l’assistente da dove si trova: se l’azione è stata più veloce di lui e non è in linea, può sbagliare. Ora c’è il fuorigioco anche sui cross, e si fischia solo se l’attaccante va davvero sul pallone. Mai fuorigioco su rimessa laterale, rimessa dal fondo e calcio d’angolo.',
+    'I falli si fischiano se l’arbitro (o l’assistente vicino) li vede: da lontano sbaglia di più, a volte lascia correre un fallo vero o ne vede uno che non c’era. Quando chi subisce il fallo resta in piedi con la palla nella metà avversaria, l’arbitro dà il vantaggio e torna al fallo se entro 3 secondi la squadra perde la palla.',
+    'I cartellini seguono il regolamento: intervento imprudente o violento, chiara occasione da gol negata, azione promettente fermata, troppi falli. Nessun cartellino a caso.',
+    'In area i difensori contrastano solo quando pensano di prendere la palla, altrimenti accompagnano l’attaccante e chiudono il tiro: i più lucidi sbagliano meno la scelta.',
+    'Dalla rimessa laterale non si può segnare direttamente.'
+  ]],
+  ['0.4.6.2','12 novembre 2026',[
+    'Corsa più umana: i giocatori partono e accelerano come calciatori veri e, quando si stancano, accelerano meno. Chi non deve contrastare nessuno non corre più sempre a tutta: va alla velocità che gli serve per arrivare in tempo (più in fretta se l’allenatore chiede il pressing alto, con la Determinazione e la Resistenza, meno quando è stanco). I centrocampisti si offrono di più al compagno con la palla e sono quelli che corrono di più, come nel calcio vero.',
+    'Difesa in area: quando l’avversario arriva vicino alla porta, o gli arriva un passaggio, va a chiuderlo chi ci arriva prima, un difensore si mette tra la palla e la porta e gli attaccanti vicini vengono marcati. Contano Concentrazione, Anticipazione, Marcatura e Posizione, e gli ordini dell’allenatore su linea e pressing.',
+    'Tiro da vicino: davanti alla porta il giocatore sceglie se tirare, passarla a un compagno messo meglio o fare due passi in più, guardando il portiere, i difensori e il tempo che ha; chi ha più Freddezza e senso della scelta sbaglia meno.',
+    'Rimessa dal fondo: il portiere calcia la palla da ferma, corta a un compagno o lunga, e non la porta più avanti da solo prima di calciare.',
+    'Visore: le lunghe attese con tutti fermi (rigori, cambi, esultanze, rinvii) si accorciano come le altre attese; chi batte non corre più troppo veloce verso la palla quando si guarda a 4×.',
+    'Le partite già giocate restano nel registro con il loro risultato ma, rivedendole, si giocano con il motore nuovo e possono andare diversamente.'
+  ]],
   ['0.4.6.1','11 novembre 2026',[
     'Visore fluido: sulle palle ferme (rimesse, punizioni, falli, dopo un gol) i giocatori vanno verso le posizioni della ripresa in modo morbido, a ogni velocità. Prima, in un solo fotogramma, tutti saltavano in posizioni nuove e poi l’immagine restava ferma per un istante; ora non ci sono più salti né fermi. «Avanti» salta come prima.',
     'Se c’è molta strada da fare (dopo un gol, nei cambi) l’attesa dura un po’ di più, perché nessuno scorra troppo in fretta.',
