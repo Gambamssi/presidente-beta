@@ -410,10 +410,12 @@ function matchAll(M){
   /* cambi solo a gioco fermo: l'assistente vicino alle panchine va a centrocampo a controllare */
   function queueSub(t,outP,inP,why){ startSub(t,outP,inP,outP.slot,why,false); }
   /* sequenza del cambio: chi entra va a centrocampo fuori dal campo e aspetta; chi esce lascia il campo; l'assistente arriva e autorizza l'ingresso */
-  const subW=t=>[52.5+(t.idx===0?-1.2:1.2), -1.3];
+  /* 0.4.7.10 (V3D, n. 99): ogni sostituto che aspetta ha il suo punto (k = primo posto libero tra quelli che stanno entrando): partenza e attesa distano almeno 1,2 m da quelle dei compagni */
+  const subW=(t,k=0)=>[52.5+(t.idx===0?-1.2-1.2*k:1.2+1.2*k), -1.3];
+  const subK=(t,inP)=>{ const u=new Set(t.bench.filter(q=>q!==inP&&q.walkIn).map(q=>q.wk)); let k=0; while(u.has(k)) k++; return k; };
   function startSub(t,outP,inP,slot,why,noRemove){
     if(!M.restart || M.restart.type==='pen' || M.restart.type==='cel'){ t.qsub.push({outP,inP,slot,why,noRemove}); return; }
-    inP.used=true; inP.walkIn=true; inP.x=benchX(t.idx)+(t.idx===0?2.5:-2.5); inP.y=-3.4;
+    inP.used=true; inP.walkIn=true; inP.wk=subK(t,inP); inP.x=benchX(t.idx)+(t.idx===0?2.5-1.2*inP.wk:-2.5+1.2*inP.wk); inP.y=-3.4;
     if(outP && noRemove){ outP.leave=36; outP.lw=2; }
     if(why!=='Cambio forzato' && why!=='Entra il portiere di riserva'){ M.restart.winT=M.restart.winT||[false,false]; if(!M.restart.winT[t.idx]){ M.restart.winT[t.idx]=true; t.win++; } }
     (M.restart.subs=M.restart.subs||[]).push({t,outP,inP,slot,why,noRemove,ph:(outP&&!noRemove)?0:1,t0:M.tick}); M.restart.sub=true;
@@ -423,7 +425,7 @@ function matchAll(M){
     if(!M.restart || !M.restart.subs) return;
     for(const z of M.restart.subs){
       if(z.ph===0 && (z.outP.y<0.15 || !z.outP.on || force || M.tick-z.t0>70)){ const o=z.outP; if(o.on){ o.on=false; o.subbed=true; z.t.on=z.t.on.filter(q=>q!==o); } o.leave=36; o.lw=0; z.ph=1; }
-      if(z.ph===1){ const W=subW(z.t); if(force || M.tick-z.t0>90 || hyp(z.inP.x-W[0],z.inP.y-W[1])<0.7){
+      if(z.ph===1){ const W=subW(z.t,z.inP.wk||0); if(force || M.tick-z.t0>90 || hyp(z.inP.x-W[0],z.inP.y-W[1])<0.7){
         z.ph=2; const slot=(z.outP&&!z.noRemove)?z.outP.slot:z.slot; doSub(z.t,z.outP,z.inP,slot,z.why); z.inP.x=W[0]; z.inP.y=0.4; } } }
   }
   function benchX(side){ return 52.5+(side===0?-9:9); }
@@ -471,7 +473,7 @@ function matchAll(M){
     const pr=PAN.ht+(diff<0?PAN.htSotto:0)+(qG-0.5)*0.1; if(RB()>=pr) return;
     const n=RB()<0.5?2:1, out=subCands(t,qS,diff<0?'off':null,diff).slice(0,n); let k=0;
     for(const {q,b,why} of out){ if(!b) continue;
-      q.on=false; q.subbed=true; q.leave=36; q.lw=0; t.on=t.on.filter(z=>z!==q); b.x=52.5+(t.idx===0?-1.2:1.2); b.y=-0.6; doSub(t,q,b,q.slot,why||t_('pan.ht',{sur})); k++; }
+      q.on=false; q.subbed=true; q.leave=36; q.lw=0; t.on=t.on.filter(z=>z!==q); b.x=subW(t,k)[0]; b.y=-0.6; doSub(t,q,b,q.slot,why||t_('pan.ht',{sur})); k++; }
     if(k) t.htWin=true;
   }
   function changeForm(t, form, ment, txt, rec){

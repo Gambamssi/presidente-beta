@@ -114,8 +114,9 @@ function matchArb(M){
     /* R5: l'assistente resta sulla linea anche durante i cambi (li controlla il quarto uomo a metà campo) */
     refStep(ref.a1,a1x,-1,0.5,0.05,REF_B.vmax,Math.PI/2); refStep(ref.a2,a2x,PW+1,0.5,0.05,REF_B.vmax,-Math.PI/2);
     /* chi esce dal campo cammina verso la panchina */
-    for(const t of T){ const W=subW(t); for(const p of t.bench) if(p.walkIn) moveTo(p,W[0],W[1],1.7); }
-    for(const p of all.values()) if(p.leave>0){ p.leave--; if(p.lw>0){ p.lw--; continue; } moveTo(p,52.5+(p.t===0?-6:6),-1.2,1.3); if(hyp(p.x-(52.5+(p.t===0?-6:6)),p.y+1.2)<0.5) p.leave=0; }
+    for(const t of T){ for(const p of t.bench) if(p.walkIn){ const W=subW(t,p.wk||0); moveTo(p,W[0],W[1],1.7); } }
+    const lvN=[0,0];   /* 0.4.7.10 (n. 99): chi esce ha un posto suo lungo la linea (1,2 m dal compagno che esce insieme) e cammina più fuori di chi aspetta di entrare (y −2,3 contro −1,3) */
+    for(const p of all.values()) if(p.leave>0){ p.leave--; if(p.lw>0){ p.lw--; continue; } const lx=52.5+(p.t===0?-6-1.2*lvN[p.t]:6+1.2*lvN[p.t]); lvN[p.t]++; moveTo(p,lx,-2.3,1.3); if(hyp(p.x-lx,p.y+2.3)<0.5) p.leave=0; }
   }
   /* R5 (0.4.7.0, punto 4): chi vede il contatto. Arbitro e assistente della metà campo (sul suo lato, entro 25 m: regola 6) guardano il punto del
      contatto e sbagliano il giudizio secondo la distanza, con i valori reali di Mallo et al. 2012 (Confederations Cup 2009, 380 falli: errori ~11–12% sotto
