@@ -485,7 +485,7 @@ function simMatch(inp, seed, rec){
     st:{poss:0,sh:0,sot:0,xg:0,cor:0,fou:0,yc:0,rc:0,pa:0,pc:0,off:0}}; });
   const all=new Map(), ev=[], frames=rec?[]:null;
   const dayF=[0,1].map(()=>(R()+R()-1)*DAY_F);
-  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, pf:false, drib:0, shield:0, bA:null, wall:null, runOff:0, used:false, walkIn:false, leave:0, lw:0, subOut:false, subbed:false, gs:gsOf(pi), st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
+  for(const t of T) for(const pi of t.players){ const mB=moraleBoost(pi.mor??12, t.coach&&t.coach.mor); all.set(pi.id,{...pi, a0:pi.a, a:Object.fromEntries(Object.entries(pi.a).map(([k,v])=>[k,10+(v-10)*SKILL_K+(t.idx===0?HOME_B:0)+dayF[t.idx]+mB])), t:t.idx, x:0,y:0,tx:0,ty:0, vx:0,vy:0, o:(i0=>i0===0?0:Math.PI)(t.idx), bk:0, k:-1, vmax:8.5+1.2*clamp((pi.a.vel-1)/19,0,1), amax:4.3+0.9*clamp((pi.a.vel-1)/19,0,1), hk:(hashU(String(pi.id),7)*1e6)|0, nx:0, ny:0, dv:null, tilt:0, hold:false, fq:null, ucap:1, hx:null, hy:0, hz:0, tp:0, eng:null, cx:undefined, cy:undefined, ft:false, pf:false, drib:0, shield:0, bA:null, wall:null, runOff:0, used:false, walkIn:false, wk:0, leave:0, lw:0, subOut:false, subbed:false, gs:gsOf(pi), st:pi.st0, on:false, slot:-1, role:null, yc:0, out:false, inj:false, runT:0, dt:0, stun:0, urg:false, mins:0, fl:pi.fl*0.12,
     s:{g:0,as:0,kp:0,sh:0,sot:0,pa:0,pc:0,tk:0,int:0,drw:0,sv:0,err:0,red:0,prog:0,gv:0,av:0,ga:0,svv:0},
     /* T2 (PROBLEMI_NOTI n. 49): campi che il ciclo aggiunge più tardi (R4b, R5b, R5c, CA1), creati qui vuoti (undefined, come prima della prima scrittura)
        e nello stesso ordine per tutti: i giocatori hanno una sola forma interna e il motore JavaScript li legge in fretta; nessun valore cambia */
@@ -677,11 +677,11 @@ function simMatch(inp, seed, rec){
     /* recupero: dipende dal tempo perso (esultanze, cambi, infortuni, cartellini, allontanamenti) */
     if(M.restart && (M.restart.type==='cel'||M.restart.type==='drop'||(M.restart.subs&&M.restart.subs.some(z=>z.ph<2))||(M.restart.card&&!M.restart.card.shown)||(M.restart.coach&&!M.restart.coach.shown))) lost[M.half-1]++;
     if(M.tick===M.regEnd){ const lm=lost[M.half-1]/MIN_T, add=clamp(Math.round(lm*0.75+(M.half===1?0.9:2.2)+RA()*1.2),M.half===1?1:2,M.half===1?6:9); halfEnd=M.tick+Math.round(add*MIN_T); E('added',0,[],`Il quarto uomo alza il tabellone: ${add} minut${add===1?'o':'i'} di recupero.`,{add}); }
-    if(M.half===1 && M.tick>=halfEnd){ stepSubs(true); E('ht',0,[],`Fine primo tempo: ${T[0].inp.n} ${T[0].goals}-${T[1].goals} ${T[1].inp.n}.`); M.half=2; htTick=M.tick;
+    if(M.half===1 && M.tick>=halfEnd){ flushCards(); stepSubs(true); E('ht',0,[],`Fine primo tempo: ${T[0].inp.n} ${T[0].goals}-${T[1].goals} ${T[1].inp.n}.`); M.half=2; htTick=M.tick;
       if(ball.owner) ball.owner.hold=false; ball.owner=null; ball.fl=null; M.restart=null;
       for(const o of [ref,ref.a1,ref.a2]) o.st=Math.min(100,o.st+7);   /* R5: anche arbitro e assistenti recuperano nell'intervallo */
       T.forEach(t=>{ t.dir=-t.dir; t.on.forEach(p=>{ p.st=Math.min(100,p.st+7); p.dv=null; p.tilt=0; p.stun=0; }); htSubs(t); t.counterUntil=-1; t.pressUntil=-1; t.dline=null; });
-      startKick(1,false); halfEnd=1e9; M.regEnd=-1; E('kick',1,[],'Inizia il secondo tempo.'); }
+      startKick(1,true); halfEnd=1e9; M.regEnd=-1; E('kick',1,[],'Inizia il secondo tempo.'); }
     else if(M.half===2 && M.tick>=halfEnd){ break; }
     if(M.tick>30000) break;   /* sicurezza: una partita vera dura circa 11.700 tick */
   }

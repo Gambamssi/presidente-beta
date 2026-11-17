@@ -1,5 +1,5 @@
 /* versione del gioco e novità mostrate nella schermata iniziale: a ogni nuova versione si cambia solo questo file (più quelli toccati) */
-const VERSION = '0.4.7.9';
+const VERSION = '0.4.7.10';
 /* numerazione (dalla 0.4.1.0): 0.GRANDE.MEDIO.PICCOLO, tre contatori indipendenti senza riporto. La vecchia 0.037 corrisponde a 0.4.0.0.
    Le versioni sono testi: mai confrontarle come numeri (parseFloat, <, >). Per confrontarle si usa verCmp(a,b): −1, 0 o 1.
    Il vecchio formato 0.NNN (tre cifre dopo il punto, fino alla 0.037) viene prima di tutte le versioni nuove: 0.036 < 0.037 < 0.4.0.0 < 0.4.1.0. */
@@ -8,6 +8,15 @@ function verParts(v){ const a=String(v==null?'':v).trim().replace(/^v/i,'').spli
   return [0,1,2,3].map(i=>parseInt(a[i],10)||0); }
 function verCmp(a,b){ const x=verParts(a), y=verParts(b); for(let i=0;i<4;i++) if(x[i]!==y[i]) return x[i]<y[i]?-1:1; return 0; }
 const CHANGELOG = [
+  ['0.4.7.10','16 novembre 2026',[
+    'Partita in 3D sul computer: a 1× tutta la partita si vede in 3D, a 2× la partita è in 2D con i replay in 3D a rallentatore, a 4× si saltano da un\'azione importante all\'altra (gol, pali e traverse, parate difficili, rigori, espulsioni, errori dell\'arbitro) e si vede subito il replay in 3D. Risultato, cronaca e statistiche sono completi alla fine, come con «Avanti».',
+    'Sul telefono la partita resta tutta in 2D (a 4× solo le azioni importanti) e i replay in 3D si accendono con il tasto «Replay 3D»: il 3D si scarica solo allora, il primo accesso resta leggero. Se il 3D scatta su un dispositivo, il visore torna da solo al 2D con un avviso; la scelta 2D o 3D si ricorda.',
+    'I replay vanno al 40% della velocità reale (prima 70%): un gol dura circa 30 secondi, le altre azioni circa 20.',
+    'Ingresso in campo più vero: nelle due file accanto alla terna arbitrale prima il capitano, poi il portiere, poi gli altri in ordine di maglia; poi il sorteggio al centro del campo con i due capitani e l\'arbitro (vince la squadra che non batte il calcio d\'inizio e sceglie il campo; in 2D la riga «Sorteggio: vince…»).',
+    'Le scelte dell\'allenatore restano aperte, in 2D e in 3D, finché non si preme «Inizia partita» (prima la partita partiva da sola).',
+    'Intervallo: all\'inizio del secondo tempo tutti i giocatori sono già al loro posto nella nuova metà e i portieri in porta; niente più squadre che attraversano il campo (prima il calcio d\'inizio partiva con il portiere anche a centrocampo).',
+    'Cambi: chi entra e chi esce ha ognuno il suo punto lungo la linea, non più tutti sovrapposti; il tabellone luminoso del dirigente mostra tutti i cambi chiamati insieme, non solo il primo.'
+  ]],
   ['0.4.7.9','16 novembre 2026',[
     'Tiro scelto con la stessa fisica della partita: chi ha la palla stima il tiro come andrà davvero (dove mira, quanto sbaglia, dove sta il portiere e fin dove arriva, chi può murarlo, se la palla arriva in porta) e lo confronta con il passaggio. Niente più regole fisse sul tiro in area e da fuori; chi decide e legge meglio il gioco sbaglia meno la stima.',
     'Il portiere arriva sulla palla con la portata del suo corpo: di lato con spalla e braccio, verso l\'alto con il braccio teso, secondo la statura.',

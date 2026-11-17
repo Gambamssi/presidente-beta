@@ -261,6 +261,7 @@ select,input{background:var(--ev-bg);border:1px solid var(--ev-border);border-ra
 .pre{position:absolute;inset:0;z-index:3;background:color-mix(in srgb,var(--ev-sidebar-end) 88%,transparent);color:var(--ev-sidebar-text);display:grid;align-content:center;justify-items:center;gap:12px;padding:16px;overflow:auto}
 .pre .eyebrow{color:var(--ev-sidebar-muted)}
 .pre .btn{justify-self:center}
+.pre .btn.go{font-size:1.05rem;padding:.7em 1.8em}
 .pre-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;width:100%;max-width:820px}
 .pl{display:grid;gap:3px;align-content:start;min-width:0}
 .pl-team{font:700 20px/1.1 var(--ev-font-family)}
@@ -292,7 +293,7 @@ select,input{background:var(--ev-bg);border:1px solid var(--ev-border);border-ra
 .badge-s.sq{background:color-mix(in srgb,var(--ev-brand-gold) 20%,transparent);color:var(--ev-gold-text)}
 .badge-s.dif{background:color-mix(in srgb,var(--ev-brand-gold) 10%,transparent);color:var(--ev-gold-text);border:1px dashed color-mix(in srgb,var(--ev-brand-gold) 60%,transparent)}
 .sq-list{list-style:none;margin:0;padding:0}.sq-list li{padding:4px 0;border-bottom:1px solid var(--ev-border-subtle)}.sq-list li:last-child{border-bottom:0}
-@media (max-width:600px){.pre-cols{grid-template-columns:1fr;gap:10px}.pre{align-content:start;position:static}.pl ul{font-size:12.5px}.pl-form{font-size:26px}.forms span{font-size:10.5px}.ff{left:70px;font-size:10.5px}.bub.a{max-width:60%;font-size:12.5px;padding:6px 9px 8px;top:6px;right:8px;border-radius:14px}.bub .who{font-size:10px}.ivq{padding:18px 10px 8px;gap:6px}.ivq p{font-size:13.5px}.ivq .tag{font-size:10px;margin-bottom:3px}.sb{font-size:16px}.sc{font-size:30px}}
+@media (max-width:600px){.pre-cols{grid-template-columns:1fr;gap:10px}.pre{align-content:start;position:static}.pre .btn.go{position:sticky;bottom:10px;width:100%;max-width:420px;z-index:4}.pl ul{font-size:12.5px}.pl-form{font-size:26px}.forms span{font-size:10.5px}.ff{left:70px;font-size:10.5px}.bub.a{max-width:60%;font-size:12.5px;padding:6px 9px 8px;top:6px;right:8px;border-radius:14px}.bub .who{font-size:10px}.ivq{padding:18px 10px 8px;gap:6px}.ivq p{font-size:13.5px}.ivq .tag{font-size:10px;margin-bottom:3px}.sb{font-size:16px}.sc{font-size:30px}}
 /* ===== visore 0.4.2.3 (R6a): grafica della 019 (Evivora-scambio risposte/019-grafica-visore), solo variabili --ev-… =====
    barra del punteggio con gli stemmi, comandi, riquadro 1050×600 (1,75:1) uguale in 2D e 3D, tutto schermo «contain», cronaca, scene, vignette */
 .viewer{background:var(--ev-surface);border-color:var(--ev-border);color:var(--ev-text);font-family:var(--ev-font-family)}

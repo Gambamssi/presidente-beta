@@ -1,11 +1,11 @@
 /* ================= VISORE PARTITA: 2D continuo, replay 3D, intervista ================= */
 const mkey = m=>G.season+'-'+G.md+'-'+m.h;
-const REPLAY_RATE=1.4;   // il replay va al rallentatore
+const REPLAY_RATE=0.8;   /* 0.4.7.10 (V3D, n. 100): rallentatore vero, 40% della velocità reale (2 tick al secondo × 0,4); prima 1,4 = 70% */
 // x1 = tempo reale (90' in 90'), x2 = la partita dura 15', x4 = la partita dura 5'
 /* 0.4.2.0: con l'orologio vero 1x mostra la partita a metà del tempo reale (circa 48 minuti); 2x e 4x durano come prima */
 /* 0.4.2.3 (R6a): con le pause accorciate la durata vera dipende dalla partita (vDurMin, calcolata in vPrep) */
 function tickRateS(v,s){ return s===1 ? 2/DT : s===2 ? v.nT/900 : v.nT/300; }
-function tickRate(v){ return tickRateS(v,v.speed); }
+function tickRate(v){ return tickRateS(v, v.speed===4 && v.imp && !v.imp.fast ? 1 : v.speed); }   /* 0.4.7.10 (V3D): a 4× in 2D l'azione importante corre a 1× */
 function vSpeedTxt(v,s){ return t_("vis.velocita",{s:s}); }   /* 0.4.2.3: niente più «Partita in circa N minuti» (Max) */
 /* 0.4.2.0: i frame della simulazione sono a 16 bit (centimetri): vFr li riporta in metri (con orientamento e tuffo), con una piccola memoria */
 function vFr(v,k){ const c=v.fc||(v.fc=new Map()); let f=c.get(k); if(f) return f; const s=v.sim.frames[k]; if(!s) return null;
@@ -52,7 +52,7 @@ function vViewerHTML(){
   const side=ti=>{ const n=`<span class="vtn">${esc(vTeamName(v,ti))}</span>`, c=`<span class="vcrest" aria-hidden="true">${vCrest(v,ti)}</span>`; return `<div class="vside${ti?' away':''}">${ti?n+c:c+n}</div>`; };
   const ab=ti=>esc(vInit(vTeamName(v,ti)));
   return `<section class="card viewer"><div class="vmb">${side(0)}<div class="vscore"><strong class="sc" id="v-score">${v.sc[0]} – ${v.sc[1]}</strong><small><span id="v-clk2">0'</span> · <span id="v-half">${t_("vis.1_tempo")}</span></small></div>${side(1)}</div>
-   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">${t_("vis.avanti")} <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?t_("vis.inizia"):v.phase==='done'?t_("vis.rivedi"):v.playing?t_("vis.pausa"):t_("vis.riprendi")}</button><span class="vgrp" role="group" aria-label="${t_("vis.velocita_2")}">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${t_("vis.x",{s:s})}</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d" aria-pressed="${!!V3.pref}">${t_("vis.replay_3d",{v:V3.pref?t_("vis.si"):t_('vis.no')})}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">${t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")})}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">${t_("vis.schermo_intero")}</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">${t_("vis.vignette",{v:VPREF.vig?t_("vis.si"):t_('vis.no')})}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>${t_("vis.carico_il_3d")}</span><button class="btn ghost small" data-act="vclose" id="v-close">${t_("vis.chiudi")}</button></div></div>
+   <div class="cmdbar"><button class="btn vnext" data-act="vnext" id="v-next" data-lbl="">${t_("vis.avanti")} <span aria-hidden="true">⏭</span></button><div class="ctrl"><button class="btn small" data-act="vplay" id="v-play">${v.phase==='pre'?t_("vis.inizia"):v.phase==='done'?t_("vis.rivedi"):v.playing?t_("vis.pausa"):t_("vis.riprendi")}</button><span class="vgrp" role="group" aria-label="${t_("vis.velocita_2")}">${[1,2,4].map(s=>`<button class="btn ghost small spd${v.speed===s?' on':''}" data-act="vspd" data-s="${s}" title="${vSpeedTxt(v,s)}" aria-pressed="${v.speed===s}">${t_("vis.x",{s:s})}</button>`).join('')}</span>${V3.ok!==false?`<button class="btn ghost small" data-act="v3d" id="v-3d" aria-pressed="${!!V3.pref}">${V3_TOUCH?t_("vis.replay_3d",{v:V3.pref?t_("vis.si"):t_('vis.no')}):t_("vis.vista_3d",{v:V3.pref?t_("vis.si"):t_('vis.no')})}</button>`:''}${use3D()?`<button class="btn ghost small" data-act="vcam">${t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")})}</button>`:''}<button class="btn ghost small" data-act="vfs" id="v-fsb">${t_("vis.schermo_intero")}</button><button class="btn ghost small" data-act="vvig" id="v-vigb" aria-pressed="${VPREF.vig}">${t_("vis.vignette",{v:VPREF.vig?t_("vis.si"):t_('vis.no')})}</button><button class="btn ghost small" data-act="vtema" id="v-tema">${vThemeLbl()}</button><span class="v3msg" id="v-3msg" role="status"${V3.load?'':' hidden'}>${t_("vis.carico_il_3d")}</span><button class="btn ghost small" data-act="vclose" id="v-close">${t_("vis.chiudi")}</button></div></div>
    <div class="vfs" id="v-fs"><div class="pitchwrap" id="stage"><canvas id="pitch" aria-label="${t_("vis.campo_di_gioco_la")}"></canvas><div class="labels" id="v-labels" aria-hidden="true"></div>
     <div class="goalfx" id="v-goal" hidden>${t_("vis.gol")}</div><div class="rpl" id="v-rpl" hidden><span class="rpl-tag">${t_("vis.replay")}</span></div>
     <div class="vbug" id="v-bug"><span class="clock" id="v-clock">0'</span><span class="vbsc"><i style="background:${teamColor(v,0)}"></i>${ab(0)} <b id="v-bugsc">${v.sc[0]}–${v.sc[1]}</b> ${ab(1)}<i style="background:${teamColor(v,1)}"></i></span></div>
@@ -60,7 +60,7 @@ function vViewerHTML(){
     <div class="cap" id="v-cap"></div><div class="board" id="v-board" hidden></div><div class="vig" id="v-vig" hidden></div><div class="vscn" id="v-scn" hidden></div>
     <button class="btn small vfsx" data-act="vfs">${t_("vis.esci_da_tutto_schermo")}</button>
    </div>
-   ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">${t_("vis.le_scelte_degli_allenatori")}</p>${m.inp.ref?`<p class="pl-ref">${t_("vis.arbitro",{full:esc(m.inp.ref.full||m.inp.ref.n),v:G.refs&&G.refs[m.inp.ref.id]?` ${t_("vis.assistenti_e",{a1:esc(G.refs[m.inp.ref.id].a1),a2:esc(G.refs[m.inp.ref.id].a2)})}`:''})}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick">${t_("vis.calcio_d_inizio")}</button></div>`:''}
+   ${v.phase==='pre'?`<div class="pre" id="v-pre"><p class="eyebrow">${t_("vis.le_scelte_degli_allenatori")}</p>${m.inp.ref?`<p class="pl-ref">${t_("vis.arbitro",{full:esc(m.inp.ref.full||m.inp.ref.n),v:G.refs&&G.refs[m.inp.ref.id]?` ${t_("vis.assistenti_e",{a1:esc(G.refs[m.inp.ref.id].a1),a2:esc(G.refs[m.inp.ref.id].a2)})}`:''})}</p>`:''}<div class="pre-cols">${planCol(0)}${planCol(1)}</div><button class="btn go" data-act="vkick" id="v-kick">${t_("vis.inizia_partita")}</button></div>`:''}
    </div>
    <div class="intv" id="v-int" hidden></div>
    <div class="vlive"><section class="vcard"><h3>${t_("vis.cronaca")}</h3><ol class="log" id="v-log"></ol></section><section class="vcard"><h3>${t_("vis.statistiche")}</h3><div class="vstats" id="v-stats"></div></section></div></section>`;
@@ -71,7 +71,16 @@ function vIngresso(v){ const m=v.m, f=frameAt(0), cols=v.sim.cols, out=[], ri=m.
   if(c0) out.push(t_("vis.capitano",{ln:c0.i.ln,vTeamName:vTeamName(v,0)})); if(ri) out.push(t_("vis.arbitro_2",{full:ri.full||ri.n})); if(RT){ out.push(t_("vis.assistente",{a1:RT.a1})); out.push(t_("vis.assistente_2",{a2:RT.a2})); }
   if(c1) out.push(t_("vis.capitano",{ln:c1.i.ln,vTeamName:vTeamName(v,1)}));
   const gk=[0,1].map(s=>cols.findIndex((id,k)=>vIsGk(v,id,0) && v.team[k]===s && f.P[k] && !((s?c1:c0)&&(s?c1:c0).k===k))).filter(k=>k>=0).map(k=>v.info[cols[k]].ln);
-  if(gk.length) out.push((gk.length>1?t_("vis.portieri"):t_("vis.portiere"))+gk.join(t_("vis.e"))); out.push(t_("vis.poi_gli_altri_giocatori")); return out; }
+  if(gk.length) out.push((gk.length>1?t_("vis.portieri"):t_("vis.portiere"))+gk.join(t_("vis.e"))); out.push(t_("vis.sorteggio",{sq:vTeamName(v,vTossWinner(v))})); out.push(t_("vis.poi_gli_altri_giocatori")); return out; }
+/* 0.4.7.10 (V3D): ordine della fila d'ingresso (indici di colonna) e vincitore del sorteggio. Chi vince il sorteggio sceglie il campo e l'altra squadra batte il
+   calcio d'inizio: vince quindi la squadra che NON batte (la partita è già calcolata, il motore non si tocca). */
+function vLineOrder(v,s,P0,f){
+  const ks=P0.filter(k=>v.team[k]===s).sort((a,b)=>v.info[v.sim.cols[a]].num-v.info[v.sim.cols[b]].num), cols=v.sim.cols;
+  const c=(f.cap||[]).find(k=>k>=0 && cols[k]!=null && v.team[k]===s), gk=ks.find(k=>vIsGk(v,cols[k],0));
+  const out=[]; if(c!=null && ks.includes(c)) out.push(c); if(gk!=null && !out.includes(gk)) out.push(gk);
+  return out.concat(ks.filter(k=>!out.includes(k))); }
+function vKickSide(v){ const e=v.sim.ev.find(x=>x.type==='ko'); return e?e.side:0; }
+function vTossWinner(v){ return 1-vKickSide(v); }
 function vScnHTML(v,kind){
   const m=v.m, sim=v.sim, A=esc(vTeamName(v,0)), B=esc(vTeamName(v,1));
   if(kind==='start') return `<h2>${t_("vis.le_squadre_entrano_in")}</h2><div class="vproc">${vIngresso(v).map(x=>`<span>${esc(x)}</span>`).join('')}</div>`;
@@ -99,15 +108,18 @@ function kickoff(){ const v=viewer; if(v.phase!=='pre') return; v.phase='live'; 
 function loop(now){
   const v=viewer; if(!v || !onMatchPage()) return;
   const raw=Math.max(0,now-v.last), dt=Math.min(100,raw)/1000; v.last=now;   /* il tempo del fotogramma può precedere v.last: mai passi indietro */
-  if(v.phase==='pre'){ v.preT+=dt; if(v.preT>14) kickoff(); }
+  if(v.phase==='pre'){ v.preT+=dt; }   /* 0.4.7.10 (V3D): le scelte dell'allenatore restano aperte finché il presidente non preme «Inizia partita» (prima partiva da sola dopo 14 s) */
   else if(v.phase==='live' && v.playing){
+    if(v.speed===4) vSkip4(v);   /* 0.4.7.10 (V3D): a 4× si salta da un'azione importante all'altra; può avviare l'intervallo o il fischio finale */
+    if(v.phase==='live'){
     /* 0.4.2.3 (R6a): nelle pause il tempo scorre più in fretta (vRate), senza superare i momenti da vedere */
     const R=vRate(v); let nt=v.t+R.r*dt; if(R.fast && nt>R.lim) nt=R.lim; if(v.pq.length && v.t<v.pq[0].at && nt>v.pq[0].at && use3D()) nt=v.pq[0].at; v.fast=R.fast;   /* 0.4.6.1 (n. 15): il replay parte al suo momento, non qualche tick dopo */ v.wg=R.fast?R.w:null;
     v.t=Math.min(v.nT-1, nt);
     processEvents(true); vVigTick(v);
     if(v.pq.length && v.t>=v.pq[0].at){ const p=v.pq.shift(); if(use3D() && v.t<p.t1+40) startReplay(p); }
-    if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick && v.t<v.sim.htTick+6){ v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }
+    if(v.phase==='live' && !v.htDone && v.t>=v.sim.htTick-1 && v.t<v.sim.htTick+6){ v.htDone=true; v.t=v.sim.htTick; startScene('ht'); }   /* V3D: dal fischio i giocatori vanno ai posti del secondo tempo nel salto tra l'ultimo tick del primo tempo e htTick: la scena parte prima, non si vede il tratto interpolato */
     if(v.t>=v.nT-1 && v.phase==='live'){ if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(); }
+    }
   } else if(v.phase==='replay'){ v.fast=false; v.wg=null; const r=v.rep; r.t+=REPLAY_RATE*dt; if(r.t>=r.t1) endReplay(); }
   else if(v.phase==='scene'){ v.fast=false; v.wg=null; v.scene.t+=dt; if(v.scene.t>=v.scene.dur) endScene(); }
   if(v.phase!=='live') vVigTick(v);
@@ -134,7 +146,7 @@ function handleEvent(e, live, idx){
     (e.flash||[]).forEach(id=>{ G.seen[id]=G.seen[id]||{f:0,a:0,m:0}; G.seen[id].f++; });
     G.wm[v.key]=idx; if(e.type!=='fo') save();
   }
-  if(live && use3D()){
+  if(live && use3D() && V3.live && v.speed===1){   /* 0.4.7.10 (V3D): inquadrature 3D di calci piazzati e cartellini solo con la partita in 3D (PC, 1×) */
     if((e.type==='cor'||e.type==='fkset'||e.type==='fkx'||e.type==='pen') && !v.wins.some(w=>w.kind==='sp' && w.t1>=e.t)){
       const go=v.sim.ev.find(x=>x.type==='spgo' && x.t>=e.t && x.t<e.t+120);
       if(go) v.wins.push({kind:'sp', t0:Math.max(e.t, go.t-(go.kind==='pen'?10:8)), t1:Math.min(v.nT-1, go.t+(go.kind==='pen'?7:go.kind==='fk'?8:11)), e, go, fresh:true}); }
@@ -144,15 +156,37 @@ function handleEvent(e, live, idx){
     if(e.type==='subcall'){ const s=v.sim.ev.find(x=>x.type==='sub'&&x.t>=e.t&&x.p[0]===e.p[0]); v.wins.push({kind:'sub', t0:e.t, t1:Math.min(v.nT-1,(s?s.t:e.t+20)+5), e, fresh:true}); }
   }
   const inSp = v.wins.some(w=>e.t>=w.t0 && e.t<=w.t1+2);
-  if(live && !v.pq.some(p=>p.e.type!=='flash') && (e.type==='goal' || e.type==='referr' || (e.type==='flash' && !inSp && !v.pq.length))){
-    v.pq.push({t0:Math.max(0,e.t-(e.type==='goal'?16:e.type==='referr'?8:10)), t1:Math.min(v.nT-1,e.t+(e.type==='goal'?16:4)), at:e.t+(e.type==='goal'?8:5), e}); }
-  else if(live && e.type==='goal'){ v.pq=v.pq.filter(p=>p.e.type!=='flash'); v.pq.push({t0:Math.max(0,e.t-16), t1:Math.min(v.nT-1,e.t+16), at:e.t+8, e}); }
+  if(live && !v.pq.some(p=>p.e.type!=='flash') && (vImp(v,e) || (e.type==='flash' && !inSp && !v.pq.length))){
+    const w=vRepWin(e); v.pq.push({t0:Math.max(0,e.t-w.b), t1:Math.min(v.nT-1,e.t+w.a), at:e.t+w.at, e}); }
+  else if(live && e.type==='goal'){ v.pq=v.pq.filter(p=>p.e.type!=='flash'); const w=vRepWin(e); v.pq.push({t0:Math.max(0,e.t-w.b), t1:Math.min(v.nT-1,e.t+w.a), at:e.t+w.at, e}); }
   if(e.type==='subcall'){ v.cap=e; showCap(e); return; }
   if(e.type==='fo'||e.type==='spgo'||e.type==='ko'||e.type==='kick'&&idx===0) return;
   logEvent(e);
   if(e.type==='referr' && e.cm) logEvent({...e, type:'refj', text:t_("vis.moviola",{cm:e.cm})});
   if(e.type!=='cor' && e.type!=='off') { v.cap=e; showCap(e); }
 }
+/* ---------- 0.4.7.10 (V3D): azioni importanti, finestre dei replay, 4× ----------
+   Importanti: gol, pali e traverse, rigori, espulsioni, errori dell'arbitro e parate difficili (tuffo ≥ 0,6 rad e palla ≥ 20 m/s nei 4 s prima,
+   letti dai frame: la simulazione non segna la difficoltà). Finestra del replay in tick (0,5 s l'uno): gol 16 prima e 8 dopo (8 s + 4 s),
+   le altre 12 e 4 (6 s + 2 s), la giocata di classe come prima; al 40% della velocità reale (REPLAY_RATE) durano 30 s e 20 s. */
+const HARD_TILT=0.6, HARD_SPEED=20, V4_RUN=16;
+function vHard(v,e){ if(e._hard!=null) return e._hard; const nb=v.sim.cols.length*2; let tl=0, vm=0;
+  for(let k=Math.max(0,e.t-6);k<=Math.min(v.nT-1,e.t+3);k++){ const f=vFr(v,k); tl=Math.max(tl,Math.abs(f[nb+22]||0),Math.abs(f[nb+23]||0)); }
+  for(let k=Math.max(1,e.t-8);k<=Math.min(v.nT-1,e.t+1);k++){ const a=vFr(v,k-1), b=vFr(v,k); vm=Math.max(vm,Math.hypot(b[nb]-a[nb],b[nb+1]-a[nb+1],b[nb+2]-a[nb+2])/DT); }
+  return e._hard = tl>=HARD_TILT && vm>=HARD_SPEED; }
+function vImp(v,e){ const ty=e.type; return ty==='goal'||ty==='post'||ty==='pen'||ty==='rc'||ty==='referr'||(ty==='save' && vHard(v,e)); }
+function vRepWin(e){ return e.type==='goal' ? {b:16,a:8,at:8} : e.type==='flash' ? {b:10,a:4,at:5} : {b:12,a:4,at:6}; }
+function vImpList(v){ return v.impL||(v.impL=v.sim.ev.filter(e=>vImp(v,e)).sort((a,b)=>a.t-b.t)); }
+/* a 4×: dopo ogni azione importante si salta alla successiva (gli eventi saltati vanno nel registro come con «Avanti»). Sul PC con il 3D acceso si salta al
+   momento dell'azione e si vede subito il replay a rallentatore; in 2D (telefono o 3D spento) si parte 8 s prima e l'azione corre a 1×, poi il replay se acceso. */
+function vSkip4(v){
+  if(v.pq.length || (v.imp && v.t<v.imp.end)) return;   /* replay ancora da mostrare o azione in corso */
+  v.imp=null; const ht=v.sim.htTick, first=v.t<ht && !v.htDone, lim=first?ht:v.nT-1;
+  const E=vImpList(v).find(e=>e.t>v.t && e.t<lim);
+  if(!E){ if(first){ vJump(ht); v.htDone=true; v.t=ht; startScene('ht'); } else { vJump(v.nT-1); if(!v.endDone){ v.endDone=true; vFlush(); startScene('end'); } else finishViewer(false,'whistle'); } return; }
+  const direct=!V3_TOUCH && use3D(), w=vRepWin(E), start=direct ? E.t : Math.max(v.t,E.t-V4_RUN);
+  if(start>v.t+1){ vJump(start); const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${esc(minuteOf(Math.floor(v.t)))} · ${v.sc[0]}–${v.sc[1]}</span>`; } }
+  v.imp={e:E, fast:direct, end:E.t+(direct?w.at+2:12)}; }
 function logEvent(e){
   const v=viewer, fl=(e.flash||[]).map(id=>v.info[id]).filter(Boolean);
   const cls=e.type==='goal'?'gl':fl.length?'fl':(e.type==='yc'||e.type==='rc'||e.type==='coachoff'||e.type==='coachyc')?'cd':e.type==='sub'||e.type==='form'?'tc':e.type==='refj'||e.type==='refvote'?'rf':'';
@@ -193,7 +227,7 @@ function finishViewer(reattach, post){
   renderIV(); updHud();
 }
 function vTogglePlay(el){ const v=viewer; if(v.phase==='pre') return kickoff(); if(v.phase==='done') return openViewer(G.last.indexOf(v.m)); v.playing=!v.playing; el.textContent=v.playing?t_("vis.pausa"):t_("vis.riprendi"); }
-function vSpeed(s,el){ viewer.speed=s; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
+function vSpeed(s,el){ viewer.speed=s; viewer.imp=null; vSavePrefSpeed(s); document.querySelectorAll('.spd').forEach(b=>{ const on=+b.dataset.s===s; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }); }
 function vCam(el){ V3.camMode=V3.camMode==='tv'?'porta':'tv'; el.textContent=t_("vis.telecamera_replay",{v:V3.camMode==='tv'?'TV':t_("vis.dietro_la_porta")}); }
 function v3dToggle(){ if(viewer.phase==='replay') endReplay(); V3.pref=!V3.pref; try{ localStorage.setItem('presidente-vista',V3.pref?'3d':'2d'); }catch(_){} if(V3.pref) setupMatch3D(); render(); }
 function startReplay(p){ const v=viewer; v.wgR=v.wg; v.phase='replay'; v.rep={t:p.t0,t0:p.t0,t1:p.t1,e:p.e}; const rb=$('#v-rpl'); if(rb) rb.hidden=false;
@@ -352,7 +386,7 @@ function vPauseAt(v,t){ const a=v.pz; if(!a) return null; let lo=0, hi=a.length-
    0.4.6.1 (V0d): se i giocatori devono percorrere molta strada (dopo un gol) l'attesa dura quanto serve perché nessuno scorra
    più di WT_VCAP metri al secondo veri (con la partenza e l'arrivo dolci, ×1,5). R.w = attesa che scorre (vGlide). */
 function vRate(v){
-  const base=(use3D() && activeWin(v)) ? 2/DT : tickRate(v), w=vWaitAt(v,v.t);
+  const base=(use3D() && v.speed===1 && activeWin(v)) ? 2/DT : tickRate(v), w=vWaitAt(v,v.t);
   if(!w || v.t>=w.K-WT_RUN) return {r:base, fast:false};
   const n=tickRate(v), Dn=Math.max(0.1, 1/v.speed-WT_RUN/n), Dm=1.5*w.dm/WT_VCAP, D=Math.min(2, Math.max(Dn, w.force?Dm:Math.min(Dm, Dn+0.24))); let f=w.L/D;   /* l'attesa si allunga al massimo di 0,24 s (dopo il replay di un gol, fino a 2 s) */
   const fast=(f>base||w.force);
@@ -592,7 +626,7 @@ function vJump(T){ const v=viewer, ev=v.sim.ev;
 /* a fine partita: nel registro anche gli eventi dopo l'ultimo frame (fischio finale, voto alla terna), prima della scena finale */
 function vFlush(){ const v=viewer, ev=v.sim.ev; while(v.evI<ev.length){ handleEvent(ev[v.evI], false, v.evI); v.evI++; } updHud(); }
 const LIVE_LBL=new Set([t_("vis.avanti_fine_azione"),t_("vis.avanti_fine_primo_tempo"),t_("vis.avanti_fine_partita")]);
-function vNext(){ const v=viewer; if(!v) return;
+function vNext(){ const v=viewer; if(!v) return; v.imp=null;
   /* fa quello che il tasto mostrava al momento del tocco (l'etichetta può cambiare mentre si preme) */
   let l=vNextLabel(); const shown=($('#v-next')||{dataset:{}}).dataset.lbl;
   if(v.phase==='live' && LIVE_LBL.has(shown) && LIVE_LBL.has(l)){ const first=v.t<v.sim.htTick && !v.htDone;
@@ -626,12 +660,19 @@ function startScene(kind){
   const P0=fA.P.map((p,k)=>p?k:-1).filter(k=>k>=0);
   v.sceneT1=0;
   if(kind==='start'){
-    const side=[0,1].map(s=>P0.filter(k=>v.team[k]===s).sort((a,b)=>v.info[v.sim.cols[a]].num-v.info[v.sim.cols[b]].num));
-    const line=(x)=>[x,36];
-    const mk=(key,L,K,d)=>{ const d1=dur(TUN,L), d2=dur(L,K); acts.push({key, hide:[[0,d]], segs:[{a:d,b:d+d1,A:TUN,B:L},{a:13.5+d*0.4,b:13.5+d*0.4+d2,A:L,B:K}]}); };
-    [0,1,2].forEach(i=>{ const L=line(52.5+(i===0?0:i===1?-1.05:1.05)), R=fA.RF[i]; mk('r'+i,L,[R.x,R.y],0.2+i*0.15); });
-    side[0].forEach((k,i)=>{ const L=line(52.5-2.4-(side[0].length-1-i)*1.05), p=fB.P[k]; mk(k,L,[p.x,p.y],0.9+i*0.32); });
-    side[1].forEach((k,i)=>{ const L=line(52.5+2.4+i*1.05), p=fB.P[k]; mk(k,L,[p.x,p.y],0.9+i*0.32); });
+    /* 0.4.7.10 (V3D): nelle due file accanto alla terna arbitrale prima il capitano, poi il portiere, poi gli altri in ordine di maglia
+       (se il capitano è il portiere: prima lui, poi i giocatori di movimento); dopo lo schieramento sorteggio al centro del campo con i due capitani e l'arbitro */
+    const side=[0,1].map(s=>vLineOrder(v,s,P0,fA));
+    const line=(x)=>[x,36], TS=15.5, TOSS=3.2, C=[[52.5-1.1,34],[52.5+1.1,34],[52.5,35.4]];   /* TS: quando i capitani partono dalla fila; TOSS: secondi al centro */
+    const dispT=TS+TOSS+2.2;   /* poi tutti ai loro posti */
+    const mk=(key,L,K,d,toss)=>{ const d1=dur(TUN,L), d2=dur(L,K); const segs=[{a:d,b:d+d1,A:TUN,B:L}];
+      if(toss){ const dc=dur(L,toss), a1=TS+d*0.1; segs.push({a:a1,b:a1+dc,A:L,B:toss},{a:dispT+d*0.4,b:dispT+d*0.4+dur(toss,K),A:toss,B:K}); }
+      else segs.push({a:dispT+d*0.4,b:dispT+d*0.4+d2,A:L,B:K}); acts.push({key, hide:[[0,d]], segs}); };
+    const capK=[0,1].map(s=>{ const c=(fA.cap||[]).find(k=>k>=0 && v.sim.cols[k]!=null && v.team[k]===s); return c!=null?c:side[s][0]; });
+    [0,1,2].forEach(i=>{ const L=line(52.5+(i===0?0:i===1?-1.05:1.05)), R=fA.RF[i]; mk('r'+i,L,[R.x,R.y],0.2+i*0.15, i===0?C[2]:null); });
+    side[0].forEach((k,i)=>{ const L=line(52.5-2.4-i*1.05), p=fB.P[k]; mk(k,L,[p.x,p.y],0.9+i*0.32, k===capK[0]?C[0]:null); });
+    side[1].forEach((k,i)=>{ const L=line(52.5+2.4+i*1.05), p=fB.P[k]; mk(k,L,[p.x,p.y],0.9+i*0.32, k===capK[1]?C[1]:null); });
+    v.sceneToss={t:TS+TOSS*0.5, win:vTossWinner(v), order:side.map(a=>a.map(k=>v.sim.cols[k])), cap:capK.map(k=>v.sim.cols[k])};
   } else {
     const ids=[...P0.map(k=>({key:k,S:[fA.P[k].x,fA.P[k].y]})), ...[0,1,2].map(i=>({key:'r'+i,S:[fA.RF[i].x,fA.RF[i].y]}))];
     ids.sort((a,b)=>Math.hypot(a.S[0]-TUN[0],a.S[1]-TUN[1])-Math.hypot(b.S[0]-TUN[0],b.S[1]-TUN[1]));
@@ -643,7 +684,7 @@ function startScene(kind){
     v.sceneT1=T1;
   }
   let end=0; acts.forEach(a=>a.segs.forEach(s=>end=Math.max(end,s.b)));
-  v.scene={kind, t:0, acts, dur:end+(kind==='end'?1.2:0.8), T1:v.sceneT1, fresh:true};
+  v.scene={kind, t:0, acts, dur:end+(kind==='end'?1.2:0.8), T1:v.sceneT1, fresh:true}; if(kind==='start') v.scene.toss=v.sceneToss;
   v.phase='scene'; v.pq=[]; v.wins=[];
   const rb=$('#v-rpl'); if(rb){ rb.hidden=false; const tg=rb.querySelector('.rpl-tag'); if(tg) tg.textContent=kind==='start'?t_("vis.ingresso_in_campo"):kind==='ht'?t_("vis.intervallo"):t_("vis.fine_partita"); }
   const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${kind==='start'?t_("vis.le_squadre_entrano_in_2"):kind==='ht'?t_("vis.fine_primo_tempo_le"):t_("vis.fischio_finale_le_squadre")}</span>`; }
@@ -688,9 +729,11 @@ function activeEvent(t){ const ev=viewer.sim.ev; let best=null; for(let k=Math.m
 function draw(){
   const v=viewer; if(!v) return;
   const ivOn = v.phase==='done' && v.post==='iv' && v.iv && !v.iv.closed;
-  v.wins=v.wins.filter(w=>w.t1>=v.t-1); v.sp3d=v.phase==='live'?activeWin(v):null;
+  v.wins=v.wins.filter(w=>w.t1>=v.t-1); v.sp3d=v.phase==='live'&&V3.live&&v.speed===1?activeWin(v):null;
   const spOn = !!v.sp3d;
-  const show3 = use3D() && (v.phase==='replay' || ivOn || spOn || v.phase==='scene');
+  const live3 = V3.live && v.speed===1 && v.phase==='live';   /* 0.4.7.10 (V3D): sul PC con il 3D acceso la partita a 1× è tutta in 3D; a 2× e 4× la diretta è in 2D e i replay in 3D */
+  const show3 = use3D() && (v.phase==='replay' || ivOn || spOn || v.phase==='scene' || live3);
+  if(!show3) V3.pf=null;
   const st=$('#stage'); if(st) st.classList.toggle('is3d', show3);
   const pc=$('#pitch'); if(pc) pc.style.display=show3?'none':'block';
   if(V3.r) V3.r.domElement.style.display=show3?'block':'none';
@@ -700,6 +743,7 @@ function draw(){
   const bd=$('#v-board'); if(bd){ const on=v.phase==='scene' && v.scene.kind==='ht' && v.scene.t>v.scene.T1+0.2 && v.scene.t<v.scene.T1+4.0;
     if(on && bd.hidden){ bd.innerHTML=`<p class="bd-h">${t_("vis.fine_primo_tempo")}</p><div class="bd-r"><span><i style="background:${teamColor(v,0)}"></i>${esc(vTeamName(v,0))}</span><b>${v.sc[0]}</b></div><div class="bd-r"><span><i style="background:${teamColor(v,1)}"></i>${esc(vTeamName(v,1))}</span><b>${v.sc[1]}</b></div>`; } bd.hidden=!on; }
   if(v.ingUntil && v.phase!=='scene') vScnShow(v);
+  { const sc=v.phase==='scene'?v.scene:null; if(sc && sc.kind==='start' && sc.toss && sc.t>=sc.toss.t && !sc.tossCap){ sc.tossCap=1; const cap=$('#v-cap'); if(cap){ cap.className='cap'; cap.innerHTML=`<span>${esc(t_("vis.sorteggio",{sq:vTeamName(v,sc.toss.win)}))}</span>`; } } }
   if(show3) draw3D(T, ivOn, spOn?v.sp3d:null); else draw2D(T, ivOn);
   updHud();
 }
@@ -782,12 +826,17 @@ function draw2D(t, ivOn){
 
 /* ---------- 3D ---------- */
 const V3 = {pref:true, ok:null, load:false, lt:0, r:null, sc:null, cam:null, ball:null, men:new Map(), rings:[], mats:{}, camMode:'tv', cp:null, cl:null, last:0, w:0, h:0};
-try{ if(localStorage.getItem('presidente-vista')==='2d') V3.pref=false; }catch(e){}
 /* 3D solo sul computer (0.4.5.2, V0b): se il puntatore principale è grossolano (dito: telefono e tablet) il 3D è escluso del tutto:
    V3.ok=false → nessun pulsante «Replay 3D», three.js mai scaricato (loadThree e use3D si fermano), la preferenza salvata resta ma viene
    ignorata. Riconoscimento con il tipo di puntatore e non con la larghezza della finestra. */
 const V3_TOUCH = (()=>{ try{ return matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } })();
-if(V3_TOUCH) V3.ok=false;
+/* 0.4.7.10 (V3D): telefono e tablet non escludono più il 3D: la diretta resta in 2D e i replay in 3D sono spenti all'inizio, si accendono con il tasto
+   «Replay 3D» (three.js si scarica solo allora: use3D guarda prima la preferenza). Sul PC il 3D è acceso all'inizio. Scelta ricordata in presidente-vista. */
+V3.live=!V3_TOUCH; V3.pref=!V3_TOUCH;
+try{ const sv=localStorage.getItem('presidente-vista'); if(sv==='2d') V3.pref=false; else if(sv==='3d') V3.pref=true; }catch(e){}
+/* rete di sicurezza: se per V3_PERF.win ms almeno la quota V3_PERF.ratio dei fotogrammi in 3D dura più di V3_PERF.gap ms (meno di 20 al secondo) si torna al 2D */
+const V3_PERF={gap:50, ratio:0.6, win:3000, warm:1500, reset:1000};
+function vLag(){ V3.pref=false; V3.pf=null; try{ localStorage.setItem('presidente-vista','2d'); }catch(_){} const v=viewer; if(v&&v.phase==='replay') endReplay(); toast(t_("vis.il_3d_scatta")); setTimeout(()=>{ if(viewer && onMatchPage()) render(); },0); }
 /* three.js a richiesta (0.4.2.1, N2): la pagina non lo carica più all'avvio; arriva solo quando serve il 3D (visore aperto con il 3D
    acceso, o «Replay 3D: sì»). Indirizzo in window.THREE_SRC (shell.html: cdnjs; beta: vendor/three.min.js). Mentre arriva il visore
    resta in 2D con «Carico il 3D…»; se non arriva (errore o 20 s) resta il 2D. Solo disegno: la partita non cambia. */
@@ -961,6 +1010,10 @@ function draw3D(t, ivOn, sp){
   const W=host.clientWidth, H=host.clientHeight||Math.round(W/1.75);
   if(V3.w!==W||V3.h!==H){ V3.r.setSize(W,H); V3.cam.aspect=W/H; V3.cam.fov=36; V3.cam.updateProjectionMatrix(); V3.w=W; V3.h=H; }
   const now=performance.now(), dt=Math.min(0.1,(now-V3.last)/1000)||0.016; V3.last=now;
+  { const pf=V3.pf||(V3.pf={t0:now+V3_PERF.warm, last:now, n:0, slow:0}), gap=now-pf.last; pf.last=now;   /* misura dei fotogrammi in 3D (0.4.7.10, V3D) */
+    if(gap>V3_PERF.reset){ pf.t0=now+V3_PERF.warm; pf.n=0; pf.slow=0; }
+    else if(now>=pf.t0){ pf.n++; if(gap>V3_PERF.gap) pf.slow++;
+      if(now-pf.t0>=V3_PERF.win){ const lag=pf.n>=8 && pf.slow/pf.n>=V3_PERF.ratio; pf.t0=now; pf.n=0; pf.slow=0; if(lag){ vLag(); return; } } } }
   const inScene=v.phase==='scene' && v.scene;
   const f=inScene?sceneFrame(v.scene.t):frameAt(t), f2=inScene?sceneFrame(v.scene.t+0.5):frameAt(Math.min(v.nT-1,t+0.5));
   const starK = ivOn ? v.sim.cols.indexOf(v.iv.best) : -1;
@@ -1007,11 +1060,16 @@ function draw3D(t, ivOn, sp){
       u.arms[0].rotation.x=-s*0.8; u.arms[1].rotation.x=s*0.8; u.arms[1].rotation.z=0;
       if(k===0){ u.prop.visible=f.card>0; if(f.card>0){ u.prop.material.color.copy(lin((f.card===1||f.card===5)?'#f5d020':'#d8262c')); u.arms[1].rotation.x=Math.PI*0.92; u.arms[1].rotation.z=0.12; } }
       else if(f.flag===k){ u.arms[1].rotation.x=Math.PI*0.9; } }); }
-  if(V3.mgr){ V3.mgr.forEach((g,s)=>{ let call=null; if(!ivOn && v.phase!=='scene') for(const c of v.sim.ev){ if(c.type!=='subcall'||c.side!==s) continue; if(c.subT==null){ const z=v.sim.ev.find(x=>x.type==='sub'&&x.t>=c.t&&x.p[0]===c.p[0]); c.subT=z?z.t:c.t+20; } if(t>=c.t+3 && t<=c.subT+3){ call=c; break; } if(c.t>t) break; }
-      g.visible=!!call; if(!call) return; g.position.set(s===0?-2.9:2.9,0,-35.9); g.rotation.y=0; const u=g.userData; u.arms[0].rotation.x=Math.PI*0.88; u.arms[1].rotation.x=Math.PI*0.88; u.arms[0].rotation.z=-0.25; u.arms[1].rotation.z=0.25; u.legs[0].rotation.x=0; u.legs[1].rotation.x=0;
-      const inN=v.info[call.p[0]]?.num, outN=call.p[1]!=null?v.info[call.p[1]]?.num:null, key=inN+'/'+outN, b=u.board;
-      if(b.key!==key){ const c=b.cv.getContext('2d'); c.fillStyle='#0b0d0c'; c.fillRect(0,0,256,176); c.font='700 74px "IBM Plex Mono", ui-monospace, monospace'; c.textAlign='center'; c.textBaseline='middle';
-        c.shadowBlur=14; if(outN!=null){ c.fillStyle='#ff3b30'; c.shadowColor='#ff3b30'; c.fillText(String(outN).padStart(2,'0'),128,48); } c.fillStyle='#35e06a'; c.shadowColor='#35e06a'; c.fillText(String(inN).padStart(2,'0'),128,outN!=null?128:88); b.tx.needsUpdate=true; b.key=key; } }); }
+  /* 0.4.7.10 (V3D, n. 102): il tabellone luminoso mostra TUTTI i cambi chiamati insieme (prima il ciclo si fermava al primo) */
+  if(V3.mgr){ V3.mgr.forEach((g,s)=>{ const calls=[]; if(!ivOn && v.phase!=='scene') for(const c of v.sim.ev){ if(c.type!=='subcall'||c.side!==s) continue; if(c.subT==null){ const z=v.sim.ev.find(x=>x.type==='sub'&&x.t>=c.t&&x.p[0]===c.p[0]); c.subT=z?z.t:c.t+20; } if(t>=c.t+3 && t<=c.subT+3) calls.push(c); if(c.t>t) break; }
+      g.visible=calls.length>0; if(!calls.length) return; g.position.set(s===0?-2.9:2.9,0,-35.9); g.rotation.y=0; const u=g.userData; u.arms[0].rotation.x=Math.PI*0.88; u.arms[1].rotation.x=Math.PI*0.88; u.arms[0].rotation.z=-0.25; u.arms[1].rotation.z=0.25; u.legs[0].rotation.x=0; u.legs[1].rotation.x=0;
+      const pairs=calls.map(c=>({inN:v.info[c.p[0]]?.num, outN:c.p[1]!=null?v.info[c.p[1]]?.num:null})), key=pairs.map(q=>q.inN+'/'+q.outN).join(','), b=u.board; v.boardPairs=pairs.length;
+      if(b.key!==key){ const c=b.cv.getContext('2d'); c.fillStyle='#0b0d0c'; c.fillRect(0,0,256,176); c.textAlign='center'; c.textBaseline='middle'; c.shadowBlur=14; const two=n=>String(n).padStart(2,'0');
+        if(pairs.length===1){ const {inN,outN}=pairs[0]; c.font='700 74px "IBM Plex Mono", ui-monospace, monospace';
+          if(outN!=null){ c.fillStyle='#ff3b30'; c.shadowColor='#ff3b30'; c.fillText(two(outN),128,48); } c.fillStyle='#35e06a'; c.shadowColor='#35e06a'; c.fillText(two(inN),128,outN!=null?128:88); }
+        else { const rh=176/pairs.length, fs=Math.min(74,Math.floor(rh*0.78)); c.font='700 74px "IBM Plex Mono", ui-monospace, monospace'.replace('74',fs);
+          pairs.forEach((q,i)=>{ const y=rh*(i+0.5); if(q.outN!=null){ c.fillStyle='#ff3b30'; c.shadowColor='#ff3b30'; c.fillText(two(q.outN),64,y); } c.fillStyle='#8a8f94'; c.shadowColor='#8a8f94'; c.fillText('›',128,y); c.fillStyle='#35e06a'; c.shadowColor='#35e06a'; c.fillText(two(q.inN),192,y); }); }
+        b.tx.needsUpdate=true; b.key=key; } }); }
   if(V3.coaches){ V3.coaches.forEach((g,s)=>{ const off=v.sim.ev.find(x=>x.type==='coachoff' && x.side===s && x.t<=t); let vis=!ivOn, px=s===0?-9:9, pz=-36.4, mv=0;
       if(off){ if(off.ts==null) off.ts=(cardShownAt(off.t,true)??off.t+8)+3; const ts=off.ts, u=clamp((t-ts)/14,0,1); if(t>ts){ px=px*(1-u); pz=-36.4-u*3; mv=u<1?1:0; } if(u>=1) vis=false; }
       g.visible=vis; g.position.set(px,0,pz); g.rotation.y=off&&t>off.ts?Math.PI*(s===0?0.5:-0.5):0; const uu=g.userData; uu.ph+=mv*dt*4; const sw=Math.sin(uu.ph)*0.5*mv; uu.legs[0].rotation.x=sw; uu.legs[1].rotation.x=-sw; }); }
